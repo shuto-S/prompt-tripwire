@@ -8,7 +8,9 @@ import {
   canonicalHash,
   ComparisonCandidateSchema,
   DecisionPointSchema,
+  DeviationRecordSchema,
   ExecutionContractSchema,
+  ExecutionRecordSchema,
   HumanDecisionSchema,
   PlanArtifactSchema,
   renderRunReportMarkdown,
@@ -20,7 +22,9 @@ import {
   verifyExecutionContract,
   verifyRepositorySnapshot,
   type ExecutionContract,
+  type DeviationRecord,
   type DecisionPoint,
+  type ExecutionRecord,
   type HumanDecision,
   type PlanArtifact,
   type RepositorySnapshot,
@@ -37,6 +41,7 @@ import { assertSupportedSqliteRuntime } from "./runtime.js";
 import type {
   ApprovalInput,
   ApprovalResult,
+  AmendPausedContractPersistenceInput,
   ArtifactMetadata,
   CancelRunPersistenceInput,
   ComparatorAttemptRecordInput,
@@ -869,6 +874,58 @@ export class SqlitePersistence {
     });
   }
 
+  amendPausedContract(input: AmendPausedContractPersistenceInput): RunRecord {
+    validateIdentifier(input.idempotencyKey, "idempotencyKey");
+    const parsed = ExecutionContractSchema.parse(input.contract);
+    const operation = "amend_paused_contract";
+    const requestHash = requestFingerprint({
+      runId: input.runId,
+      contractId: parsed.contractId,
+      contentHash: parsed.contentHash,
+      expectedVersion: input.expectedVersion,
+    });
+    return this.transaction(() => {
+      const prior = this.idempotentResult(input.idempotencyKey, operation, requestHash);
+      if (prior !== null) return RunRecordSchema.parse(parseJson(prior, "amendment result"));
+      const current = this.getRun(input.runId).run;
+      if (current.state !== "paused" || current.version !== input.expectedVersion) {
+        throw new PersistenceError("CONFLICTING_VERSION", "run is not paused at this version");
+      }
+      if (current.activeContractId === null) {
+        throw new PersistenceError("DATABASE_CORRUPTION", "paused run has no active contract");
+      }
+      const previous = this.getContract(current.activeContractId);
+      if (
+        parsed.runId !== current.runId ||
+        parsed.snapshotHash !== current.snapshotHash ||
+        parsed.taskHash !== current.taskHash ||
+        parsed.approvedAt !== null ||
+        parsed.version !== previous.version + 1 ||
+        !verifyExecutionContract(parsed)
+      ) {
+        throw new PersistenceError("DATABASE_CORRUPTION", "amended contract is not valid for run");
+      }
+      const reviewing = transitionRun(current, "needs_review", current.version, input.amendedAt);
+      const cleared = RunRecordSchema.parse({
+        ...reviewing,
+        activeContractId: null,
+        blockingDecisionIds: [],
+      });
+      const ready = transitionRun(cleared, "ready_for_approval", cleared.version, input.amendedAt);
+      const result = RunRecordSchema.parse({ ...ready, activeContractId: parsed.contractId });
+      this.insertContract(parsed);
+      this.updateRun(current.version, result);
+      this.insertIdempotency(
+        input.idempotencyKey,
+        operation,
+        requestHash,
+        JSON.stringify(result),
+        input.amendedAt,
+      );
+      return result;
+    });
+  }
+
   getContract(contractId: string): ExecutionContract {
     validateIdentifier(contractId, "contractId");
     const row = this.database
@@ -1159,6 +1216,21 @@ export class SqlitePersistence {
           lastErrorCode: "CONTROLLER_RESTART",
         });
         this.updateRun(current.version, recovered);
+        const executionRows = this.database
+          .prepare(
+            `SELECT record_json FROM execution_runs
+             WHERE run_id = ? AND state IN ('starting', 'running', 'pausing')`,
+          )
+          .all(current.runId) as Array<{ record_json: string }>;
+        for (const executionRow of executionRows) {
+          const execution = ExecutionRecordSchema.parse(
+            parseJson(executionRow.record_json, "execution"),
+          );
+          this.updateExecution(
+            { ...execution, state: "paused", lastErrorCode: "CONTROLLER_RESTART" },
+            recoveredAt,
+          );
+        }
         return recovered;
       });
     });
@@ -1239,6 +1311,116 @@ export class SqlitePersistence {
       cleanupErrorCode: row.cleanup_error_code,
       cleanedAt: row.cleaned_at,
     };
+  }
+
+  listWorktrees(runId: string): PersistedWorktree[] {
+    const rows = this.database
+      .prepare(
+        `SELECT worktree_id FROM worktrees WHERE run_id = ? ORDER BY created_at, worktree_id`,
+      )
+      .all(runId) as Array<{ worktree_id: string }>;
+    return rows.map((row) => this.getWorktree(row.worktree_id));
+  }
+
+  recordExecution(record: ExecutionRecord, recordedAt = this.now()): ExecutionRecord {
+    const parsed = ExecutionRecordSchema.parse(record);
+    this.database
+      .prepare(
+        `INSERT INTO execution_runs(
+          execution_id, run_id, thread_id, contract_id, state, worktree_id, last_error_code,
+          record_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        parsed.executionId,
+        parsed.runId,
+        parsed.threadId,
+        parsed.contractId,
+        parsed.state,
+        parsed.worktreeId,
+        parsed.lastErrorCode,
+        JSON.stringify(parsed),
+        recordedAt,
+        recordedAt,
+      );
+    return parsed;
+  }
+
+  updateExecution(record: ExecutionRecord, updatedAt = this.now()): ExecutionRecord {
+    const parsed = ExecutionRecordSchema.parse(record);
+    const result = this.database
+      .prepare(
+        `UPDATE execution_runs
+         SET thread_id = ?, state = ?, last_error_code = ?, record_json = ?, updated_at = ?
+         WHERE execution_id = ? AND run_id = ? AND contract_id = ? AND worktree_id = ?`,
+      )
+      .run(
+        parsed.threadId,
+        parsed.state,
+        parsed.lastErrorCode,
+        JSON.stringify(parsed),
+        updatedAt,
+        parsed.executionId,
+        parsed.runId,
+        parsed.contractId,
+        parsed.worktreeId,
+      );
+    if (Number(result.changes) !== 1) {
+      throw new PersistenceError("NOT_FOUND", `execution ${parsed.executionId} was not found`);
+    }
+    return parsed;
+  }
+
+  getExecution(executionId: string): ExecutionRecord {
+    const row = this.database
+      .prepare("SELECT record_json FROM execution_runs WHERE execution_id = ?")
+      .get(executionId) as { record_json: string } | undefined;
+    if (row === undefined) {
+      throw new PersistenceError("NOT_FOUND", `execution ${executionId} was not found`);
+    }
+    return ExecutionRecordSchema.parse(parseJson(row.record_json, "execution"));
+  }
+
+  listExecutions(runId: string): ExecutionRecord[] {
+    const rows = this.database
+      .prepare(
+        "SELECT record_json FROM execution_runs WHERE run_id = ? ORDER BY created_at, execution_id",
+      )
+      .all(runId) as Array<{ record_json: string }>;
+    return rows.map((row) => ExecutionRecordSchema.parse(parseJson(row.record_json, "execution")));
+  }
+
+  recordDeviation(record: DeviationRecord): DeviationRecord {
+    const parsed = DeviationRecordSchema.parse(record);
+    this.database
+      .prepare(
+        `INSERT INTO deviations(
+          deviation_id, run_id, execution_id, state, category, contract_clause,
+          evidence_refs_json, observed_at, record_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(deviation_id) DO NOTHING`,
+      )
+      .run(
+        parsed.deviationId,
+        parsed.runId,
+        parsed.executionId,
+        parsed.state,
+        parsed.category,
+        parsed.contractClause,
+        JSON.stringify(parsed.evidenceRefs),
+        parsed.observedAt,
+        JSON.stringify(parsed),
+      );
+    return parsed;
+  }
+
+  listDeviations(runId: string): DeviationRecord[] {
+    const rows = this.database
+      .prepare(
+        "SELECT record_json FROM deviations WHERE run_id = ? ORDER BY observed_at, deviation_id",
+      )
+      .all(runId) as Array<{ record_json: string }>;
+    return rows.map((row) => DeviationRecordSchema.parse(parseJson(row.record_json, "deviation")));
   }
 
   recordLog(

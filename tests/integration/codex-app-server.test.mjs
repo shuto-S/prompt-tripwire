@@ -273,7 +273,7 @@ test("AC-002: network, interpreters, builds, tests, packages, and writes are den
     {
       ...base,
       commandActions: [{ type: "search", command: "rg TODO", path: null, query: "TODO" }],
-      networkApprovalContext: { host: "example.invalid" },
+      networkApprovalContext: { host: "example.invalid", protocol: "https" },
     },
     root,
   );

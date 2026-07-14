@@ -145,6 +145,8 @@ The adapter consumes at least:
 
 P0 handles normal-schema `item/permissions/requestApproval` fail-closed if emitted, but never proactively invokes `request_permissions`. The normal schema exposes granular approval fields while 0.144.4 runtime rejects them without the experimental capability, so granular approval and permission profiles are excluded.
 
+Normal-schema file approval requests in 0.144.4 do not include target paths, so execution never guesses their scope and declines them. Workspace-local changes that proceed without that request are contained in the disposable worktree, checked from file-change items and aggregate/final diffs, and reported as detected after a contained write when they exceed the contract. Required check strings are accepted only when they parse to one unambiguous argv vector and match an approved verification class; the runtime then uses sandboxed `command/exec` with network disabled and records only the exit code, not raw output.
+
 ## 5. Structured output contracts
 
 There are two separate schemas:

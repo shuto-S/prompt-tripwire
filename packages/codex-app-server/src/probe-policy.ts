@@ -105,7 +105,7 @@ export function decideProbeApproval(
       observation: {
         requestId,
         method,
-        itemId: parsed.itemId ?? null,
+        itemId: parsed.itemId,
         decision: "deny_permissions",
         reasonCode: "probe_permission_expansion_denied",
       },

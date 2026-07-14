@@ -2,9 +2,11 @@ import { randomUUID } from "node:crypto";
 import { writeFileSync } from "node:fs";
 
 import {
+  amendExecutionContract,
   DomainInvariantError,
   RunRecordSchema,
   RunReportSchema,
+  type ExecutionContract,
   type RunRecord,
   type RunReport,
 } from "@prompt-tripwire/domain";
@@ -16,11 +18,13 @@ import { ControllerError } from "./errors.js";
 import { withTimeout } from "./timeout.js";
 import type {
   ApproveInput,
+  AmendInput,
   CancelInput,
   ControllerOptions,
   ControllerStatus,
   DecideInput,
   DeferInput,
+  ExecutionEvidence,
   InspectInput,
   ReportInput,
   ReviewEvidence,
@@ -229,27 +233,32 @@ export class LocalController {
             snapshot: input.currentSnapshot,
             store: this.store,
             signal,
+            ...(input.preparedSnapshot === undefined
+              ? {}
+              : { preparedSnapshot: input.preparedSnapshot }),
           }),
       );
       const current = this.store.getRun(runId).run;
       if (current.state !== "running") return current;
       if (result.outcome === "completed") {
-        return this.store.transitionRun(
+        const completed = this.store.transitionRun(
           runId,
           "completed",
           current.version,
           this.now(),
           result.errorCode,
         );
+        return this.saveExecutionReport(completed, contract, result.evidence);
       }
       if (result.outcome === "failed") {
-        return this.store.transitionRun(
+        const failed = this.store.transitionRun(
           runId,
           "failed",
           current.version,
           this.now(),
           result.errorCode ?? "EXECUTION_FAILED",
         );
+        return this.saveExecutionReport(failed, contract, result.evidence);
       }
       const pausing = this.store.transitionRun(
         runId,
@@ -258,13 +267,14 @@ export class LocalController {
         this.now(),
         result.errorCode,
       );
-      return this.store.transitionRun(
+      const paused = this.store.transitionRun(
         runId,
         "paused",
         pausing.version,
         this.now(),
         result.errorCode,
       );
+      return this.saveExecutionReport(paused, contract, result.evidence);
     } catch (error) {
       const code = errorCode(error);
       const observed = this.store.getRun(runId).run;
@@ -333,6 +343,29 @@ export class LocalController {
       runId: input.runId,
       expectedVersion: input.expectedVersion,
       reopenedAt: this.now(),
+    });
+  }
+
+  amend(input: AmendInput): RunRecord {
+    this.assertStarted();
+    const current = this.store.getRun(input.runId).run;
+    if (current.state !== "paused" || current.activeContractId === null) {
+      throw new ControllerError(
+        "INVALID_AMENDMENT_STATE",
+        "contract amendment requires a paused run with an active contract",
+      );
+    }
+    const previous = this.store.getContract(current.activeContractId);
+    const contract = amendExecutionContract(previous, {
+      ...input.amendment,
+      createdAt: this.now(),
+    });
+    return this.store.amendPausedContract({
+      idempotencyKey: input.idempotencyKey,
+      runId: input.runId,
+      contract,
+      expectedVersion: input.expectedVersion,
+      amendedAt: this.now(),
     });
   }
 
@@ -464,6 +497,11 @@ export class LocalController {
   report(input: ReportInput): RunReport {
     this.assertStarted();
     if (input.report !== undefined) return this.store.saveReport(input.report).report;
+    try {
+      return this.store.getReport(input.runId).report;
+    } catch (error) {
+      if (!(error instanceof PersistenceError) || error.code !== "NOT_FOUND") throw error;
+    }
     const run = this.store.getRun(input.runId).run;
     const contract =
       run.activeContractId === null ? null : this.store.getContract(run.activeContractId);
@@ -510,6 +548,38 @@ export class LocalController {
     if (!this.started) {
       throw new ControllerError("CONTROLLER_NOT_STARTED", "controller.start() is required");
     }
+  }
+
+  private saveExecutionReport(
+    run: RunRecord,
+    contract: ExecutionContract,
+    evidence: ExecutionEvidence | undefined,
+  ): RunRecord {
+    if (evidence === undefined) return run;
+    const report = RunReportSchema.parse({
+      reportVersion: 1,
+      runId: run.runId,
+      state: run.state,
+      snapshotHash: run.snapshotHash,
+      taskHash: run.taskHash,
+      contractId: contract.contractId,
+      contractHash: contract.contentHash,
+      threadIds: evidence.threadIds,
+      modelIds: evidence.modelIds,
+      decisions: contract.humanDecisions,
+      observedActions: evidence.observedActions,
+      diffSummary: {
+        changedPaths: evidence.changedPaths,
+        withinContract: evidence.diffWithinContract,
+        evidenceRefs: evidence.diffEvidenceRefs,
+      },
+      checks: evidence.checks,
+      deviations: evidence.deviations,
+      remainingUnknowns: [...contract.unresolvedNonBlockingUnknowns, ...evidence.remainingUnknowns],
+      generatedAt: this.now(),
+    });
+    this.store.saveReport(report);
+    return run;
   }
 
   private failActiveRun(runId: string, code: string): void {

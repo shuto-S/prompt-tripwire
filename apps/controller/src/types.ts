@@ -1,6 +1,10 @@
 import type {
   ComparisonCandidate,
+  ContractAmendment,
   DecisionPoint,
+  AuditAction,
+  AuditCheck,
+  AuditDeviation,
   ExecutionContract,
   HumanDecision,
   PlanArtifact,
@@ -34,13 +38,27 @@ export interface ExecutionContext {
   readonly run: RunRecord;
   readonly contract: ExecutionContract;
   readonly snapshot: RepositorySnapshot;
+  readonly preparedSnapshot?: PreparedRepositorySnapshot;
   readonly store: SqlitePersistence;
   readonly signal: AbortSignal;
+}
+
+export interface ExecutionEvidence {
+  readonly threadIds: readonly string[];
+  readonly modelIds: readonly string[];
+  readonly observedActions: readonly AuditAction[];
+  readonly changedPaths: readonly string[];
+  readonly diffWithinContract: boolean | null;
+  readonly diffEvidenceRefs: readonly string[];
+  readonly checks: readonly AuditCheck[];
+  readonly deviations: readonly AuditDeviation[];
+  readonly remainingUnknowns: readonly string[];
 }
 
 export interface ExecutionResult {
   readonly outcome: "completed" | "paused" | "failed";
   readonly errorCode: string | null;
+  readonly evidence?: ExecutionEvidence;
 }
 
 export interface ExecutionPort {
@@ -67,6 +85,14 @@ export interface InspectInput extends PrepareSnapshotRequest {
 export interface RunInput {
   readonly contractId: string;
   readonly currentSnapshot: RepositorySnapshot;
+  readonly preparedSnapshot?: PreparedRepositorySnapshot;
+  readonly expectedVersion: number;
+  readonly idempotencyKey: string;
+}
+
+export interface AmendInput {
+  readonly runId: string;
+  readonly amendment: Omit<ContractAmendment, "createdAt">;
   readonly expectedVersion: number;
   readonly idempotencyKey: string;
 }

@@ -8,6 +8,7 @@ import { z } from "zod";
 import { AppServerError } from "./errors.js";
 import { ProtocolEventLedger } from "./event-ledger.js";
 import {
+  CommandExecResponseSchema,
   InitializeResponseSchema,
   JsonRpcEnvelopeSchema,
   ModelListResponseSchema,
@@ -18,16 +19,21 @@ import {
 import { decideProbeApproval, probeItemViolation } from "./probe-policy.js";
 import type {
   ApprovalObservation,
+  ContractExecutionInput,
+  ContractExecutionResult,
+  ExecutionPolicyHooks,
   JsonRpcId,
   JsonRpcTransport,
   ModelDescriptor,
   NormalizedAppServerEvent,
   PlanProbeInput,
   PlanProbeResult,
+  SandboxedCommandResult,
 } from "./types.js";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 const DEFAULT_PROBE_TIMEOUT_MS = 180_000;
+const DEFAULT_EXECUTION_TIMEOUT_MS = 30 * 60_000;
 
 const PROBE_DEVELOPER_INSTRUCTIONS = [
   "You are one independent PromptTripwire planning probe.",
@@ -64,6 +70,10 @@ interface TurnState {
 interface CachedServerRequest {
   readonly identity: string;
   readonly result: Promise<unknown>;
+}
+
+interface ExecutionThreadContext {
+  readonly policy: ExecutionPolicyHooks;
 }
 
 function rpcKey(id: JsonRpcId): string {
@@ -104,7 +114,9 @@ export class CodexAppServerClient {
   private readonly serverRequests = new Map<string, CachedServerRequest>();
   private readonly threadRoots = new Map<string, string>();
   private readonly threadApprovals = new Map<string, ApprovalObservation[]>();
+  private readonly executionThreads = new Map<string, ExecutionThreadContext>();
   private readonly turns = new Map<string, TurnState>();
+  private readonly interruptingTurns = new Set<string>();
   private nextId = 1;
   private initialized = false;
   private closing = false;
@@ -276,6 +288,115 @@ export class CodexAppServerClient {
     }
   }
 
+  async runContractExecution(input: ContractExecutionInput): Promise<ContractExecutionResult> {
+    this.assertInitialized();
+    const thread = ThreadStartResponseSchema.parse(
+      await this.request("thread/start", {
+        cwd: input.cwd,
+        approvalPolicy: "untrusted",
+        approvalsReviewer: "user",
+        developerInstructions: input.developerInstructions,
+        sandbox: "workspace-write",
+        ephemeral: true,
+        serviceName: "prompt_tripwire_execution",
+        model: input.model,
+      }),
+    );
+    if (thread.model !== input.model) {
+      throw new AppServerError("PROTOCOL_VALIDATION_FAILED", "App Server changed execution model");
+    }
+    const threadId = thread.thread.id;
+    this.threadRoots.set(threadId, input.cwd);
+    this.executionThreads.set(threadId, { policy: input.policy });
+
+    let turnId: string | null = null;
+    try {
+      const turn = TurnStartResponseSchema.parse(
+        await this.request("turn/start", {
+          threadId,
+          input: [{ type: "text", text: input.prompt }],
+          cwd: input.cwd,
+          approvalPolicy: "untrusted",
+          approvalsReviewer: "user",
+          sandboxPolicy: {
+            type: "workspaceWrite",
+            writableRoots: [],
+            networkAccess: false,
+            excludeSlashTmp: true,
+            excludeTmpdirEnvVar: true,
+          },
+          model: input.model,
+          effort: input.reasoningEffort,
+          summary: "none",
+          personality: "none",
+        }),
+      );
+      turnId = turn.turn.id;
+      input.onSessionStarted?.(threadId, turnId);
+      const state = await this.waitForExecutionTurn(
+        threadId,
+        turnId,
+        input.timeoutMs ?? DEFAULT_EXECUTION_TIMEOUT_MS,
+        input.signal,
+      );
+      if (state.status === null || state.status === "inProgress") {
+        throw new AppServerError(
+          "PROTOCOL_CORRUPTION",
+          "execution turn did not reach a terminal state",
+        );
+      }
+      return {
+        threadId,
+        turnId,
+        model: thread.model,
+        status: state.status,
+        events: [...state.events],
+      };
+    } catch (error) {
+      if (turnId !== null) {
+        try {
+          await this.interrupt(threadId, turnId);
+        } catch {
+          // Preserve the original execution failure.
+        }
+      }
+      throw appServerError(error, "execution failed protocol validation");
+    }
+  }
+
+  async execSandboxedCommand(input: {
+    readonly command: readonly string[];
+    readonly cwd: string;
+    readonly timeoutMs?: number;
+  }): Promise<SandboxedCommandResult> {
+    this.assertInitialized();
+    const response = CommandExecResponseSchema.parse(
+      await this.request(
+        "command/exec",
+        {
+          command: [...input.command],
+          cwd: input.cwd,
+          env: {},
+          sandboxPolicy: {
+            type: "workspaceWrite",
+            writableRoots: [],
+            networkAccess: false,
+            excludeSlashTmp: true,
+            excludeTmpdirEnvVar: true,
+          },
+          timeoutMs: input.timeoutMs ?? 10 * 60_000,
+          outputBytesCap: 512 * 1024,
+        },
+        (input.timeoutMs ?? 10 * 60_000) + 5_000,
+      ),
+    );
+    return { exitCode: response.exitCode };
+  }
+
+  async interrupt(threadId: string, turnId: string): Promise<void> {
+    await this.request("turn/interrupt", { threadId, turnId }, 10_000);
+  }
+
   async close(): Promise<void> {
     this.closing = true;
     await this.transport.close();
@@ -412,7 +533,29 @@ export class CodexAppServerClient {
     const threadId = typeof record.threadId === "string" ? record.threadId : null;
     const root = threadId === null ? undefined : this.threadRoots.get(threadId);
     if (root === undefined) {
-      throw new AppServerError("PROTOCOL_CORRUPTION", "approval request had no probe thread");
+      throw new AppServerError("PROTOCOL_CORRUPTION", "approval request had no known thread");
+    }
+    const execution = threadId === null ? undefined : this.executionThreads.get(threadId);
+    if (execution !== undefined) {
+      if (threadId === null) {
+        throw new AppServerError("PROTOCOL_CORRUPTION", "execution approval omitted thread id");
+      }
+      const decision = execution.policy.decideApproval(id, method, params);
+      if (decision.pause) {
+        const turnId =
+          params !== null &&
+          typeof params === "object" &&
+          "turnId" in params &&
+          typeof params.turnId === "string"
+            ? params.turnId
+            : null;
+        if (turnId !== null) {
+          setTimeout(() => {
+            this.requestExecutionPause(threadId, turnId);
+          }, 0);
+        }
+      }
+      return decision.response;
     }
     const decision = decideProbeApproval(id, method, params, root);
     if (threadId !== null) this.threadApprovals.get(threadId)?.push(decision.observation);
@@ -442,12 +585,24 @@ export class CodexAppServerClient {
       if (event.turnId === null || event.threadId === null) return;
       const state = this.turnState(event.threadId, event.turnId);
       state.events.push(event);
-      if (accepted.item !== null) this.observeItem(state, accepted.item, method);
-      if (accepted.diff !== null && accepted.diff.trim().length > 0) {
-        this.failTurn(
-          state,
-          new AppServerError("PROBE_CONTAINMENT_VIOLATION", "probe produced a repository diff"),
-        );
+      const execution = this.executionThreads.get(event.threadId);
+      if (execution !== undefined) {
+        let pause = false;
+        if (accepted.item !== null && (method === "item/started" || method === "item/completed")) {
+          pause = execution.policy.observeItem(accepted.item, method).pause || pause;
+        }
+        if (accepted.diff !== null) {
+          pause = execution.policy.observeDiff(accepted.diff).pause || pause;
+        }
+        if (pause) this.requestExecutionPause(event.threadId, event.turnId);
+      } else {
+        if (accepted.item !== null) this.observeProbeItem(state, accepted.item, method);
+        if (accepted.diff !== null && accepted.diff.trim().length > 0) {
+          this.failTurn(
+            state,
+            new AppServerError("PROBE_CONTAINMENT_VIOLATION", "probe produced a repository diff"),
+          );
+        }
       }
       if (method === "turn/completed") {
         state.status = event.status as TurnState["status"];
@@ -458,7 +613,7 @@ export class CodexAppServerClient {
     }
   }
 
-  private observeItem(state: TurnState, item: ParsedThreadItem, method: string): void {
+  private observeProbeItem(state: TurnState, item: ParsedThreadItem, method: string): void {
     const root = this.threadRoots.get(state.threadId);
     if (root === undefined) {
       this.failTurn(
@@ -495,6 +650,61 @@ export class CodexAppServerClient {
       }, timeoutMs);
       state.waiters.push({ resolve, reject, timer });
     });
+  }
+
+  private async waitForExecutionTurn(
+    threadId: string,
+    turnId: string,
+    timeoutMs: number,
+    signal: AbortSignal | undefined,
+  ): Promise<TurnState> {
+    const wait = this.waitForTurn(threadId, turnId, timeoutMs);
+    if (signal === undefined) {
+      try {
+        return await wait;
+      } catch (error) {
+        if (error instanceof AppServerError && error.code === "PROBE_TIMEOUT") {
+          throw new AppServerError("EXECUTION_TIMEOUT", "execution turn timed out");
+        }
+        throw error;
+      }
+    }
+    if (signal.aborted) {
+      throw new AppServerError("EXECUTION_CANCELLED", "execution was cancelled");
+    }
+    let rejectAbort: ((error: Error) => void) | null = null;
+    const listener = (): void => {
+      rejectAbort?.(new AppServerError("EXECUTION_CANCELLED", "execution was cancelled"));
+    };
+    try {
+      return await Promise.race([
+        wait,
+        new Promise<never>((_resolve, reject) => {
+          rejectAbort = reject;
+          signal.addEventListener("abort", listener, { once: true });
+        }),
+      ]);
+    } catch (error) {
+      if (error instanceof AppServerError && error.code === "PROBE_TIMEOUT") {
+        throw new AppServerError("EXECUTION_TIMEOUT", "execution turn timed out");
+      }
+      throw error;
+    } finally {
+      signal.removeEventListener("abort", listener);
+    }
+  }
+
+  private requestExecutionPause(threadId: string, turnId: string): void {
+    const key = `${threadId}:${turnId}`;
+    if (this.interruptingTurns.has(key)) return;
+    this.interruptingTurns.add(key);
+    const state = this.turnState(threadId, turnId);
+    void this.interrupt(threadId, turnId)
+      .catch(() => undefined)
+      .finally(() => {
+        if (state.status === null || state.status === "inProgress") state.status = "interrupted";
+        this.settleTurn(state);
+      });
   }
 
   private turnState(threadId: string, turnId: string): TurnState {

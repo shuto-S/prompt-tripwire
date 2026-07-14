@@ -11,6 +11,7 @@
     "dist"
   ],
   "dependencies": {
+    "@prompt-tripwire/contract-runtime": "0.1.0",
     "@prompt-tripwire/controller": "0.1.0",
     "@prompt-tripwire/domain": "0.1.0",
     "@prompt-tripwire/git-snapshot": "0.1.0",

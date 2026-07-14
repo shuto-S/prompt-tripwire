@@ -1,6 +1,6 @@
 # Security and privacy specification
 
-Status: Required MVP controls; Decision Inbox boundary verified, execution enforcement pending
+Status: Required MVP controls; Decision Inbox and execution enforcement boundaries verified
 
 Date: 2026-07-14
 

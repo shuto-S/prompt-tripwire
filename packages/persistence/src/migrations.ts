@@ -183,6 +183,35 @@ const MIGRATIONS = [
   CREATE INDEX probe_runs_run_idx ON probe_runs(run_id, probe_id, attempt);
   CREATE INDEX decision_points_run_status_idx ON decision_points(run_id, status, decision_id);
   `,
+  `
+  CREATE TABLE execution_runs (
+    execution_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+    thread_id TEXT,
+    contract_id TEXT NOT NULL REFERENCES contracts(contract_id),
+    state TEXT NOT NULL CHECK (state IN ('not_started', 'starting', 'running', 'pausing', 'paused', 'completed', 'failed', 'cancelled')),
+    worktree_id TEXT NOT NULL UNIQUE REFERENCES worktrees(worktree_id),
+    last_error_code TEXT,
+    record_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  ) STRICT;
+
+  CREATE TABLE deviations (
+    deviation_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+    execution_id TEXT NOT NULL REFERENCES execution_runs(execution_id) ON DELETE CASCADE,
+    state TEXT NOT NULL CHECK (state IN ('observed', 'pausing', 'paused', 'rejected', 'amendment_required', 'resolved')),
+    category TEXT NOT NULL,
+    contract_clause TEXT NOT NULL,
+    evidence_refs_json TEXT NOT NULL,
+    observed_at TEXT NOT NULL,
+    record_json TEXT NOT NULL
+  ) STRICT;
+
+  CREATE INDEX execution_runs_run_idx ON execution_runs(run_id, created_at, execution_id);
+  CREATE INDEX deviations_run_idx ON deviations(run_id, observed_at, deviation_id);
+  `,
 ] as const;
 
 export function migrate(database: DatabaseSync, appliedAt: string): void {

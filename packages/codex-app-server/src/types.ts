@@ -4,6 +4,7 @@ import type {
   DisposableWorktree,
   PreparedRepositorySnapshot,
 } from "@prompt-tripwire/git-snapshot";
+import type { ParsedThreadItem } from "./protocol.js";
 
 export type JsonRpcId = string | number;
 
@@ -62,6 +63,48 @@ export interface PlanProbeResult {
   readonly artifact: PlanArtifact;
   readonly approvals: readonly ApprovalObservation[];
   readonly events: readonly NormalizedAppServerEvent[];
+}
+
+export interface ExecutionGateDecision {
+  readonly response: unknown;
+  readonly pause: boolean;
+}
+
+export interface ExecutionObservationDecision {
+  readonly pause: boolean;
+}
+
+export interface ExecutionPolicyHooks {
+  decideApproval(requestId: JsonRpcId, method: string, params: unknown): ExecutionGateDecision;
+  observeItem(
+    item: ParsedThreadItem,
+    method: "item/started" | "item/completed",
+  ): ExecutionObservationDecision;
+  observeDiff(diff: string): ExecutionObservationDecision;
+}
+
+export interface ContractExecutionInput {
+  readonly cwd: string;
+  readonly model: string;
+  readonly reasoningEffort: string;
+  readonly developerInstructions: string;
+  readonly prompt: string;
+  readonly policy: ExecutionPolicyHooks;
+  readonly timeoutMs?: number;
+  readonly signal?: AbortSignal;
+  readonly onSessionStarted?: (threadId: string, turnId: string) => void;
+}
+
+export interface ContractExecutionResult {
+  readonly threadId: string;
+  readonly turnId: string;
+  readonly model: string;
+  readonly status: "completed" | "interrupted" | "failed";
+  readonly events: readonly NormalizedAppServerEvent[];
+}
+
+export interface SandboxedCommandResult {
+  readonly exitCode: number;
 }
 
 export interface ProbeAttemptResult {

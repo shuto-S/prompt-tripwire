@@ -226,6 +226,8 @@ export class FakeAppServerHarness {
           threadId,
           turnId,
           itemId: `permission_${turnId}`,
+          cwd,
+          permissions: { network: { enabled: true } },
         },
         () => {
           this.completeScenario(threadId, turnId, scenario);
@@ -260,6 +262,7 @@ export class FakeAppServerHarness {
         id: `command_${turnId}`,
         type: "commandExecution",
         status: "completed",
+        command: "npm test",
         cwd,
         commandActions: [{ type: "unknown", command: "npm test" }],
       };

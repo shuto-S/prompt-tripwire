@@ -120,6 +120,12 @@ This log separates confirmed product decisions from assumptions that still requi
 
 **Reason:** An aggregate first read avoids a client waterfall and full raw plans, while native semantic controls preserve keyboard and assistive-technology behavior. Header-authenticated streaming keeps the capability out of query and Referer logs. Strict loopback/run scoping, same-origin checks, bundled assets, React text escaping, CSP, and frame denial reduce the local-web attack surface without adding a hosted backend or account system.
 
+### D-020 — Keep execution file approvals deny-only and run checks through sandboxed argv
+
+**Decision:** Run approved implementation turns with `untrusted` approval and `workspaceWrite` containment in a fresh disposable worktree, with network and remote tool features disabled. Codex 0.144.4 file approval requests are declined because the normal payload contains no target paths; allowed local changes instead pass file-item, aggregate-diff, and final Git path checks. Required check strings must parse to one shell-free argv vector, match an approved verification command class, and execute through sandboxed App Server `command/exec`. Unknown commands, permission expansion, MCP/app requests, network context, and runtime policy amendments pause the run.
+
+**Reason:** Guessing the scope of a pathless approval or treating raw shell prefixes as structured authority would violate fail-closed matching. Disposable containment plus honest post-write detection preserves the original checkout, while sandboxed argv execution provides real check exit codes without granting a general shell or inheriting network authority.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage

@@ -18,6 +18,9 @@
       "path": "../../packages/domain"
     },
     {
+      "path": "../../packages/contract-runtime"
+    },
+    {
       "path": "../../packages/git-snapshot"
     },
     {

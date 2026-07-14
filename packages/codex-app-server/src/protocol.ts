@@ -86,9 +86,17 @@ export const CommandApprovalParamsSchema = z
     threadId: z.string().min(1),
     turnId: z.string().min(1),
     itemId: z.string().min(1),
+    command: z.string().nullable().optional(),
     commandActions: z.array(CommandActionSchema).nullable().optional(),
     cwd: z.string().nullable().optional(),
-    networkApprovalContext: z.unknown().nullable().optional(),
+    networkApprovalContext: z
+      .object({
+        host: z.string().min(1),
+        protocol: z.enum(["http", "https", "socks5Tcp", "socks5Udp"]),
+      })
+      .loose()
+      .nullable()
+      .optional(),
     proposedExecpolicyAmendment: z.array(z.string()).nullable().optional(),
     proposedNetworkPolicyAmendments: z.array(z.unknown()).nullable().optional(),
   })
@@ -106,7 +114,40 @@ export const PermissionApprovalParamsSchema = z
   .object({
     threadId: z.string().min(1),
     turnId: z.string().min(1),
-    itemId: z.string().min(1).optional(),
+    itemId: z.string().min(1),
+    cwd: z.string().min(1),
+    permissions: z
+      .object({
+        fileSystem: z.unknown().nullable().optional(),
+        network: z.unknown().nullable().optional(),
+      })
+      .strict(),
+  })
+  .loose();
+
+export const DynamicToolCallParamsSchema = z
+  .object({
+    threadId: z.string().min(1),
+    turnId: z.string().min(1),
+    callId: z.string().min(1),
+    tool: z.string().min(1),
+    namespace: z.string().nullable().optional(),
+    arguments: z.unknown(),
+  })
+  .loose();
+
+export const ToolRequestUserInputParamsSchema = z
+  .object({
+    threadId: z.string().min(1),
+    turnId: z.string().min(1),
+    itemId: z.string().min(1),
+  })
+  .loose();
+
+export const McpElicitationParamsSchema = z
+  .object({
+    threadId: z.string().min(1),
+    turnId: z.string().min(1),
   })
   .loose();
 
@@ -121,8 +162,25 @@ export const CommandExecutionItemSchema = z
     id: z.string().min(1),
     type: z.literal("commandExecution"),
     status: z.enum(["inProgress", "completed", "failed", "declined"]),
+    command: z.string(),
     commandActions: z.array(CommandActionSchema),
     cwd: z.string(),
+    aggregatedOutput: z.string().nullable().optional(),
+    exitCode: z.number().int().nullable().optional(),
+    durationMs: z.number().int().nonnegative().nullable().optional(),
+  })
+  .loose();
+
+export const FileUpdateChangeSchema = z
+  .object({
+    path: z.string().min(1),
+    kind: z
+      .object({
+        type: z.enum(["add", "delete", "update"]),
+        move_path: z.string().nullable().optional(),
+      })
+      .loose(),
+    diff: z.string(),
   })
   .loose();
 
@@ -131,8 +189,17 @@ export const FileChangeItemSchema = z
     id: z.string().min(1),
     type: z.literal("fileChange"),
     status: z.enum(["inProgress", "completed", "failed", "declined"]),
+    changes: z.array(FileUpdateChangeSchema),
   })
   .loose();
+
+export const CommandExecResponseSchema = z
+  .object({
+    exitCode: z.number().int(),
+    stdout: z.string(),
+    stderr: z.string(),
+  })
+  .strict();
 
 export type ParsedThreadItem =
   | z.infer<typeof AgentMessageItemSchema>

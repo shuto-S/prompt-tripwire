@@ -12,6 +12,7 @@ import {
   renderTerminalReview,
   renderTerminalStatus,
 } from "@prompt-tripwire/controller";
+import { ContractExecutionPort } from "@prompt-tripwire/contract-runtime";
 import {
   canonicalHash,
   renderRunReportMarkdown,
@@ -148,7 +149,11 @@ export async function runCli(
   });
   const controller =
     dependencies.createController?.(store) ??
-    new LocalController({ store, inspectionPort: new DefaultInspectionPort() });
+    new LocalController({
+      store,
+      inspectionPort: new DefaultInspectionPort(),
+      executionPort: new ContractExecutionPort(),
+    });
   let started = false;
   try {
     controller.start();
@@ -312,6 +317,7 @@ export async function runCli(
         const run = await controller.run({
           contractId,
           currentSnapshot: prepared.snapshot,
+          preparedSnapshot: prepared,
           expectedVersion: current.version,
           idempotencyKey: `cli:start:${contractId}`,
         });

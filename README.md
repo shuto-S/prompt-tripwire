@@ -4,7 +4,7 @@
 
 PromptTripwire is a local-first preflight and execution gate for Codex. It runs the same engineering task through multiple independent, read-only Codex planning threads, turns material disagreements into a small number of human decisions, and binds the approved choices into an execution contract.
 
-Implementation is in progress. The Codex App Server 0.144.4 adapter, three independent real planning probes, GPT-5.6 Structured Outputs comparator, deterministic policy normalization, terminal and browser review/approval flows, immutable contracts, Git snapshot/worktree containment, and crash-safe local persistence are executable and tested. Execution monitoring remains in progress.
+Implementation is in progress. The Codex App Server 0.144.4 adapter, three independent real planning probes, GPT-5.6 Structured Outputs comparator, deterministic policy normalization, terminal and browser review/approval flows, immutable contracts, Git snapshot/worktree containment, contract-bound execution/deviation handling, and crash-safe local persistence are executable and tested.
 
 ## Why this exists
 
@@ -94,6 +94,8 @@ The evaluator records only pass/fail, candidate counts, timing, and token usage.
 
 Use `tripwire review RUN_ID --terminal` for the terminal fallback. Both interfaces require expected run versions and idempotency keys for mutations, and execution remains disabled until every blocker is resolved and the content-addressed contract is explicitly approved.
 
+`tripwire run --contract CONTRACT_ID` creates a fresh disposable execution worktree and Codex thread from the approved snapshot. The runtime disables network and remote tool surfaces, declines permission or unknown-action requests, interrupts out-of-scope file changes, runs only the exact contract checks through sandboxed `command/exec`, persists the real exit codes and final path scope, and removes the worktree at the terminal state. A paused run can only continue through a new contract version and a clean execution worktree; partial work is never resumed.
+
 ## Build Week positioning
 
 - **Track:** Developer Tools
@@ -105,7 +107,7 @@ The project is being created during the OpenAI Build Week submission period. The
 
 ## Codex collaboration record
 
-Codex was used to research the current OpenAI integration surfaces, challenge the UI-first concept, define the local-first product boundary, draft the requirements and threat model, verify the App Server boundary, establish the TypeScript/npm test foundation, implement and test the domain/policy/snapshot layers, build the SQLite-backed controller and CLI foundation, implement the version-pinned App Server adapter with three real independent probes, complete the Responses API comparator and terminal decision/contract flow, and implement the loopback-only browser Decision Inbox with keyboard and security E2E coverage. During live verification, Codex identified that App Server 0.144.4 reports `pwd` and `sed` as unknown command actions; the implementation kept unknown actions denied and tightened probe instructions instead of inferring safety from raw shell text. Codex also found no OpenAI API credential in the runtime environment, so it added a bounded secret-safe Sol/Terra evaluator and explicitly left the live comparison unclaimed. The human set Codex CLI 0.144.4 as the compatibility baseline and authorized autonomous implementation through the pre-submission milestone; implementation choices are recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
+Codex was used to research the current OpenAI integration surfaces, challenge the UI-first concept, define the local-first product boundary, draft the requirements and threat model, verify the App Server boundary, establish the TypeScript/npm test foundation, implement and test the domain/policy/snapshot layers, build the SQLite-backed controller and CLI foundation, implement the version-pinned App Server adapter with three real independent probes, complete the Responses API comparator and terminal decision/contract flow, implement the loopback-only browser Decision Inbox with keyboard and security E2E coverage, and implement the contract-bound execution gate with approval matching, diff monitoring, interruption, clean amendment restart, sandboxed required checks, and audit reporting. During live verification, Codex identified that App Server 0.144.4 reports `pwd` and `sed` as unknown command actions; the implementation kept unknown actions denied and tightened probe instructions instead of inferring safety from raw shell text. It also confirmed that normal-schema file approvals omit target paths and therefore kept those requests deny-only while relying on disposable containment plus file-item/final-diff inspection for approved local writes. Codex found no OpenAI API credential in the runtime environment, so it added a bounded secret-safe Sol/Terra evaluator and explicitly left the live comparison unclaimed. The human set Codex CLI 0.144.4 as the compatibility baseline and authorized autonomous implementation through the pre-submission milestone; implementation choices are recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
 
 Before submission, this section must be expanded with:
 
@@ -116,4 +118,4 @@ Before submission, this section must be expanded with:
 
 ## Status
 
-Specification baseline: 2026-07-14. App Server hard gate and three-real-probe milestone passed with documented constraints on 2026-07-14. Domain, deterministic policy, Git isolation, App Server planning adapter, Responses comparator, terminal/browser review and approval, and local persistence are implemented; the live Sol/Terra API evaluation, execution enforcement, packaging, license selection, and judge-ready installation are pending.
+Specification baseline: 2026-07-14. App Server hard gate and three-real-probe milestone passed with documented constraints on 2026-07-14. Domain, deterministic policy, Git isolation, App Server planning/execution adapters, Responses comparator, terminal/browser review and approval, contract enforcement, deviation interruption, sandboxed checks, audit reporting, and local persistence are implemented; the live Sol/Terra API evaluation, packaging, license selection, and judge-ready installation are pending.

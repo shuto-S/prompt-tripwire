@@ -1,6 +1,8 @@
 import type {
   ComparisonCandidate,
   DecisionPoint,
+  DeviationRecord,
+  ExecutionRecord,
   ExecutionContract,
   HumanDecision,
   PlanArtifact,
@@ -90,6 +92,14 @@ export interface ReopenReviewPersistenceInput {
   readonly reopenedAt: string;
 }
 
+export interface AmendPausedContractPersistenceInput {
+  readonly idempotencyKey: string;
+  readonly runId: string;
+  readonly contract: ExecutionContract;
+  readonly expectedVersion: number;
+  readonly amendedAt: string;
+}
+
 export interface StartExecutionPersistenceInput {
   readonly idempotencyKey: string;
   readonly runId: string;
@@ -125,6 +135,15 @@ export interface PersistedWorktree extends WorktreeRecordInput {
   readonly cleanupStatus: "pending" | "removed" | "failed";
   readonly cleanupErrorCode: string | null;
   readonly cleanedAt: string | null;
+}
+
+export interface ExecutionRecordWrite {
+  readonly record: ExecutionRecord;
+  readonly recordedAt: string;
+}
+
+export interface DeviationRecordWrite {
+  readonly record: DeviationRecord;
 }
 
 export interface StoredReport {
