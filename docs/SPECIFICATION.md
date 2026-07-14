@@ -456,7 +456,7 @@ See `SECURITY.md` for the threat model and known limits.
 - **Latency:** probes run concurrently; the UI streams each phase instead of showing an indefinite spinner. No hard latency claim is made until measured on representative repositories.
 - **Cost visibility:** show probe count, selected models, token usage when available, retry count, and a pre-run estimate if the provider exposes one.
 - **Portability:** the Build Week MVP supports verified macOS builds with Git, Node.js, Codex CLI, and an OpenAI API credential. Linux is the next target but is not advertised as supported until the same containment and end-to-end suite passes. Windows is out of MVP scope.
-- **Runtime:** Node.js 24 LTS and Codex CLI 0.144.4 are the pinned implementation baseline. A different Codex version or canonical normal-schema hash fails before probing.
+- **Runtime:** Node.js 24.15+ LTS and Codex CLI 0.144.4 are the pinned implementation baseline. Node 24.15 is the minimum because the built-in SQLite module reached release-candidate status there. A different Codex version or canonical normal-schema hash fails before probing.
 - **Accessibility:** complete decision review and approval with keyboard only; WCAG 2.2 AA contrast target.
 - **Observability:** structured local events with stable IDs; no secret values or raw chain-of-thought.
 - **Compatibility:** use only methods and fields present in the normal App Server schema over stdio. The schema generator and umbrella CLI command are labeled experimental, so exact CLI version and canonical schema drift checks are mandatory; runtime `experimentalApi` is not allowed for P0.

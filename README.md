@@ -4,7 +4,7 @@
 
 PromptTripwire is a local-first preflight and execution gate for Codex. It runs the same engineering task through multiple independent, read-only Codex planning threads, turns material disagreements into a small number of human decisions, and binds the approved choices into an execution contract.
 
-Implementation has started. The Codex App Server 0.144.4 feasibility gate is executable and documented; the product workspace and vertical slice are still in progress.
+Implementation is in progress. The Codex App Server 0.144.4 feasibility gate, immutable domain contracts, deterministic policy gates, Git snapshot/worktree containment, and crash-safe local controller/persistence foundation are executable and tested. Real planning probes, comparison, execution monitoring, and the Decision Inbox remain in progress.
 
 ## Why this exists
 
@@ -56,7 +56,7 @@ After review, PromptTripwire creates a versioned execution contract. Codex runs 
 Supported Build Week development baseline:
 
 - macOS on arm64;
-- Node.js 24 LTS (`.nvmrc` and `.node-version`);
+- Node.js 24.15 or newer in the Node 24 LTS line (`.nvmrc` and `.node-version`);
 - npm 11 or newer, with npm 11.17.0 recorded in `packageManager`;
 - `codex-cli 0.144.4` with the pinned normal-schema hash.
 
@@ -85,7 +85,7 @@ The project is being created during the OpenAI Build Week submission period. The
 
 ## Codex collaboration record
 
-Codex was used to research the current OpenAI integration surfaces, challenge the UI-first concept, define the local-first product boundary, draft the requirements and threat model, verify the App Server boundary, and establish the TypeScript/npm test foundation. The human product decisions made at this stage are recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
+Codex was used to research the current OpenAI integration surfaces, challenge the UI-first concept, define the local-first product boundary, draft the requirements and threat model, verify the App Server boundary, establish the TypeScript/npm test foundation, implement and test the domain/policy/snapshot layers, and build the SQLite-backed controller and CLI foundation. The human set Codex CLI 0.144.4 as the compatibility baseline and authorized autonomous implementation through the pre-submission milestone; implementation choices such as the fail-closed `node:sqlite` baseline are recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
 
 Before submission, this section must be expanded with:
 
@@ -96,4 +96,4 @@ Before submission, this section must be expanded with:
 
 ## Status
 
-Specification baseline: 2026-07-14. App Server hard gate: passed with documented constraints on 2026-07-14. Product implementation, packaging, license selection, and judge-ready installation are pending.
+Specification baseline: 2026-07-14. App Server hard gate: passed with documented constraints on 2026-07-14. Domain, deterministic policy, Git isolation, and local controller/persistence foundations are implemented; the complete vertical slice, packaging, license selection, and judge-ready installation are pending.

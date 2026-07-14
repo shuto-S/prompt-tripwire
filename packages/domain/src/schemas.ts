@@ -392,6 +392,86 @@ export const DeviationRecordSchema = z
   })
   .strict();
 
+export const AuditActionOutcomeSchema = z.enum([
+  "prevented",
+  "declined_before_execution",
+  "detected_after_contained_write",
+  "completed",
+  "failed",
+  "not_observed",
+]);
+
+export const AuditActionSchema = z
+  .object({
+    actionId: IdSchema,
+    kind: z.enum(["command", "file_change", "network", "permission", "external_effect", "check"]),
+    summary: z.string().min(1),
+    outcome: AuditActionOutcomeSchema,
+    evidenceRefs: z.array(IdSchema),
+  })
+  .strict();
+
+export const CheckOutcomeSchema = z.enum(["passed", "failed", "not_run"]);
+
+export const AuditCheckSchema = z
+  .object({
+    checkId: IdSchema,
+    command: z.string().min(1),
+    outcome: CheckOutcomeSchema,
+    exitCode: z.number().int().nullable(),
+    reason: z.string().min(1).nullable(),
+    evidenceRefs: z.array(IdSchema),
+  })
+  .strict();
+
+export const AuditDeviationSchema = z
+  .object({
+    deviationId: IdSchema,
+    category: z.string().min(1),
+    summary: z.string().min(1),
+    resolution: z.string().min(1).nullable(),
+    evidenceRefs: z.array(IdSchema),
+  })
+  .strict();
+
+export const AuditDiffSummarySchema = z
+  .object({
+    changedPaths: z.array(RepositoryRelativePathSchema),
+    withinContract: z.boolean().nullable(),
+    evidenceRefs: z.array(IdSchema),
+  })
+  .strict();
+
+export const RunReportSchema = z
+  .object({
+    reportVersion: z.literal(1),
+    runId: IdSchema,
+    state: RunStateSchema,
+    snapshotHash: Sha256Schema.nullable(),
+    taskHash: Sha256Schema,
+    contractId: IdSchema.nullable(),
+    contractHash: Sha256Schema.nullable(),
+    threadIds: z.array(IdSchema),
+    modelIds: z.array(z.string().min(1)),
+    decisions: z.array(HumanDecisionSchema),
+    observedActions: z.array(AuditActionSchema),
+    diffSummary: AuditDiffSummarySchema,
+    checks: z.array(AuditCheckSchema),
+    deviations: z.array(AuditDeviationSchema),
+    remainingUnknowns: z.array(z.string()),
+    generatedAt: TimestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if ((value.contractId === null) !== (value.contractHash === null)) {
+      context.addIssue({
+        code: "custom",
+        message: "contractId and contractHash must both be present or both be null",
+        path: ["contractHash"],
+      });
+    }
+  });
+
 export type ModelConfiguration = z.infer<typeof ModelConfigurationSchema>;
 export type RepositorySnapshot = z.infer<typeof RepositorySnapshotSchema>;
 export type RepositorySnapshotInput = z.infer<typeof RepositorySnapshotInputSchema>;
@@ -410,3 +490,10 @@ export type RunRecord = z.infer<typeof RunRecordSchema>;
 export type ProbeRecord = z.infer<typeof ProbeRecordSchema>;
 export type ExecutionRecord = z.infer<typeof ExecutionRecordSchema>;
 export type DeviationRecord = z.infer<typeof DeviationRecordSchema>;
+export type AuditActionOutcome = z.infer<typeof AuditActionOutcomeSchema>;
+export type AuditAction = z.infer<typeof AuditActionSchema>;
+export type CheckOutcome = z.infer<typeof CheckOutcomeSchema>;
+export type AuditCheck = z.infer<typeof AuditCheckSchema>;
+export type AuditDeviation = z.infer<typeof AuditDeviationSchema>;
+export type AuditDiffSummary = z.infer<typeof AuditDiffSummarySchema>;
+export type RunReport = z.infer<typeof RunReportSchema>;

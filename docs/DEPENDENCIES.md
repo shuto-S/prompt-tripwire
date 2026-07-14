@@ -4,6 +4,8 @@ Status date: 2026-07-14
 
 PromptTripwire uses npm workspaces and keeps the foundation toolchain development-only. `package-lock.json` is authoritative for resolved transitive versions and integrity hashes.
 
+Runtime persistence uses the built-in `node:sqlite` module from Node.js 24.15+; no third-party SQLite driver or native addon is installed. The API is release-candidate Stability 1.2 and is pinned through the Node baseline and CI rather than treated as a semver-stable package dependency.
+
 ## Direct development dependencies
 
 | Package | Version | License | Purpose |

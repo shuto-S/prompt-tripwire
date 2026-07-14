@@ -12,6 +12,7 @@ import {
   PlanArtifactSchema,
   ProbeRecordSchema,
   RepositorySnapshotInputSchema,
+  RunReportSchema,
   RunRecordSchema,
   SnapshotDriftReason,
   amendExecutionContract,
@@ -21,6 +22,8 @@ import {
   createRepositorySnapshot,
   detectSnapshotDrift,
   executionContractContentHash,
+  renderRunReportMarkdown,
+  serializeRunReportJson,
   startExecution,
   transitionRun,
   verifyExecutionContract,
@@ -239,6 +242,43 @@ test("domain schemas reject unknown fields and missing required fields", () => {
     delete missing[requiredKey];
     assert.equal(schema.safeParse(missing).success, false);
   }
+});
+
+test("FR-015 report schema provides deterministic JSON and Markdown entry points", () => {
+  const report = RunReportSchema.parse({
+    reportVersion: 1,
+    runId: "run_report",
+    state: "completed",
+    snapshotHash: HASH_A,
+    taskHash: HASH_B,
+    contractId: "contract_1",
+    contractHash: HASH_A,
+    threadIds: ["thread_1"],
+    modelIds: ["gpt-5.4"],
+    decisions: [],
+    observedActions: [],
+    diffSummary: {
+      changedPaths: ["packages/domain/src/reports.ts"],
+      withinContract: true,
+      evidenceRefs: [],
+    },
+    checks: [
+      {
+        checkId: "check_1",
+        command: "npm run test:unit",
+        outcome: "passed",
+        exitCode: 0,
+        reason: null,
+        evidenceRefs: [],
+      },
+    ],
+    deviations: [],
+    remainingUnknowns: [],
+    generatedAt: "2026-07-14T00:10:00.000Z",
+  });
+  assert.deepEqual(JSON.parse(serializeRunReportJson(report)), report);
+  assert.match(renderRunReportMarkdown(report), /npm run test:unit — passed/u);
+  assert.throws(() => RunReportSchema.parse({ ...report, contractHash: null }));
 });
 
 test("decision schemas reject unsafe defaults and ambiguous human answers", () => {

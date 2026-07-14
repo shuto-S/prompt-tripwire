@@ -96,6 +96,12 @@ This log separates confirmed product decisions from assumptions that still requi
 
 **Reason:** Git worktrees preserve exact tracked commits and binary patches while keeping all planned and partial execution changes outside the user's checkout. Explicit fingerprint and cleanup results make containment and cleanup failures observable instead of assuming isolation succeeded.
 
+### D-016 — Use the Node 24 release-candidate SQLite module
+
+**Decision:** Require Node.js 24.15 or newer and use the built-in `node:sqlite` `DatabaseSync` API with extension loading disabled, defensive mode enabled, WAL, foreign keys, and private filesystem permissions. Do not add a native SQLite package for the MVP.
+
+**Reason:** [Node.js marked `node:sqlite` as Stability 1.2 (release candidate) in 24.15.0](https://nodejs.org/download/release/latest-v24.x/docs/api/sqlite.html). The synchronous API fits the single-user local controller, avoids native-addon installation risk, and is exercised on the pinned Node 24 CI baseline. Startup fails closed on an older runtime instead of silently selecting another storage implementation. This remains an explicit release-candidate dependency rather than being described as a fully stable Node API.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage

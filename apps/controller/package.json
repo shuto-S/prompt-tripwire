@@ -6,5 +6,10 @@
   "exports": "./dist/index.js",
   "files": [
     "dist"
-  ]
+  ],
+  "dependencies": {
+    "@prompt-tripwire/domain": "0.1.0",
+    "@prompt-tripwire/git-snapshot": "0.1.0",
+    "@prompt-tripwire/persistence": "0.1.0"
+  }
 }

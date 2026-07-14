@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 
 const MINIMUM_NODE_MAJOR = 24;
+const MINIMUM_NODE_MINOR = 15;
 const MINIMUM_NPM_MAJOR = 11;
 const REQUIRED_CODEX_VERSION = "0.144.4";
 
@@ -19,9 +20,13 @@ const codexOutput = commandOutput("codex", ["--version"]);
 const codexMatch = codexOutput.match(/codex-cli\s+(\S+)/u);
 assert(codexMatch, `unexpected codex version output: ${codexOutput}`);
 
+const [nodeMajor = 0, nodeMinor = 0] = nodeVersion
+  .split(".")
+  .map((part) => Number.parseInt(part, 10));
 assert(
-  Number.parseInt(nodeVersion, 10) >= MINIMUM_NODE_MAJOR,
-  `Node ${MINIMUM_NODE_MAJOR}+ required, detected ${nodeVersion}`,
+  nodeMajor > MINIMUM_NODE_MAJOR ||
+    (nodeMajor === MINIMUM_NODE_MAJOR && nodeMinor >= MINIMUM_NODE_MINOR),
+  `Node ${MINIMUM_NODE_MAJOR}.${MINIMUM_NODE_MINOR}+ required, detected ${nodeVersion}`,
 );
 assert(
   Number.parseInt(npmVersion, 10) >= MINIMUM_NPM_MAJOR,

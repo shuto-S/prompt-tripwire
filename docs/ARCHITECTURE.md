@@ -29,12 +29,12 @@ These choices are specifications, not installed dependencies.
 
 | Area | Choice | Reason |
 |---|---|---|
-| Runtime | Node.js 24 LTS and TypeScript | Supported LTS baseline across CLI, controller, schemas, and UI. |
+| Runtime | Node.js 24.15+ LTS and TypeScript | Supported LTS baseline with release-candidate `node:sqlite` available across CLI, controller, schemas, and UI. |
 | CLI | Thin TypeScript executable | Primary local entry point and terminal fallback. |
 | Codex integration | Spawn `codex app-server` over stdio | Documented JSON-RPC transport with rich events and approvals. |
 | Comparator | Official OpenAI JavaScript SDK, Responses API, GPT-5.6 | Required Build Week model and reliable structured output. |
 | Validation | Zod-derived JSON Schema | Prevent schema/type divergence. |
-| Persistence | Embedded SQLite with migrations | Atomic state transitions, idempotent events, crash recovery. |
+| Persistence | Built-in `node:sqlite` with migrations | Atomic state transitions, idempotent events, crash recovery, and no native addon. |
 | Local API | Loopback-only HTTP + Server-Sent Events | Simple request/response plus one-way progress streaming. |
 | UI | React + Vite | Small local decision interface; no server rendering requirement. |
 | Hashing | SHA-256 over canonical JSON | Stable snapshot and contract identity. |
@@ -232,6 +232,8 @@ Conceptual tables:
 - `reports`
 
 Large sanitized artifacts are stored as user-private files referenced by content hash. Database writes for state transition, event ingestion, and approval are transactional.
+
+The local controller uses one defensive `DatabaseSync` connection per process. Optimistic writes match the persisted run version, and each mutating retry key stores its operation, canonical request fingerprint, and original result in the same transaction as the state change. Reusing a key for different input fails closed. On startup, persisted `running` records pass through `pausing` to `paused` with `CONTROLLER_RESTART`; review, approved, paused, failed, and stale states are never auto-launched. Report and log payloads pass the deterministic sanitizer before storage, while immutable snapshots and contracts are hash-verified on both write and read.
 
 Default roots:
 
