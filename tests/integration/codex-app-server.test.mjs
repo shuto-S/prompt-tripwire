@@ -13,6 +13,7 @@ import {
   ProcessJsonRpcTransport,
   createMemoryTransportPair,
   decideProbeApproval,
+  ProtocolEventLedger,
 } from "../../packages/codex-app-server/dist/index.js";
 import { createRepositorySnapshot } from "../../packages/domain/dist/index.js";
 import { prepareRepositorySnapshot } from "../../packages/git-snapshot/dist/index.js";
@@ -209,6 +210,54 @@ test("AC-019: duplicate notifications are idempotent", async () => {
     await client.close();
     await rm(repository, { recursive: true, force: true });
   }
+});
+
+test("AC-019: interrupted turns may retain the item that interruption stopped", () => {
+  const interrupted = new ProtocolEventLedger();
+  interrupted.accept("turn/started", {
+    threadId: "thread_interrupt",
+    turn: { id: "turn_interrupt", status: "inProgress" },
+  });
+  interrupted.accept("item/started", {
+    threadId: "thread_interrupt",
+    turnId: "turn_interrupt",
+    item: {
+      id: "file_interrupt",
+      type: "fileChange",
+      status: "inProgress",
+      changes: [{ path: "src/allowed.txt", kind: { type: "update", move_path: null }, diff: "" }],
+    },
+  });
+  assert.doesNotThrow(() =>
+    interrupted.accept("turn/completed", {
+      threadId: "thread_interrupt",
+      turn: { id: "turn_interrupt", status: "interrupted" },
+    }),
+  );
+
+  const completed = new ProtocolEventLedger();
+  completed.accept("turn/started", {
+    threadId: "thread_complete",
+    turn: { id: "turn_complete", status: "inProgress" },
+  });
+  completed.accept("item/started", {
+    threadId: "thread_complete",
+    turnId: "turn_complete",
+    item: {
+      id: "file_complete",
+      type: "fileChange",
+      status: "inProgress",
+      changes: [{ path: "src/allowed.txt", kind: { type: "update", move_path: null }, diff: "" }],
+    },
+  });
+  assert.throws(
+    () =>
+      completed.accept("turn/completed", {
+        threadId: "thread_complete",
+        turn: { id: "turn_complete", status: "completed" },
+      }),
+    (error) => error instanceof AppServerError && error.code === "PROTOCOL_CORRUPTION",
+  );
 });
 
 test("AC-019: a duplicate approval request is answered twice but recorded once", async () => {

@@ -68,6 +68,7 @@ export class ContractExecutionGate implements ExecutionPolicyHooks {
   private readonly contract: ExecutionContract;
   private readonly monitor: ExecutionChangeMonitor;
   private readonly recorded = new Set<string>();
+  private readonly validatedFileItems = new Set<string>();
   private sequence = 0;
 
   constructor(contract: ExecutionContract, monitor: ExecutionChangeMonitor) {
@@ -130,11 +131,14 @@ export class ContractExecutionGate implements ExecutionPolicyHooks {
     }
     if (method === "item/fileChange/requestApproval") {
       const parsed = FileApprovalParamsSchema.parse(params);
+      if (this.validatedFileItems.has(parsed.itemId)) {
+        return { response: { decision: "accept" }, pause: false };
+      }
       return this.declineApproval(
         method,
         parsed.itemId,
         "file_path",
-        "file approval omitted target paths in Codex 0.144.4",
+        "file approval could not be correlated with validated item paths",
         { decision: "decline" },
         requestId,
       );
@@ -222,6 +226,14 @@ export class ContractExecutionGate implements ExecutionPolicyHooks {
       const status = itemString(item, "status");
       if (status === "declined" || status === "failed") return { pause: false };
       const changes = itemArray(item, "changes");
+      if (changes.length === 0) {
+        return this.observedDeviation(
+          `item:${item.id}:empty-file-change`,
+          "unknown_action",
+          "file change item disclosed no path",
+          "failed",
+        );
+      }
       for (const change of changes) {
         if (change === null || typeof change !== "object" || !("path" in change)) {
           return this.observedDeviation(
@@ -231,18 +243,30 @@ export class ContractExecutionGate implements ExecutionPolicyHooks {
             "failed",
           );
         }
-        const path = typeof change.path === "string" ? change.path : "";
-        const match = this.monitor.matchWritePath(path);
-        if (match.outcome === "deny") {
-          return this.observedDeviation(
-            `item:${item.id}:${path}`,
-            "file_path",
-            `contained file change exceeded contract scope: ${match.reason}`,
-            "detected_after_contained_write",
-            path,
-          );
+        const paths = [typeof change.path === "string" ? change.path : ""];
+        if (
+          "kind" in change &&
+          change.kind !== null &&
+          typeof change.kind === "object" &&
+          "move_path" in change.kind &&
+          typeof change.kind.move_path === "string"
+        ) {
+          paths.push(change.kind.move_path);
+        }
+        for (const path of paths) {
+          const match = this.monitor.matchWritePath(path);
+          if (match.outcome === "deny") {
+            return this.observedDeviation(
+              `item:${item.id}:${path}`,
+              "file_path",
+              `contained file change exceeded contract scope: ${match.reason}`,
+              "detected_after_contained_write",
+              path,
+            );
+          }
         }
       }
+      if (method === "item/started") this.validatedFileItems.add(item.id);
       if (method === "item/completed") {
         this.recordAction("file_change", "contract-scoped file change completed", "completed", [
           this.evidence("item", item.id),

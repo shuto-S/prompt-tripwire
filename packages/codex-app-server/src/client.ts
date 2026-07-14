@@ -34,6 +34,7 @@ import type {
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 const DEFAULT_PROBE_TIMEOUT_MS = 180_000;
 const DEFAULT_EXECUTION_TIMEOUT_MS = 30 * 60_000;
+const SANDBOXED_COMMAND_PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin";
 
 const PROBE_DEVELOPER_INSTRUCTIONS = [
   "You are one independent PromptTripwire planning probe.",
@@ -376,7 +377,7 @@ export class CodexAppServerClient {
         {
           command: [...input.command],
           cwd: input.cwd,
-          env: {},
+          env: { PATH: SANDBOXED_COMMAND_PATH },
           sandboxPolicy: {
             type: "workspaceWrite",
             writableRoots: [],

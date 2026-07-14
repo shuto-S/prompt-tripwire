@@ -55,6 +55,7 @@ export class ProtocolEventLedger {
       } else {
         if (!this.startedTurns.has(turnKey)) protocolError("turn completed before start");
         if (
+          parsed.turn.status === "completed" &&
           [...this.startedItems.entries()].some(
             ([itemKey]) => itemKey.startsWith(`${turnKey}:`) && !this.completedItems.has(itemKey),
           )

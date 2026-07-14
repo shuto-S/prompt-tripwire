@@ -135,7 +135,13 @@ class FakeExecutionHarness {
     const message = value;
     if (typeof message.method !== "string") {
       this.responses.push(structuredClone(message));
-      if (message.id === 10_000) queueMicrotask(() => this.completeInterrupted());
+      if (message.id === 10_000) {
+        if (this.scenario === "file-approval" && message.result?.decision === "accept") {
+          queueMicrotask(() => this.completeApprovedFileChange());
+        } else {
+          queueMicrotask(() => this.completeInterrupted());
+        }
+      }
       return;
     }
     this.requests.push(structuredClone(message));
@@ -216,6 +222,67 @@ class FakeExecutionHarness {
       });
       return;
     }
+    if (this.scenario === "file-approval") {
+      this.fileApprovalItem = {
+        id: "file_approval",
+        type: "fileChange",
+        status: "inProgress",
+        changes: [
+          {
+            path: "src/allowed.txt",
+            kind: { type: "update", move_path: null },
+            diff: "@@ -1 +1 @@\n-before\n+after\n",
+          },
+        ],
+      };
+      this.notify("item/started", {
+        threadId: this.threadId,
+        turnId: this.turnId,
+        item: this.fileApprovalItem,
+      });
+      this.requestApproval("item/fileChange/requestApproval", {
+        threadId: this.threadId,
+        turnId: this.turnId,
+        itemId: this.fileApprovalItem.id,
+      });
+      return;
+    }
+    if (this.scenario === "uncorrelated-file-approval") {
+      this.requestApproval("item/fileChange/requestApproval", {
+        threadId: this.threadId,
+        turnId: this.turnId,
+        itemId: "file_without_item",
+      });
+      return;
+    }
+    if (this.scenario === "empty-file-approval" || this.scenario === "outside-move-file-approval") {
+      const item = {
+        id: `file_${this.scenario}`,
+        type: "fileChange",
+        status: "inProgress",
+        changes:
+          this.scenario === "empty-file-approval"
+            ? []
+            : [
+                {
+                  path: "src/allowed.txt",
+                  kind: { type: "update", move_path: "outside.txt" },
+                  diff: "",
+                },
+              ],
+      };
+      this.notify("item/started", {
+        threadId: this.threadId,
+        turnId: this.turnId,
+        item,
+      });
+      this.requestApproval("item/fileChange/requestApproval", {
+        threadId: this.threadId,
+        turnId: this.turnId,
+        itemId: item.id,
+      });
+      return;
+    }
     if (this.scenario === "network") {
       this.requestApproval("item/commandExecution/requestApproval", {
         threadId: this.threadId,
@@ -271,6 +338,23 @@ class FakeExecutionHarness {
 
   completeInterrupted() {
     if (!this.turnCompleted) this.complete("interrupted");
+  }
+
+  completeApprovedFileChange() {
+    const item = this.fileApprovalItem;
+    assert.ok(item);
+    writeFileSync(join(this.cwd, "src", "allowed.txt"), "after\n", "utf8");
+    this.notify("item/completed", {
+      threadId: this.threadId,
+      turnId: this.turnId,
+      item: { ...item, status: "completed" },
+    });
+    this.notify("turn/diff/updated", {
+      threadId: this.threadId,
+      turnId: this.turnId,
+      diff: "diff --git a/src/allowed.txt b/src/allowed.txt\n--- a/src/allowed.txt\n+++ b/src/allowed.txt\n@@ -1 +1 @@\n-before\n+after\n",
+    });
+    this.complete("completed");
   }
 
   complete(status) {
@@ -347,7 +431,13 @@ test("AC-009 AC-013 AC-019: successful execution is isolated and reports real ch
     assert.equal(existsSync(worktree.path), false);
     const checkRequest = harnesses[0].requests.find((request) => request.method === "command/exec");
     assert.deepEqual(checkRequest.params.command, ["npm", "run", "test:unit"]);
+    assert.deepEqual(checkRequest.params.env, {
+      PATH: "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+    });
     assert.equal(checkRequest.params.sandboxPolicy.networkAccess, false);
+    const threadStart = harnesses[0].requests.find((request) => request.method === "thread/start");
+    assert.match(threadStart.params.developerInstructions, /Use apply_patch, not shell commands/);
+    assert.match(threadStart.params.developerInstructions, /Never use pwd or sed/);
   } finally {
     await controller.stop();
     await rm(repository.root, { recursive: true, force: true });
@@ -458,6 +548,102 @@ test("contract-matched structured reads accept the execution worktree root as cw
     await controller.stop();
     await rm(repository.root, { recursive: true, force: true });
     await rm(persisted.root, { recursive: true, force: true });
+  }
+});
+
+test("pathless file approvals require a same-ID contract-valid file item", async (t) => {
+  await t.test("correlated item is accepted and completes", async () => {
+    const repository = await repositoryFixture();
+    const persisted = await storage();
+    const harnesses = [];
+    const controller = new LocalController({
+      store: persisted.store,
+      executionPort: runtimeWithScenarios(["file-approval"], harnesses),
+    });
+    controller.start();
+    try {
+      const approved = approvedContract(persisted.store, repository.prepared, "run_file_approval");
+      const result = await runApproved(
+        controller,
+        repository.prepared,
+        approved,
+        "execute:run_file_approval:1",
+      );
+      assert.equal(result.state, "completed");
+      const response = harnesses[0].responses.find((item) => item.id === 10_000);
+      assert.deepEqual(response?.result, { decision: "accept" });
+      const report = persisted.store.getReport(result.runId).report;
+      assert.deepEqual(report.diffSummary.changedPaths, ["src/allowed.txt"]);
+      assert.equal(report.deviations.length, 0);
+    } finally {
+      await controller.stop();
+      await rm(repository.root, { recursive: true, force: true });
+      await rm(persisted.root, { recursive: true, force: true });
+    }
+  });
+
+  await t.test("uncorrelated request is declined", async () => {
+    const repository = await repositoryFixture();
+    const persisted = await storage();
+    const harnesses = [];
+    const controller = new LocalController({
+      store: persisted.store,
+      executionPort: runtimeWithScenarios(["uncorrelated-file-approval"], harnesses),
+    });
+    controller.start();
+    try {
+      const approved = approvedContract(
+        persisted.store,
+        repository.prepared,
+        "run_uncorrelated_file_approval",
+      );
+      const result = await runApproved(
+        controller,
+        repository.prepared,
+        approved,
+        "execute:run_uncorrelated_file_approval:1",
+      );
+      assert.equal(result.state, "paused");
+      const response = harnesses[0].responses.find((item) => item.id === 10_000);
+      assert.deepEqual(response?.result, { decision: "decline" });
+      const report = persisted.store.getReport(result.runId).report;
+      assert.ok(report.deviations.some((item) => item.category === "file_path"));
+    } finally {
+      await controller.stop();
+      await rm(repository.root, { recursive: true, force: true });
+      await rm(persisted.root, { recursive: true, force: true });
+    }
+  });
+
+  for (const scenario of ["empty-file-approval", "outside-move-file-approval"]) {
+    await t.test(`${scenario} is declined`, async () => {
+      const repository = await repositoryFixture();
+      const persisted = await storage();
+      const harnesses = [];
+      const controller = new LocalController({
+        store: persisted.store,
+        executionPort: runtimeWithScenarios([scenario], harnesses),
+      });
+      controller.start();
+      try {
+        const approved = approvedContract(persisted.store, repository.prepared, `run_${scenario}`);
+        const result = await runApproved(
+          controller,
+          repository.prepared,
+          approved,
+          `execute:run_${scenario}:1`,
+        );
+        assert.equal(result.state, "paused");
+        const response = harnesses[0].responses.find((item) => item.id === 10_000);
+        assert.deepEqual(response?.result, { decision: "decline" });
+        const report = persisted.store.getReport(result.runId).report;
+        assert.ok(report.deviations.length > 0);
+      } finally {
+        await controller.stop();
+        await rm(repository.root, { recursive: true, force: true });
+        await rm(persisted.root, { recursive: true, force: true });
+      }
+    });
   }
 });
 
