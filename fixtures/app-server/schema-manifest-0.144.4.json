@@ -1,0 +1,32 @@
+{
+  "codexVersion": "0.144.4",
+  "stableDirectorySha256": "ccb435118d3dfae2cfe0dff56e4955398edfc5c54351985a45e8de256c34e3bb",
+  "stableFileCount": 267,
+  "experimentalFileCount": 337,
+  "requiredStableMethods": {
+    "clientRequests": [
+      "initialize",
+      "thread/start",
+      "turn/start",
+      "turn/interrupt",
+      "command/exec"
+    ],
+    "clientNotifications": [
+      "initialized"
+    ],
+    "serverRequests": [
+      "item/commandExecution/requestApproval",
+      "item/fileChange/requestApproval",
+      "item/permissions/requestApproval"
+    ],
+    "serverNotifications": [
+      "thread/started",
+      "turn/started",
+      "item/started",
+      "item/completed",
+      "turn/diff/updated",
+      "serverRequest/resolved",
+      "turn/completed"
+    ]
+  }
+}

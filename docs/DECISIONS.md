@@ -72,19 +72,25 @@ This log separates confirmed product decisions from assumptions that still requi
 
 **Reason:** Visibility is reversible. Accidental publication is not. Final Build Week visibility and license remain separate decisions.
 
-## Implementation assumptions to validate
+### D-012 — Pin Codex 0.144.4 and the normal schema
+
+**Decision:** P0 uses `codex-cli 0.144.4` over stdio and only methods/fields in the schema generated without `--experimental`. It fails before probing on CLI or canonical schema drift and never enables runtime `experimentalApi`.
+
+**Reason:** The live spike proved the required handshake, approvals, output schema, diff notifications, minimal child environment, and interruption. The umbrella command and generators are still labeled experimental, and granular approval requires the experimental capability despite appearing in the normal schema, so exact compatibility checks are required.
+
+## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage
 
-Verify which supported-platform file changes are presented for approval before application and which require reactive diff monitoring. User-facing wording must match observed behavior.
+**Resolution:** Continue with constraints. Under `untrusted`, live command and file-change attempts produced approval requests that were declined before execution. Under `never`, a disposable-root write completed and three diff notifications followed, so post-write monitoring remains required. Stable permission expansion was not observed; P0 denies it and does not use experimental granular approval.
 
 ### A-002 — Minimal child environment
 
-Verify how App Server propagates environment variables to command execution and how to prevent unrelated secrets from reaching repository processes.
+**Resolution:** Confirmed for 0.144.4. Start App Server with an explicit minimal process environment and `shell_environment_policy.inherit=none`. A synthetic App Server canary was absent from the child command. Never persist a full environment dump.
 
 ### A-003 — Stable schema and minimum version
 
-Pin the minimum Codex CLI version after protocol tests. Generate schemas from the pinned binary and fail clearly on incompatible versions.
+**Resolution:** Pin exactly 0.144.4 for the Build Week MVP. Generate the normal schema at build/test time, canonicalize it, and compare its directory hash. Schema generation can remain a build-time experimental tool; runtime experimental capability is prohibited.
 
 ### A-004 — Packaging
 

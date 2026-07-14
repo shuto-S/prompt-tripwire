@@ -4,7 +4,7 @@
 
 PromptTripwire is a local-first preflight and execution gate for Codex. It runs the same engineering task through multiple independent, read-only Codex planning threads, turns material disagreements into a small number of human decisions, and binds the approved choices into an execution contract.
 
-This repository is currently **specification-only**. No runnable implementation has been added yet.
+Implementation has started. The Codex App Server 0.144.4 feasibility gate is executable and documented; the product workspace and vertical slice are still in progress.
 
 ## Why this exists
 
@@ -47,6 +47,7 @@ After review, PromptTripwire creates a versioned execution contract. Codex runs 
 - [Market and competitor research](docs/RESEARCH.md)
 - [Build Week plan and compliance](docs/BUILD_WEEK.md)
 - [Decision log and open questions](docs/DECISIONS.md)
+- [Codex App Server 0.144.4 feasibility spike](docs/CODEX_APP_SERVER_SPIKE.md)
 
 `docs/SPECIFICATION.md` is the authoritative product scope. The other documents provide implementation detail and evidence.
 
@@ -72,4 +73,4 @@ Before submission, this section must be expanded with:
 
 ## Status
 
-Specification baseline: 2026-07-14. Implementation, packaging, license selection, and judge-ready installation are pending.
+Specification baseline: 2026-07-14. App Server hard gate: passed with documented constraints on 2026-07-14. Product implementation, packaging, license selection, and judge-ready installation are pending.

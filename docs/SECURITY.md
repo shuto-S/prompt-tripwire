@@ -65,12 +65,16 @@ The probe process:
 
 - has no network access;
 - cannot write the snapshot;
+- uses normal-schema `approvalPolicy: "untrusted"` and declines non-inspection command, file-change, and permission requests;
+- never uses standalone App Server `command/exec`, because it bypasses turn approvals and read-only sandboxing alone is not a command-class allowlist;
 - receives a minimal environment;
 - has CPU/time/output limits;
 - cannot access arbitrary home-directory paths;
 - persists sanitized summaries, not full shell output by default.
 
 If the platform cannot enforce these properties, probing must stop with an actionable error.
+
+The client also inspects completed command/file items and aggregate diffs. A trusted command can start without a server approval request, so an unexpected action can be detected only after it begins inside the disposable worktree. Reports must preserve that distinction.
 
 ## 6. Secrets
 
@@ -103,6 +107,8 @@ Network is denied by default in both planning and execution. A request to enable
 - rollback or compensating action.
 
 The P0 contract supports explicit hosts/actions, not unrestricted internet access. MCP/app tools are disabled unless named by the contract. Remote writes, deploy, release, publish, migration application, billing, and production operations require both contract approval and separate user authorization at the point of action.
+
+P0 does not enable runtime experimental APIs, granular approval, or permission profiles. Any normal-schema permission-expansion request that arrives receives an empty grant and pauses the run. Proactive `request_permissions` support is deferred because Codex 0.144.4 requires the experimental capability for the granular route.
 
 ## 8. Local UI
 

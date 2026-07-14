@@ -1,0 +1,4 @@
+{"meta":{"name":"disconnect","expected":{"corrupt":false,"duplicateEvents":0,"uniqueApprovalRequests":0,"uniqueApprovalResponses":0,"completedItems":0,"turnStatus":"failed"}}}
+{"direction":"server","message":{"method":"turn/started","params":{"turn":{"id":"turn-1","status":"inProgress"}}}}
+{"direction":"server","message":{"method":"item/started","params":{"item":{"id":"item-1","type":"commandExecution","status":"inProgress"}}}}
+{"transport":"disconnect"}

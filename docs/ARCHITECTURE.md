@@ -1,6 +1,6 @@
 # Architecture and protocols
 
-Status: Proposed; no implementation has been verified yet
+Status: Implementation baseline; App Server 0.144.4 spike verified
 
 Date: 2026-07-14
 
@@ -11,7 +11,9 @@ Use a local TypeScript controller with two OpenAI integration paths:
 1. **Codex App Server over local stdio** for repository-grounded probes, execution, streamed items, approvals, diffs, and interruption.
 2. **OpenAI Responses API with GPT-5.6 Structured Outputs** for schema-constrained comparison of validated plan artifacts.
 
-Codex App Server is preferable to scraping terminal output. Its documented stable surface exposes threads, turns, plan and file-change items, approval requests, diffs, and `turn/interrupt`. Stdio avoids the security and maturity concerns of the experimental WebSocket transport.
+Codex App Server is preferable to scraping terminal output. Its normal generated schema exposes threads, turns, plan and file-change items, approval requests, diffs, and `turn/interrupt`. Stdio is the documented default and avoids the unsupported experimental WebSocket transport.
+
+`codex-cli 0.144.4` still labels the umbrella app-server command and schema generators experimental. PromptTripwire therefore pins the exact CLI and canonical normal-schema hash, and treats drift as incompatible before probing. P0 does not enable the runtime experimental capability.
 
 The Codex SDK remains a possible fallback for automation, but it is not the primary MVP integration because PromptTripwire needs deep event and approval control rather than only “start a thread and get a final response.”
 
@@ -27,9 +29,9 @@ These choices are specifications, not installed dependencies.
 
 | Area | Choice | Reason |
 |---|---|---|
-| Runtime | Node.js 20+ and TypeScript | One language across CLI, controller, schemas, and UI. |
+| Runtime | Node.js 24 LTS and TypeScript | Supported LTS baseline across CLI, controller, schemas, and UI. |
 | CLI | Thin TypeScript executable | Primary local entry point and terminal fallback. |
-| Codex integration | Spawn `codex app-server` over stdio | Stable JSON-RPC transport with rich events and approvals. |
+| Codex integration | Spawn `codex app-server` over stdio | Documented JSON-RPC transport with rich events and approvals. |
 | Comparator | Official OpenAI JavaScript SDK, Responses API, GPT-5.6 | Required Build Week model and reliable structured output. |
 | Validation | Zod-derived JSON Schema | Prevent schema/type divergence. |
 | Persistence | Embedded SQLite with migrations | Atomic state transitions, idempotent events, crash recovery. |
@@ -103,8 +105,10 @@ Exposes only review/run data needed by the UI. It binds to `127.0.0.1` or `::1`,
 2. Spawn `codex app-server` with stdio pipes and a minimal environment.
 3. Send `initialize` with `clientInfo.name = "prompt_tripwire"`.
 4. Send `initialized`.
-5. Use only stable methods and fields required by P0.
-6. Refuse startup if the discovered App Server schema lacks a required stable method.
+5. Use only methods and fields present in the normal 0.144.4 schema; never opt into `experimentalApi` for P0.
+6. Refuse startup unless both `codex-cli 0.144.4` and the canonical normal-schema hash match.
+
+The schema generator is a build/test-time compatibility tool only. `generate-json-schema` is itself labeled experimental, but its output is generated without `--experimental`, canonicalized, and compared to the pinned manifest. Runtime code validates only the small P0 protocol subset it consumes.
 
 The build should generate or capture TypeScript/JSON schemas from the pinned Codex version and compare them in CI. Runtime messages are still validated defensively.
 
@@ -117,6 +121,8 @@ Each probe uses a separate `thread/start`, not `thread/fork`, to avoid shared mo
 - model and reasoning configuration;
 - read-only sandbox and network policy;
 - plan-output contract.
+
+Probe turns use `approvalPolicy: "untrusted"`. The client declines command, file-change, and permission requests outside the bounded static-inspection policy. It never uses standalone `command/exec` for probing: the 0.144.4 spike showed that read-only sandboxing prevents writes and network but does not by itself prevent all interpreter execution.
 
 The adapter treats the final completed plan item or final structured agent output as authoritative. Deltas are for UI progress only.
 
@@ -134,6 +140,8 @@ The adapter consumes at least:
 - error and disconnect signals.
 
 `turn/interrupt` is issued on deviation, cancellation, timeout, stale state, or loss of policy control.
+
+P0 handles normal-schema `item/permissions/requestApproval` fail-closed if emitted, but never proactively invokes `request_permissions`. The normal schema exposes granular approval fields while 0.144.4 runtime rejects them without the experimental capability, so granular approval and permission profiles are excluded.
 
 ## 5. Structured output contracts
 
@@ -282,15 +290,16 @@ The domain and policy packages must not import UI, process-spawning, filesystem,
 
 This order proves the differentiated engine before spending time on visual polish.
 
-## 14. Open implementation validations
+## 14. Verified App Server constraints
 
-The following must be verified against the pinned Codex CLI before coding beyond the adapter:
+The 2026-07-14 macOS/arm64 spike against `codex-cli 0.144.4` established:
 
-- exact stable `thread/start` and `turn/start` sandbox/approval field shapes;
-- whether every required file-change approval can be requested pre-application on supported platforms;
-- event ordering and duplicate behavior after process interruption;
-- environment inheritance of commands spawned by App Server;
-- minimum Codex CLI version with the required events;
-- Windows containment behavior, which is out of initial supported scope.
+- normal-schema `thread/start`, `turn/start`, `turn/interrupt`, command/file/permission requests, item lifecycle, diff, and completion methods cover the P0 adapter;
+- `untrusted` command and file-change requests can be declined before execution;
+- `approvalPolicy: "never"` can apply a contained file change before `turn/diff/updated`, so diff monitoring is detective;
+- standalone read-only `command/exec` prevented writes/network but allowed an interpreter version command, so sandbox mode is not a command policy;
+- `shell_environment_policy.inherit=none` excluded a synthetic App Server environment canary from child commands;
+- granular permission approval requires the experimental capability despite appearing in the normal schema;
+- duplicate events are idempotent, while completion-before-start and disconnect fixtures fail closed.
 
-If any assumption fails, the specification must be updated to describe the actual preventive versus detective control.
+See `docs/CODEX_APP_SERVER_SPIKE.md`. Windows containment remains out of the MVP; Linux is unsupported until the same suite passes.

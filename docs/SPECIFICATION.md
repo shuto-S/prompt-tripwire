@@ -1,8 +1,8 @@
 # PromptTripwire product specification
 
-Status: Draft for implementation
+Status: Implementation in progress; App Server feasibility verified
 
-Version: 0.1.0
+Version: 0.1.1
 
 Date: 2026-07-14
 
@@ -162,6 +162,9 @@ PromptTripwire must not use “security expert,” “minimalist,” or similar 
 - Network access is disabled.
 - Project scripts, interpreters, package managers, build tools, and test commands are denied during planning.
 - Only bounded static inspection operations are allowed.
+- Probe turns use normal-schema `approvalPolicy: "untrusted"`; PromptTripwire declines command, file-change, and permission requests outside the static-inspection policy.
+- Probe execution never uses App Server `command/exec`, because standalone command execution bypasses turn-level approval handling and read-only sandboxing alone does not classify interpreter, build, test, or package-manager intent.
+- Completed command/file items and aggregate diffs are still inspected. If an unexpected local action was not presented for approval, it is treated as a deviation detected inside the disposable worktree, not described as prevented.
 - Probe timeout defaults to five minutes and is configurable downward or upward.
 - Probe concurrency defaults to three and is capped at three for the MVP.
 
@@ -332,6 +335,7 @@ Execution can start only when:
 - Network is disabled unless a contract decision allows a specific need.
 - Command, file-change, permission, MCP/app, and diff events are observed through Codex App Server.
 - Approval requests are accepted only when the event is permitted by the current contract.
+- P0 never opts into `experimentalApi`, permission profiles, granular approvals, or dynamic tools. Permission expansion is deny-only; if the normal-schema permission request is emitted, the client grants no additional permission.
 - The aggregated diff is checked after each completed change item and at turn completion.
 
 The MVP must be explicit about a platform limitation: a permitted command may produce a local file change before the aggregate diff monitor reacts. This is contained in the disposable worktree with network disabled. On detection, PromptTripwire interrupts the turn, declines pending approvals, preserves evidence, and requires a new contract or cancellation. It must not claim the local write was prevented.
@@ -452,9 +456,10 @@ See `SECURITY.md` for the threat model and known limits.
 - **Latency:** probes run concurrently; the UI streams each phase instead of showing an indefinite spinner. No hard latency claim is made until measured on representative repositories.
 - **Cost visibility:** show probe count, selected models, token usage when available, retry count, and a pre-run estimate if the provider exposes one.
 - **Portability:** the Build Week MVP supports verified macOS builds with Git, Node.js, Codex CLI, and an OpenAI API credential. Linux is the next target but is not advertised as supported until the same containment and end-to-end suite passes. Windows is out of MVP scope.
+- **Runtime:** Node.js 24 LTS and Codex CLI 0.144.4 are the pinned implementation baseline. A different Codex version or canonical normal-schema hash fails before probing.
 - **Accessibility:** complete decision review and approval with keyboard only; WCAG 2.2 AA contrast target.
 - **Observability:** structured local events with stable IDs; no secret values or raw chain-of-thought.
-- **Compatibility:** use stable App Server methods over stdio; experimental fields are not required for P0.
+- **Compatibility:** use only methods and fields present in the normal App Server schema over stdio. The schema generator and umbrella CLI command are labeled experimental, so exact CLI version and canonical schema drift checks are mandatory; runtime `experimentalApi` is not allowed for P0.
 
 ## 17. Acceptance criteria
 
