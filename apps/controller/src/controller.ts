@@ -12,7 +12,11 @@ import {
 } from "@prompt-tripwire/domain";
 import { prepareRepositorySnapshot } from "@prompt-tripwire/git-snapshot";
 import { createContractPreview } from "@prompt-tripwire/openai-comparator";
-import { PersistenceError, type SqlitePersistence } from "@prompt-tripwire/persistence";
+import {
+  PersistenceError,
+  type PersistedRun,
+  type SqlitePersistence,
+} from "@prompt-tripwire/persistence";
 
 import { ControllerError } from "./errors.js";
 import { withTimeout } from "./timeout.js";
@@ -542,6 +546,21 @@ export class LocalController {
       flag: "wx",
       mode: 0o600,
     });
+  }
+
+  archive(runId: string, archived = true): PersistedRun {
+    this.assertStarted();
+    return this.store.setPinned(runId, archived);
+  }
+
+  deleteRun(runId: string): void {
+    this.assertStarted();
+    this.store.deleteRun(runId);
+  }
+
+  purgeExpired(): readonly string[] {
+    this.assertStarted();
+    return this.store.deleteExpiredRuns(this.now());
   }
 
   private assertStarted(): void {

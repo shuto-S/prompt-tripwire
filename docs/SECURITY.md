@@ -150,6 +150,8 @@ Default retention:
 
 Deletion removes database references and artifacts. Secure erasure on SSDs is not claimed.
 
+The implemented CLI exposes archive/unarchive as the pinned-retention control, explicit deletion, and expiry purge. Deletion is refused while execution is active or any disposable worktree still has pending cleanup. Idempotency records are run-scoped and cascade with the run; orphaned snapshots and private artifact files are removed only when no remaining run references them.
+
 ## 11. Incident behavior
 
 On policy-engine crash, App Server disconnect, event sequence corruption, snapshot mismatch, redaction failure, or uncertain approval state:

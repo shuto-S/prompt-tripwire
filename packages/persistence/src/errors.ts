@@ -5,6 +5,7 @@ export type PersistenceErrorCode =
   | "DATABASE_CORRUPTION"
   | "NOT_FOUND"
   | "REDACTION_FAILED"
+  | "RUN_NOT_DELETABLE"
   | "SQLITE_RUNTIME_UNSUPPORTED";
 
 export class PersistenceError extends Error {

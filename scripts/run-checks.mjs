@@ -15,6 +15,8 @@ const checks = [
   "check:versions",
   "check:schema",
   "check:licenses",
+  "check:security",
+  "check:traceability",
 ];
 
 for (const check of checks) {

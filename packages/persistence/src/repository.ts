@@ -733,6 +733,7 @@ export class SqlitePersistence {
       const result = { run: next, decision: resolved, humanDecision };
       this.insertIdempotency(
         input.idempotencyKey,
+        input.runId,
         operation,
         requestHash,
         JSON.stringify(result),
@@ -819,6 +820,7 @@ export class SqlitePersistence {
       const result = { run, decision };
       this.insertIdempotency(
         input.idempotencyKey,
+        input.runId,
         operation,
         requestHash,
         JSON.stringify(result),
@@ -917,6 +919,7 @@ export class SqlitePersistence {
       this.updateRun(current.version, result);
       this.insertIdempotency(
         input.idempotencyKey,
+        input.runId,
         operation,
         requestHash,
         JSON.stringify(result),
@@ -984,6 +987,7 @@ export class SqlitePersistence {
       const result = { run: next, contract };
       this.insertIdempotency(
         input.idempotencyKey,
+        input.runId,
         operation,
         requestHash,
         JSON.stringify(result),
@@ -1016,6 +1020,7 @@ export class SqlitePersistence {
       if (run !== current) this.updateRun(current.version, run);
       this.insertIdempotency(
         input.idempotencyKey,
+        input.runId,
         operation,
         requestHash,
         JSON.stringify(run),
@@ -1074,6 +1079,7 @@ export class SqlitePersistence {
       this.updateRun(current.version, run);
       this.insertIdempotency(
         input.idempotencyKey,
+        input.runId,
         operation,
         requestHash,
         JSON.stringify(run),
@@ -1109,6 +1115,7 @@ export class SqlitePersistence {
       this.updateRun(current.version, next);
       this.insertIdempotency(
         input.idempotencyKey,
+        input.runId,
         operation,
         requestHash,
         JSON.stringify(next),
@@ -1156,6 +1163,7 @@ export class SqlitePersistence {
       };
       this.insertIdempotency(
         input.idempotencyKey,
+        input.runId,
         operation,
         requestHash,
         JSON.stringify(event),
@@ -1244,6 +1252,62 @@ export class SqlitePersistence {
       throw new PersistenceError("NOT_FOUND", `run ${runId} was not found`);
     }
     return this.getRun(runId);
+  }
+
+  deleteRun(runId: string): void {
+    const persisted = this.getRun(runId);
+    if (persisted.run.state === "running" || persisted.run.state === "pausing") {
+      throw new PersistenceError("RUN_NOT_DELETABLE", "active execution cannot be deleted");
+    }
+    if (this.listWorktrees(runId).some((worktree) => worktree.cleanupStatus === "pending")) {
+      throw new PersistenceError(
+        "RUN_NOT_DELETABLE",
+        "run with a pending worktree cannot be deleted",
+      );
+    }
+    const artifacts = this.database
+      .prepare("SELECT relative_path FROM artifacts WHERE run_id = ?")
+      .all(runId) as Array<{ relative_path: string }>;
+    const snapshotHash = persisted.run.snapshotHash;
+    this.transaction(() => {
+      const result = this.database.prepare("DELETE FROM runs WHERE run_id = ?").run(runId);
+      if (Number(result.changes) !== 1) {
+        throw new PersistenceError("NOT_FOUND", `run ${runId} was not found`);
+      }
+      if (snapshotHash !== null) {
+        this.database
+          .prepare(
+            `DELETE FROM snapshots
+             WHERE snapshot_hash = ?
+               AND NOT EXISTS (
+                 SELECT 1 FROM run_snapshots WHERE run_snapshots.snapshot_hash = snapshots.snapshot_hash
+               )`,
+          )
+          .run(snapshotHash);
+      }
+    });
+    for (const artifact of artifacts) {
+      const remaining = this.database
+        .prepare("SELECT 1 FROM artifacts WHERE relative_path = ? LIMIT 1")
+        .get(artifact.relative_path);
+      if (remaining === undefined) this.artifactStore.remove(artifact.relative_path);
+    }
+  }
+
+  deleteExpiredRuns(expiredAt = this.now()): string[] {
+    const rows = this.database
+      .prepare(
+        `SELECT run_id FROM runs
+         WHERE pinned = 0 AND retain_until IS NOT NULL AND retain_until <= ?
+         ORDER BY retain_until, run_id`,
+      )
+      .all(expiredAt) as Array<{ run_id: string }>;
+    const deleted: string[] = [];
+    for (const row of rows) {
+      this.deleteRun(row.run_id);
+      deleted.push(row.run_id);
+    }
+    return deleted;
   }
 
   recordWorktree(input: WorktreeRecordInput): void {
@@ -1615,6 +1679,7 @@ export class SqlitePersistence {
 
   private insertIdempotency(
     key: string,
+    runId: string,
     operation: string,
     requestHash: string,
     resultJson: string,
@@ -1623,10 +1688,10 @@ export class SqlitePersistence {
     this.database
       .prepare(
         `INSERT INTO idempotency_keys(
-          idempotency_key, operation, request_hash, result_json, created_at
-        ) VALUES (?, ?, ?, ?, ?)`,
+          idempotency_key, run_id, operation, request_hash, result_json, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?)`,
       )
-      .run(key, operation, requestHash, resultJson, createdAt);
+      .run(key, runId, operation, requestHash, resultJson, createdAt);
   }
 
   private parseStoredEvent(value: unknown): StoredEvent {

@@ -210,6 +210,10 @@ class FakeExecutionHarness {
       this.complete("completed");
       return;
     }
+    if (this.scenario === "disconnect") {
+      this.transport.disconnect("fixture_disconnect");
+      return;
+    }
     if (this.scenario === "allowed-command") {
       this.requestApproval("item/commandExecution/requestApproval", {
         threadId: this.threadId,
@@ -472,6 +476,40 @@ test("AC-010: outside-path write is detected, interrupted, discarded, and never 
     );
     assert.notEqual(result.state, "completed");
     assert.equal(persisted.store.listDeviations(result.runId)[0].state, "paused");
+  } finally {
+    await controller.stop();
+    await rm(repository.root, { recursive: true, force: true });
+    await rm(persisted.root, { recursive: true, force: true });
+  }
+});
+
+test("AC-013/AC-016/AC-019: App Server disconnect fails execution and preserves sanitized evidence", async () => {
+  const repository = await repositoryFixture();
+  const persisted = await storage();
+  const harnesses = [];
+  const controller = new LocalController({
+    store: persisted.store,
+    executionPort: runtimeWithScenarios(["disconnect"], harnesses),
+  });
+  controller.start();
+  try {
+    const approved = approvedContract(persisted.store, repository.prepared, "run_disconnect");
+    const result = await runApproved(
+      controller,
+      repository.prepared,
+      approved,
+      "execute:run_disconnect:1",
+    );
+    assert.equal(result.state, "failed");
+    assert.equal(result.lastErrorCode, "APP_SERVER_DISCONNECTED");
+    assert.notEqual(result.state, "completed");
+    assert.equal(readFileSync(join(repository.root, "src", "allowed.txt"), "utf8"), "before\n");
+    const report = persisted.store.getReport(result.runId).report;
+    assert.equal(report.state, "failed");
+    assert.ok(report.remainingUnknowns.length > 0);
+    assert.doesNotMatch(JSON.stringify(report), /rawReasoning|processEnv|api[_-]?key/iu);
+    assert.equal(persisted.store.listExecutions(result.runId)[0].state, "failed");
+    assert.equal(persisted.store.listWorktrees(result.runId)[0].cleanupStatus, "removed");
   } finally {
     await controller.stop();
     await rm(repository.root, { recursive: true, force: true });

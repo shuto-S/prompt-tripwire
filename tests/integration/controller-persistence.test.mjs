@@ -141,8 +141,26 @@ test("AC-016: restart preserves paused/unapproved runs and recovers running to p
     runRecord("run_unapproved", repositorySnapshot, { state: "needs_review", version: 3 }),
   );
   store.createRun(
-    runRecord("run_interrupted", repositorySnapshot, { state: "running", version: 6 }),
+    runRecord("run_interrupted", repositorySnapshot, { state: "comparing", version: 3 }),
   );
+  store.saveSnapshot("run_interrupted", repositorySnapshot);
+  const interruptedDraft = contract("run_interrupted", repositorySnapshot);
+  const interruptedReady = store.saveContractAndReady("run_interrupted", interruptedDraft, 3);
+  const interruptedApproved = store.approveContract({
+    idempotencyKey: "approve-interrupted",
+    runId: "run_interrupted",
+    contractId: interruptedDraft.contractId,
+    expectedVersion: interruptedReady.version,
+    approvedAt: "2026-07-14T00:05:00.000Z",
+  });
+  store.startExecution({
+    idempotencyKey: "start-interrupted",
+    runId: "run_interrupted",
+    contractId: interruptedDraft.contractId,
+    currentSnapshot: repositorySnapshot,
+    expectedVersion: interruptedApproved.run.version,
+    startedAt: "2026-07-14T00:06:00.000Z",
+  });
   store.close();
 
   store = open(paths);
@@ -157,6 +175,17 @@ test("AC-016: restart preserves paused/unapproved runs and recovers running to p
       error: store.getRun("run_interrupted").run.lastErrorCode,
     },
     { state: "paused", error: "CONTROLLER_RESTART" },
+  );
+  assert.throws(
+    () =>
+      store.approveContract({
+        idempotencyKey: "uncertain-reapproval",
+        runId: "run_interrupted",
+        contractId: interruptedDraft.contractId,
+        expectedVersion: store.getRun("run_interrupted").run.version,
+        approvedAt: "2026-07-14T00:10:00.000Z",
+      }),
+    (error) => error?.code === "INVALID_TRANSITION",
   );
   await controller.stop();
 
@@ -448,6 +477,120 @@ test("FR-016: timeout pauses safely, cancellation sets retention, and cleanup fa
     { status: "failed", error: "WORKTREE_CLEANUP_FAILED" },
   );
   await controller.stop();
+});
+
+test("FR-016: archived runs survive expiry while explicit and scheduled deletion remove private data", async () => {
+  const paths = await storage();
+  const store = open(paths);
+  const repositorySnapshot = snapshot();
+  store.createRun(
+    runRecord("run_retention", repositorySnapshot, {
+      state: "completed",
+      version: 7,
+      updatedAt: "2026-07-01T00:00:00.000Z",
+    }),
+    "2026-07-01T00:00:00.000Z",
+  );
+  store.saveSnapshot("run_retention", repositorySnapshot);
+  const controller = new LocalController({
+    store,
+    now: () => "2026-07-14T00:00:00.000Z",
+  });
+  controller.start();
+  try {
+    store.ingestEvent({
+      idempotencyKey: "retention-event-key",
+      runId: "run_retention",
+      eventType: "retention.fixture",
+      payload: { state: "completed" },
+      occurredAt: "2026-07-01T00:00:30.000Z",
+    });
+    controller.report({
+      runId: "run_retention",
+      report: {
+        reportVersion: 1,
+        runId: "run_retention",
+        state: "completed",
+        snapshotHash: repositorySnapshot.snapshotHash,
+        taskHash: repositorySnapshot.taskHash,
+        contractId: null,
+        contractHash: null,
+        threadIds: [],
+        modelIds: [],
+        decisions: [],
+        observedActions: [],
+        diffSummary: { changedPaths: [], withinContract: true, evidenceRefs: [] },
+        checks: [],
+        deviations: [],
+        remainingUnknowns: [],
+        generatedAt: "2026-07-01T00:01:00.000Z",
+      },
+    });
+    const stored = store.getReport("run_retention");
+    const artifactPath = join(paths.artifactRoot, stored.jsonArtifact.relativePath);
+    assert.equal((await stat(artifactPath)).isFile(), true);
+
+    assert.equal(controller.archive("run_retention").retention.pinned, true);
+    assert.deepEqual(controller.purgeExpired(), []);
+    assert.equal(store.getRun("run_retention").run.state, "completed");
+
+    assert.equal(controller.archive("run_retention", false).retention.pinned, false);
+    assert.deepEqual(controller.purgeExpired(), ["run_retention"]);
+    assert.throws(
+      () => store.getRun("run_retention"),
+      (error) => error instanceof PersistenceError && error.code === "NOT_FOUND",
+    );
+    assert.throws(
+      () => store.getSnapshot(repositorySnapshot.snapshotHash),
+      (error) => error instanceof PersistenceError && error.code === "NOT_FOUND",
+    );
+    await assert.rejects(stat(artifactPath), { code: "ENOENT" });
+
+    store.createRun(runRecord("run_retention_reuse", repositorySnapshot));
+    assert.equal(
+      store.ingestEvent({
+        idempotencyKey: "retention-event-key",
+        runId: "run_retention_reuse",
+        eventType: "retention.fixture",
+        payload: { state: "reused" },
+        occurredAt: "2026-07-14T00:00:01.000Z",
+      }).runId,
+      "run_retention_reuse",
+    );
+  } finally {
+    await controller.stop();
+  }
+});
+
+test("FR-016: deletion refuses active executions and pending worktrees", async () => {
+  const paths = await storage();
+  const store = open(paths);
+  const repositorySnapshot = snapshot();
+  store.createRun(
+    runRecord("run_delete_active", repositorySnapshot, { state: "running", version: 7 }),
+  );
+  assert.throws(
+    () => store.deleteRun("run_delete_active"),
+    (error) => error instanceof PersistenceError && error.code === "RUN_NOT_DELETABLE",
+  );
+
+  store.createRun(
+    runRecord("run_delete_pending", repositorySnapshot, { state: "paused", version: 7 }),
+  );
+  store.recordWorktree({
+    worktreeId: "worktree_delete_pending",
+    runId: "run_delete_pending",
+    kind: "execution",
+    path: "/tmp/prompt-tripwire-delete-pending",
+    branch: null,
+    snapshotHash: repositorySnapshot.snapshotHash,
+    createdAt: "2026-07-14T00:00:00.000Z",
+  });
+  assert.throws(
+    () => store.deleteRun("run_delete_pending"),
+    (error) => error instanceof PersistenceError && error.code === "RUN_NOT_DELETABLE",
+  );
+  store.close();
 });
 
 test("FR-001 fixture accepts task text and a UTF-8 task file", async () => {

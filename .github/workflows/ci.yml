@@ -69,5 +69,11 @@ jobs:
       - name: Check dependency licenses
         run: npm run check:licenses
 
+      - name: Check macOS security regression
+        run: npm run check:security
+
+      - name: Check P0 requirement traceability
+        run: npm run check:traceability
+
       - name: Check generated diff
         run: npm run check:diff

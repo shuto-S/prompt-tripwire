@@ -341,7 +341,7 @@ test("AC-019: controller timeout waits for cooperative cleanup before returning"
   assert.equal(cleaned, true);
 });
 
-test("AC-003/AC-004: material alternatives and unanimous risky effects become decisions", async () => {
+test("AC-003/AC-004 spec fixture: ambiguous account deletion becomes a decision", async () => {
   const plans = [
     plan("probe_1", { dataChanges: ["delete rejected records"] }),
     plan("probe_2", { dataChanges: ["delete rejected records"] }),
@@ -380,6 +380,41 @@ test("AC-003/AC-004: material alternatives and unanimous risky effects become de
   assert.match(rendered, /Evidence:/u);
   assert.match(rendered, /Required by policy: destructive_data/u);
   assert.doesNotMatch(rendered, /repositoryEvidence/u);
+});
+
+test("AC-003 spec fixture: API compatibility choice becomes a public API decision", async () => {
+  const plans = [
+    plan("probe_1", { publicApiChanges: ["Return the legacy response shape."] }),
+    plan("probe_2", { publicApiChanges: ["Return the new response shape."] }),
+    plan("probe_3", { publicApiChanges: ["Return the new response shape."] }),
+  ];
+  const content = divergenceContent(plans);
+  const base = content.divergences[0];
+  const apiDivergence = {
+    ...base,
+    subject: {
+      ...base.subject,
+      summary: "The public response shape is not agreed.",
+      affectedData: [],
+      affectedApis: ["FixtureClient.parse"],
+    },
+    suggestedQuestion: "Which public response shape should remain compatible?",
+  };
+  const result = await new PlanComparator(
+    new QueueTransport([response({ ...content, divergences: [apiDivergence] })]),
+  ).compare(compareInput(plans));
+  const review = normalizeReview({
+    candidate: result.candidate,
+    plans,
+    model: result.model,
+    reasoningEffort: result.reasoningEffort,
+    usage: result.usage,
+    degraded: false,
+  });
+  const decision = review.decisions.find((item) => item.category === "public_api");
+  assert.ok(decision);
+  assert.match(decision.question, /public response shape/u);
+  assert.equal(createReviewRound(review.decisions).executionAllowed, false);
 });
 
 test("AC-005/AC-007: equivalent safe plans produce an immutable approval preview", async () => {

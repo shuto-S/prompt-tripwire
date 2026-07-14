@@ -212,6 +212,19 @@ const MIGRATIONS = [
   CREATE INDEX execution_runs_run_idx ON execution_runs(run_id, created_at, execution_id);
   CREATE INDEX deviations_run_idx ON deviations(run_id, observed_at, deviation_id);
   `,
+  `
+  ALTER TABLE idempotency_keys
+    ADD COLUMN run_id TEXT REFERENCES runs(run_id) ON DELETE CASCADE;
+
+  UPDATE idempotency_keys
+  SET run_id = COALESCE(
+    json_extract(result_json, '$.runId'),
+    json_extract(result_json, '$.run.runId')
+  )
+  WHERE json_valid(result_json);
+
+  CREATE INDEX idempotency_keys_run_idx ON idempotency_keys(run_id);
+  `,
 ] as const;
 
 export function migrate(database: DatabaseSync, appliedAt: string): void {

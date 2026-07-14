@@ -66,6 +66,12 @@ export class PrivateArtifactStore {
     return content;
   }
 
+  remove(relativePath: string): void {
+    const path = resolve(this.root, relativePath);
+    assertContained(this.root, path);
+    rmSync(path, { force: true });
+  }
+
   private putSanitized(content: string, extension: "json" | "md"): ArtifactWrite {
     const hash = contentHash(content);
     const relativePath = join("sha256", hash.slice(0, 2), `${hash}.${extension}`);

@@ -38,6 +38,10 @@ Usage:
   tripwire report RUN_ID [--format json|markdown]
   tripwire cancel RUN_ID
   tripwire export RUN_ID --output PATH [--format json|markdown]
+  tripwire archive RUN_ID
+  tripwire unarchive RUN_ID
+  tripwire delete RUN_ID
+  tripwire purge-expired
 `;
 
 export interface CliIo {
@@ -350,6 +354,26 @@ export async function runCli(
         }
         controller.exportReport(runId, format, required(parsed.values.output, "--output"));
         io.stdout.write(`Exported sanitized ${format} report.\n`);
+        return 0;
+      }
+      case "archive":
+      case "unarchive": {
+        const runId = positional(positionals, 0, "RUN_ID");
+        const persisted = controller.archive(runId, command === "archive");
+        io.stdout.write(
+          `${command === "archive" ? "Archived" : "Unarchived"} ${persisted.run.runId}.\n`,
+        );
+        return 0;
+      }
+      case "delete": {
+        const runId = positional(positionals, 0, "RUN_ID");
+        controller.deleteRun(runId);
+        io.stdout.write(`Deleted ${runId}.\n`);
+        return 0;
+      }
+      case "purge-expired": {
+        const deleted = controller.purgeExpired();
+        io.stdout.write(`Deleted ${String(deleted.length)} expired run(s).\n`);
         return 0;
       }
       default:

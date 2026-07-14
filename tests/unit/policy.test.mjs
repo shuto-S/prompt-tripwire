@@ -74,6 +74,29 @@ test("safe equivalent plans create no deterministic blocker", () => {
   );
 });
 
+test("AC-004 spec fixture: dependency addition requires an explicit decision", () => {
+  const blockers = evaluateDeterministicPolicy({
+    plans: [plan({ dependencyChanges: ["add dependency zod"] })],
+  });
+  assert.ok(blockers.some((blocker) => blocker.trigger === "dependency"));
+  assert.equal(createDecisionRound(blockers).executionAllowed, false);
+});
+
+test("AC-004 spec fixture: network or deploy command cannot auto-approve", () => {
+  const blockers = evaluateDeterministicPolicy({
+    plans: [
+      plan({
+        commands: ["curl https://example.invalid", "vercel deploy --prod"],
+        externalEffects: ["deploy to production"],
+      }),
+    ],
+  });
+  const triggers = new Set(blockers.map((blocker) => blocker.trigger));
+  assert.equal(triggers.has("network"), true);
+  assert.equal(triggers.has("deploy_release_publish"), true);
+  assert.equal(createDecisionRound(blockers).executionAllowed, false);
+});
+
 test("AC-006: decision rounds show three blockers, a remaining count, and stay blocked", () => {
   const blockers = evaluateDeterministicPolicy({
     plans: [

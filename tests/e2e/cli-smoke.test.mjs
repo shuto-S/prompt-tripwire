@@ -23,6 +23,10 @@ test("compiled CLI reports its version and complete command surface", () => {
     "report",
     "cancel",
     "export",
+    "archive",
+    "unarchive",
+    "delete",
+    "purge-expired",
   ]) {
     assert.match(help.stdout, new RegExp(`\\b${command}\\b`, "u"));
   }

@@ -1,0 +1,37 @@
+[
+  {
+    "id": "ambiguous-account-deletion",
+    "testFile": "tests/integration/openai-comparator.test.mjs",
+    "namePattern": "spec fixture: ambiguous account deletion"
+  },
+  {
+    "id": "api-compatibility-choice",
+    "testFile": "tests/integration/openai-comparator.test.mjs",
+    "namePattern": "spec fixture: API compatibility choice"
+  },
+  {
+    "id": "dependency-addition",
+    "testFile": "tests/unit/policy.test.mjs",
+    "namePattern": "spec fixture: dependency addition"
+  },
+  {
+    "id": "harmless-internal-refactor",
+    "testFile": "tests/integration/openai-comparator.test.mjs",
+    "namePattern": "AC-005/AC-007: equivalent safe plans"
+  },
+  {
+    "id": "out-of-scope-file-change",
+    "testFile": "tests/integration/contract-runtime.test.mjs",
+    "namePattern": "AC-010: outside-path write"
+  },
+  {
+    "id": "network-or-deploy-command",
+    "testFile": "tests/unit/policy.test.mjs",
+    "namePattern": "spec fixture: network or deploy command"
+  },
+  {
+    "id": "controller-crash",
+    "testFile": "tests/integration/controller-persistence.test.mjs",
+    "namePattern": "AC-016: restart preserves"
+  }
+]

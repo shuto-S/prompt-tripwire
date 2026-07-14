@@ -126,6 +126,12 @@ This log separates confirmed product decisions from assumptions that still requi
 
 **Reason:** Guessing the scope of a pathless approval or treating raw shell prefixes as structured authority would violate fail-closed matching. Correlation to an already validated item preserves deterministic pre-approval without weakening fallback denial; repeated item/diff validation and disposable containment handle a changed or incomplete observation honestly. Sandboxed argv execution provides real check exit codes without granting a general shell or inheriting network authority.
 
+### D-021 — Make retention deletion explicit, reference-safe, and non-active
+
+**Decision:** Terminal runs receive a seven-day retention deadline, archive/unarchive maps to a pinned flag, and users can explicitly delete or purge expired runs. Idempotency rows carry the owning `run_id` and cascade with it. Run deletion also removes orphaned snapshots and private artifact files that have no remaining database reference. Deletion is refused for `running`/`pausing` runs and while any recorded worktree cleanup is pending. Secure SSD erasure is not claimed.
+
+**Reason:** A retention timestamp without a purge path does not satisfy deletion semantics, and deleting only the main run row could leave sensitive result JSON or content-addressed files behind. Conversely, deleting active state or shared artifacts would damage recovery and audit integrity. Run ownership plus reference checks makes the privacy behavior executable and testable.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage
