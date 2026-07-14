@@ -22,4 +22,10 @@ PromptTripwire uses npm workspaces and keeps the foundation toolchain developmen
 |---|---:|---|---|
 | `@openai/codex` | 0.144.4 | Apache-2.0 | Generate and verify the pinned normal App Server schema |
 
+## Direct runtime dependencies
+
+| Package | Version | License | Purpose |
+|---|---:|---|---|
+| `zod` | 4.4.3 | MIT | Strict runtime validation and inferred types for domain artifacts and persisted state |
+
 `npm run check:licenses` verifies that every installed lockfile package records a license and rejects GPL, AGPL, and SSPL dependencies. New runtime dependencies require the same review and a synchronized update to this file.
