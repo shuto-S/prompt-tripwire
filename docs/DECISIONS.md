@@ -84,6 +84,12 @@ This log separates confirmed product decisions from assumptions that still requi
 
 **Reason:** Node 24 is the supported judge baseline and npm workspaces avoid another package manager. TypeScript 7.0.2 was evaluated but rejected because the current `typescript-eslint` peer range ends below 6.1; forcing an unsupported dependency tree would weaken reproducibility.
 
+### D-014 — Keep filesystem resolution outside the pure policy matcher
+
+**Decision:** The policy package receives a requested path plus trusted symlink-resolution and case-ambiguity facts from the caller. Missing resolution evidence, absolute paths, parent traversal, case ambiguity, protected paths, raw shell commands, and unknown structured actions are denied.
+
+**Reason:** The deterministic policy layer must remain independent of filesystem and process access. Explicit evidence inputs preserve that boundary while preventing the matcher from treating an unresolved path or raw command prefix as safe.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage

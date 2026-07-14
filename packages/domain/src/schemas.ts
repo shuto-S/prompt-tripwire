@@ -224,14 +224,14 @@ export const NetworkPolicySchema = z
   .object({
     mode: z.enum(["deny", "allowlist"]),
     hosts: z.array(z.string().min(1)),
+    actions: z.array(z.enum(["read", "write"])),
   })
   .strict()
   .superRefine((value, context) => {
-    if (value.mode === "deny" && value.hosts.length > 0) {
+    if (value.mode === "deny" && (value.hosts.length > 0 || value.actions.length > 0)) {
       context.addIssue({
         code: "custom",
-        message: "deny mode cannot include hosts",
-        path: ["hosts"],
+        message: "deny mode cannot include hosts or actions",
       });
     }
   });

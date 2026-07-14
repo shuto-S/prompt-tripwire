@@ -62,7 +62,7 @@ function contractDraft(snapshot, overrides = {}) {
     protectedPaths: [".env"],
     allowedCommandClasses: ["test"],
     deniedCommandClasses: ["deploy"],
-    networkPolicy: { mode: "deny", hosts: [] },
+    networkPolicy: { mode: "deny", hosts: [], actions: [] },
     dependencyPolicy: { mode: "deny", allowed: [] },
     dataPolicy: { mode: "deny", allowed: [] },
     externalEffectPolicy: { mode: "deny", allowed: [] },
@@ -314,7 +314,13 @@ test("every semantic contract boundary changes the content hash", () => {
     { protectedPaths: ["docs/SECURITY.md"] },
     { allowedCommandClasses: ["build"] },
     { deniedCommandClasses: ["migration"] },
-    { networkPolicy: { mode: "allowlist", hosts: ["api.openai.com"] } },
+    {
+      networkPolicy: {
+        mode: "allowlist",
+        hosts: ["api.openai.com"],
+        actions: ["read"],
+      },
+    },
     { dependencyPolicy: { mode: "allowlist", allowed: ["zod"] } },
     { dataPolicy: { mode: "allowlist", allowed: ["local sqlite"] } },
     { externalEffectPolicy: { mode: "allowlist", allowed: ["issue comment"] } },
