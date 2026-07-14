@@ -78,6 +78,12 @@ This log separates confirmed product decisions from assumptions that still requi
 
 **Reason:** The live spike proved the required handshake, approvals, output schema, diff notifications, minimal child environment, and interruption. The umbrella command and generators are still labeled experimental, and granular approval requires the experimental capability despite appearing in the normal schema, so exact compatibility checks are required.
 
+### D-013 — Use the Node 24/npm workspace foundation
+
+**Decision:** Use Node.js 24 LTS, npm workspaces, TypeScript 6.0.3, built-in `node:test`, ESLint 10, and Prettier 3. Keep the foundation dependencies development-only and record their licenses.
+
+**Reason:** Node 24 is the supported judge baseline and npm workspaces avoid another package manager. TypeScript 7.0.2 was evaluated but rejected because the current `typescript-eslint` peer range ends below 6.1; forcing an unsupported dependency tree would weaken reproducibility.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage

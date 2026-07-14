@@ -51,6 +51,29 @@ After review, PromptTripwire creates a versioned execution contract. Codex runs 
 
 `docs/SPECIFICATION.md` is the authoritative product scope. The other documents provide implementation detail and evidence.
 
+## Development baseline
+
+Supported Build Week development baseline:
+
+- macOS on arm64;
+- Node.js 24 LTS (`.nvmrc` and `.node-version`);
+- npm 11 or newer, with npm 11.17.0 recorded in `packageManager`;
+- `codex-cli 0.144.4` with the pinned normal-schema hash.
+
+Install a clean checkout with one command:
+
+```sh
+npm ci
+```
+
+Run the complete local foundation verification:
+
+```sh
+npm run check
+```
+
+Individual entry points are available for `typecheck`, `lint`, `build`, `test:unit`, `test:integration`, `test:e2e`, `check:boundaries`, `check:versions`, `check:schema`, and `check:licenses`. CI runs the same checks on `macos-latest` and verifies that build/test steps leave no tracked or unignored artifacts.
+
 ## Build Week positioning
 
 - **Track:** Developer Tools
@@ -62,7 +85,7 @@ The project is being created during the OpenAI Build Week submission period. The
 
 ## Codex collaboration record
 
-Codex was used to research the current OpenAI integration surfaces, challenge the UI-first concept, define the local-first product boundary, draft the requirements and threat model, and review the specification for contradictions. The human product decisions made at this stage are recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
+Codex was used to research the current OpenAI integration surfaces, challenge the UI-first concept, define the local-first product boundary, draft the requirements and threat model, verify the App Server boundary, and establish the TypeScript/npm test foundation. The human product decisions made at this stage are recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
 
 Before submission, this section must be expanded with:
 

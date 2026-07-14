@@ -26,13 +26,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const REDACTED = "****";
 
 const REQUIRED_STABLE_METHODS = {
-  clientRequests: [
-    "initialize",
-    "thread/start",
-    "turn/start",
-    "turn/interrupt",
-    "command/exec",
-  ],
+  clientRequests: ["initialize", "thread/start", "turn/start", "turn/interrupt", "command/exec"],
   clientNotifications: ["initialized"],
   serverRequests: [
     "item/commandExecution/requestApproval",
@@ -70,9 +64,7 @@ function runCodex(args, options = {}) {
   });
 
   if (result.status !== 0) {
-    fail(
-      `codex ${args.join(" ")} failed (${result.status}): ${sanitizeText(result.stderr)}`,
-    );
+    fail(`codex ${args.join(" ")} failed (${result.status}): ${sanitizeText(result.stderr)}`);
   }
 
   return result.stdout.trim();
@@ -151,13 +143,7 @@ function inspectSchemas() {
 
   try {
     runCodex(["app-server", "generate-json-schema", "--out", stableDir]);
-    runCodex([
-      "app-server",
-      "generate-json-schema",
-      "--experimental",
-      "--out",
-      experimentalDir,
-    ]);
+    runCodex(["app-server", "generate-json-schema", "--experimental", "--out", experimentalDir]);
 
     const stable = {
       clientRequests: schemaMethods(join(stableDir, "ClientRequest.json")),
@@ -601,16 +587,14 @@ async function runCommandBoundaryChecks(client, fixtureRoot) {
     readOnlyWrite: write.rpcError || write.exitCode !== 0 ? "prevented" : "unexpectedlyAllowed",
     network: network.rpcError || network.exitCode !== 0 ? "prevented" : "unexpectedlyAllowed",
     canaryInherited: environment.stdout.includes("prompt-tripwire-canary"),
-    interpreterCommandExec: node.rpcError || node.exitCode !== 0 ? "prevented" : "notPreventedBySandbox",
-    packageManagerCommandExec: npm.rpcError || npm.exitCode !== 0 ? "prevented" : "notPreventedBySandbox",
+    interpreterCommandExec:
+      node.rpcError || node.exitCode !== 0 ? "prevented" : "notPreventedBySandbox",
+    packageManagerCommandExec:
+      npm.rpcError || npm.exitCode !== 0 ? "prevented" : "notPreventedBySandbox",
     buildCommandExec:
-      projectBuild.rpcError || projectBuild.exitCode !== 0
-        ? "prevented"
-        : "notPreventedBySandbox",
+      projectBuild.rpcError || projectBuild.exitCode !== 0 ? "prevented" : "notPreventedBySandbox",
     testCommandExec:
-      projectTest.rpcError || projectTest.exitCode !== 0
-        ? "prevented"
-        : "notPreventedBySandbox",
+      projectTest.rpcError || projectTest.exitCode !== 0 ? "prevented" : "notPreventedBySandbox",
   };
 }
 
@@ -685,8 +669,7 @@ async function runInterruptCheck(client, fixtureRoot) {
   const turnId = turnResult.turn.id;
   try {
     await client.waitFor(
-      (event) =>
-        event.method === "item/started" && event.item?.type === "commandExecution",
+      (event) => event.method === "item/started" && event.item?.type === "commandExecution",
       30_000,
     );
   } catch {
@@ -743,9 +726,7 @@ async function runDeclinedProbeChecks(client, fixtureRoot) {
     requestCounts[request.method] = (requestCounts[request.method] ?? 0) + 1;
   }
   const commandStatuses = client.notifications
-    .filter(
-      (event) => event.method === "item/completed" && event.item?.type === "commandExecution",
-    )
+    .filter((event) => event.method === "item/completed" && event.item?.type === "commandExecution")
     .map((event) => event.item.status);
 
   return {
@@ -961,10 +942,7 @@ async function runLiveChecks() {
     const interrupt = await runInterruptCheck(client, fixtureRoot);
     const declinedProbe = await runDeclinedProbeChecks(client, fixtureRoot);
     const containedWrite = await runContainedWriteObservation(client, fixtureRoot);
-    const acceptedContainedWrite = await runAcceptedContainedWriteObservation(
-      client,
-      fixtureRoot,
-    );
+    const acceptedContainedWrite = await runAcceptedContainedWriteObservation(client, fixtureRoot);
     const granularApprovalBoundary = await runGranularApprovalBoundary(client, fixtureRoot);
     const permissionRequest = await runPermissionRequestObservation(client, fixtureRoot);
     return {

@@ -1,0 +1,13 @@
+{
+  "name": "@prompt-tripwire/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "tripwire": "dist/index.js"
+  },
+  "exports": "./dist/index.js",
+  "files": [
+    "dist"
+  ]
+}

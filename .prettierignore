@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+generated
+artifacts
+playwright-report
+test-results
+.prompt-tripwire
+docs
+fixtures
+package-lock.json

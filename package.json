@@ -1,0 +1,43 @@
+{
+  "name": "prompt-tripwire",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first preflight and execution gate for Codex",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
+  },
+  "packageManager": "npm@11.17.0",
+  "scripts": {
+    "build": "tsc -b --pretty false",
+    "clean": "node scripts/clean.mjs",
+    "typecheck": "tsc -p tsconfig.typecheck.json --pretty false",
+    "lint": "eslint .",
+    "format": "prettier --write .github apps packages tests scripts package.json tsconfig.json tsconfig.base.json tsconfig.typecheck.json eslint.config.mjs .prettierrc.json",
+    "format:check": "prettier --check .github apps packages tests scripts package.json tsconfig.json tsconfig.base.json tsconfig.typecheck.json eslint.config.mjs .prettierrc.json",
+    "test": "node scripts/run-tests.mjs unit integration e2e",
+    "test:unit": "node scripts/run-tests.mjs unit",
+    "test:integration": "node scripts/run-tests.mjs integration",
+    "test:e2e": "node scripts/run-tests.mjs e2e",
+    "check": "node scripts/run-checks.mjs",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "check:versions": "node scripts/check-versions.mjs",
+    "check:schema": "node scripts/spikes/codex-app-server.mjs schema",
+    "check:licenses": "node scripts/check-licenses.mjs",
+    "check:diff": "node scripts/check-diff.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.13.3",
+    "eslint": "10.7.0",
+    "globals": "17.7.0",
+    "prettier": "3.9.5",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.64.0"
+  }
+}

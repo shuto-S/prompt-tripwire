@@ -5,5 +5,14 @@
 node_modules/
 dist/
 coverage/
+generated/
+artifacts/
+playwright-report/
+test-results/
+.cache/
+.tmp/
+*.tsbuildinfo
+*.sqlite
+*.sqlite-*
 .prompt-tripwire/
 *.log
