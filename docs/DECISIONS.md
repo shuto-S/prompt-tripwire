@@ -108,6 +108,12 @@ This log separates confirmed product decisions from assumptions that still requi
 
 **Reason:** Giving the model identity fields would let schema-valid output claim the wrong probe or snapshot. App Server 0.144.4 also reports some apparently read-only shell commands, including `pwd` and `sed`, as `unknown`; classifying those from raw text would contradict the fail-closed protocol boundary. Probe instructions therefore avoid command shapes that the pinned structured parser cannot identify. Completed command/file items and non-empty diffs remain independently monitored.
 
+### D-018 — Bind comparison identity locally and keep model failure in manual review
+
+**Decision:** Use the official OpenAI JavaScript SDK `responses.parse` with a Zod-derived Structured Output schema, `store: false`, no tools, and only the normalized task plus validated plan artifacts. The adapter binds comparison, snapshot, task, and plan identities after semantic evidence/probe validation. Refusal, invalid schema/reference, secret-like output, and timeout retry once; a second failure creates a deterministic unknown candidate and cannot produce an auto-approved contract. `gpt-5.6-terra` with low reasoning is provisional until the bounded Sol/Terra Responses API evaluation is run.
+
+**Reason:** Model-created identity and evidence references are untrusted. Persisting attempts and token usage supports auditability, while a deterministic manual-review fallback preserves useful plan/policy evidence without treating an unavailable comparator as consensus. The current runtime has no OpenAI API credential, so model quality/cost selection must remain explicitly unverified rather than inferred from Codex authentication or documentation alone.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage
@@ -128,7 +134,7 @@ Choose between a published npm CLI, signed standalone macOS binary/app, or both 
 
 ### A-005 — Exact model identifiers
 
-Discover models at runtime and record exact identifiers. Do not assume documentation examples are the submission configuration.
+**Resolution:** Real planning probes currently use the discovered `gpt-5.6-sol` identifier with low reasoning. The comparator records the exact Responses API model returned by the SDK. `gpt-5.6-terra`/low is a provisional default based on current official positioning; `npm run eval:comparator` performs a bounded Sol/Terra fixture comparison, but it was not run on 2026-07-14 because no OpenAI API credential was available. Do not present the provisional default as an empirical winner.
 
 ## Deferred scope
 

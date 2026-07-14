@@ -201,11 +201,26 @@ export class CodexAppServerClient {
         }),
       );
       turnId = turn.turn.id;
-      const state = await this.waitForTurn(
-        threadId,
-        turnId,
-        input.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS,
-      );
+      const wait = this.waitForTurn(threadId, turnId, input.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS);
+      const state =
+        input.signal === undefined
+          ? await wait
+          : await Promise.race([
+              wait,
+              new Promise<never>((_resolve, reject) => {
+                if (input.signal?.aborted === true) {
+                  reject(new AppServerError("PROBE_CANCELLED", "probe was cancelled"));
+                  return;
+                }
+                input.signal?.addEventListener(
+                  "abort",
+                  () => {
+                    reject(new AppServerError("PROBE_CANCELLED", "probe was cancelled"));
+                  },
+                  { once: true },
+                );
+              }),
+            ]);
       if (state.status !== "completed") {
         throw new AppServerError(
           "INVALID_PLAN_ARTIFACT",

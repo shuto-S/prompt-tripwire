@@ -9,6 +9,7 @@
       "@prompt-tripwire/controller": ["./apps/controller/src/index.ts"],
       "@prompt-tripwire/domain": ["./packages/domain/src/index.ts"],
       "@prompt-tripwire/git-snapshot": ["./packages/git-snapshot/src/index.ts"],
+      "@prompt-tripwire/openai-comparator": ["./packages/openai-comparator/src/index.ts"],
       "@prompt-tripwire/persistence": ["./packages/persistence/src/index.ts"],
       "@prompt-tripwire/policy": ["./packages/policy/src/index.ts"]
     },

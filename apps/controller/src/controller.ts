@@ -9,15 +9,20 @@ import {
   type RunReport,
 } from "@prompt-tripwire/domain";
 import { prepareRepositorySnapshot } from "@prompt-tripwire/git-snapshot";
+import { createContractPreview } from "@prompt-tripwire/openai-comparator";
 import { PersistenceError, type SqlitePersistence } from "@prompt-tripwire/persistence";
 
 import { ControllerError } from "./errors.js";
 import { withTimeout } from "./timeout.js";
 import type {
+  ApproveInput,
   ControllerOptions,
   ControllerStatus,
+  DecideInput,
+  DeferInput,
   InspectInput,
   ReportInput,
+  ReviewResult,
   RunInput,
 } from "./types.js";
 
@@ -317,6 +322,98 @@ export class LocalController {
       eventCount: this.store.listEvents(runId).length,
       hasReport,
     };
+  }
+
+  review(runId: string): ReviewResult {
+    this.assertStarted();
+    const run = this.store.getRun(runId).run;
+    return {
+      run,
+      decisions: this.store.listDecisionPoints(runId),
+      humanDecisions: this.store.listHumanDecisions(runId),
+      contract: run.activeContractId === null ? null : this.store.getContract(run.activeContractId),
+    };
+  }
+
+  decide(input: DecideInput): RunRecord {
+    this.assertStarted();
+    const decision = this.store
+      .listDecisionPoints(input.runId)
+      .find((item) => item.decisionId === input.decisionId);
+    if (decision === undefined) throw new PersistenceError("NOT_FOUND", "decision was not found");
+    const option =
+      input.selectedOptionId === null
+        ? null
+        : decision.options.find((item) => item.id === input.selectedOptionId);
+    if (input.selectedOptionId !== null && option === undefined) {
+      throw new TypeError("selected option does not belong to the decision");
+    }
+    if (option?.id.endsWith("_clarify") === true) {
+      throw new TypeError("clarification requires a concrete free-form decision");
+    }
+    const recorded = this.store.recordHumanDecision({
+      idempotencyKey: input.idempotencyKey,
+      runId: input.runId,
+      decision: {
+        decisionId: input.decisionId,
+        selectedOptionId: input.selectedOptionId,
+        freeformOverride: input.freeformOverride,
+        rationale: input.rationale ?? null,
+        expectedRunVersion: input.expectedVersion,
+        decidedAt: this.now(),
+      },
+    });
+    const observed = this.store.getRun(input.runId).run;
+    if (observed.version !== recorded.run.version || observed.state !== recorded.run.state) {
+      return observed;
+    }
+    if (option?.id.endsWith("_cancel") === true || option?.id.endsWith("_rerun") === true) {
+      return this.store.transitionRun(
+        input.runId,
+        "cancelled",
+        recorded.run.version,
+        this.now(),
+        "USER_CANCELLED",
+      );
+    }
+    if (recorded.run.blockingDecisionIds.length > 0) return recorded.run;
+    const comparison = this.store.getComparison(input.runId);
+    const plans = this.store.listPlanArtifacts(input.runId).map((item) => item.artifact);
+    const contract = createContractPreview({
+      runId: input.runId,
+      snapshot: this.store.getSnapshot(recorded.run.snapshotHash ?? ""),
+      plans,
+      comparison: comparison.candidate,
+      decisions: this.store.listDecisionPoints(input.runId),
+      humanDecisions: this.store.listHumanDecisions(input.runId),
+      comparatorModel: comparison.model,
+      createdAt: this.now(),
+    }).contract;
+    return this.store.saveContractAndReady(input.runId, contract, recorded.run.version, this.now());
+  }
+
+  defer(input: DeferInput): RunRecord {
+    this.assertStarted();
+    const deferred = this.store.deferDecision({
+      idempotencyKey: input.idempotencyKey,
+      runId: input.runId,
+      decisionId: input.decisionId,
+      expectedVersion: input.expectedVersion,
+      deferredAt: this.now(),
+    }).run;
+    const observed = this.store.getRun(input.runId).run;
+    return observed.version === deferred.version ? deferred : observed;
+  }
+
+  approve(input: ApproveInput): RunRecord {
+    this.assertStarted();
+    return this.store.approveContract({
+      idempotencyKey: input.idempotencyKey,
+      runId: input.runId,
+      contractId: input.contractId,
+      expectedVersion: input.expectedVersion,
+      approvedAt: this.now(),
+    }).run;
   }
 
   report(input: ReportInput): RunReport {

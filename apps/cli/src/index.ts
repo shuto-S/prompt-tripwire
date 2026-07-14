@@ -6,8 +6,17 @@ import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
 
-import { LocalController, renderTerminalStatus } from "@prompt-tripwire/controller";
-import { renderRunReportMarkdown, serializeRunReportJson } from "@prompt-tripwire/domain";
+import {
+  DefaultInspectionPort,
+  LocalController,
+  renderTerminalReview,
+  renderTerminalStatus,
+} from "@prompt-tripwire/controller";
+import {
+  canonicalHash,
+  renderRunReportMarkdown,
+  serializeRunReportJson,
+} from "@prompt-tripwire/domain";
 import { prepareRepositorySnapshot } from "@prompt-tripwire/git-snapshot";
 import { SqlitePersistence } from "@prompt-tripwire/persistence";
 
@@ -19,6 +28,9 @@ Usage:
   tripwire inspect --task TEXT [--repo PATH] [--dirty committed|include]
   tripwire inspect --task-file PATH [--repo PATH] [--dirty committed|include]
   tripwire review RUN_ID [--terminal]
+  tripwire review RUN_ID --decision DECISION_ID (--option OPTION_ID | --freeform TEXT | --defer)
+  tripwire review RUN_ID (--approve [--contract CONTRACT_ID] | --cancel)
+  tripwire approve RUN_ID [--contract CONTRACT_ID]
   tripwire run --contract CONTRACT_ID
   tripwire status RUN_ID
   tripwire report RUN_ID [--format json|markdown]
@@ -64,6 +76,19 @@ function positional(values: readonly string[], index: number, label: string): st
   return required(values[index], label);
 }
 
+function expectedVersion(value: string | undefined, fallback: number): number {
+  if (value === undefined) return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new TypeError("--expected-version must be a non-negative integer");
+  }
+  return parsed;
+}
+
+function mutationKey(kind: string, value: unknown): string {
+  return `cli:${kind}:${canonicalHash(value).slice(0, 32)}`;
+}
+
 export async function runCli(
   args: readonly string[],
   dependencies: CliDependencies = {},
@@ -74,11 +99,19 @@ export async function runCli(
     allowPositionals: true,
     strict: true,
     options: {
+      approve: { type: "boolean" },
+      cancel: { type: "boolean" },
       contract: { type: "string" },
+      decision: { type: "string" },
+      defer: { type: "boolean" },
       dirty: { type: "string" },
+      "expected-version": { type: "string" },
+      freeform: { type: "string" },
       format: { type: "string" },
       help: { type: "boolean", short: "h" },
+      option: { type: "string" },
       output: { type: "string" },
+      rationale: { type: "string" },
       repo: { type: "string" },
       task: { type: "string" },
       "task-file": { type: "string" },
@@ -100,7 +133,9 @@ export async function runCli(
     databasePath: join(dataRoot, "prompt-tripwire.sqlite3"),
     artifactRoot: join(dataRoot, "artifacts"),
   });
-  const controller = dependencies.createController?.(store) ?? new LocalController({ store });
+  const controller =
+    dependencies.createController?.(store) ??
+    new LocalController({ store, inspectionPort: new DefaultInspectionPort() });
   let started = false;
   try {
     controller.start();
@@ -127,7 +162,7 @@ export async function runCli(
         const run = await controller.inspect({
           repositoryPath: resolve(parsed.values.repo ?? dependencies.cwd ?? process.cwd()),
           task,
-          model: { id: "codex", reasoningEffort: "medium" },
+          model: { id: "gpt-5.6-sol", reasoningEffort: "low" },
           codexVersion: "0.144.4",
           promptTripwireVersion: CLI_FOUNDATION.version,
           ...(dirtyChoice === undefined ? {} : { dirtyChoice }),
@@ -135,7 +170,95 @@ export async function runCli(
         io.stdout.write(renderTerminalStatus(run, store.listEvents(run.runId)));
         return 0;
       }
-      case "review":
+      case "review": {
+        const runId = positional(positionals, 0, "RUN_ID");
+        let review = controller.review(runId);
+        const version = expectedVersion(parsed.values["expected-version"], review.run.version);
+        const mutationCount =
+          Number(parsed.values.approve === true) +
+          Number(parsed.values.cancel === true) +
+          Number(parsed.values.decision !== undefined);
+        if (mutationCount > 1) {
+          throw new TypeError("review accepts only one decision, approval, or cancellation");
+        }
+        if (parsed.values.cancel === true) {
+          await controller.cancel(runId);
+        } else if (parsed.values.approve === true) {
+          const contractId = required(
+            parsed.values.contract ?? review.run.activeContractId ?? undefined,
+            "--contract or active contract",
+          );
+          controller.approve({
+            runId,
+            contractId,
+            expectedVersion: version,
+            idempotencyKey: mutationKey("approve", { runId, contractId, version }),
+          });
+        } else if (parsed.values.decision !== undefined) {
+          const actionCount =
+            Number(parsed.values.option !== undefined) +
+            Number(parsed.values.freeform !== undefined) +
+            Number(parsed.values.defer === true);
+          if (actionCount !== 1) {
+            throw new TypeError(
+              "a decision requires exactly one of --option, --freeform, or --defer",
+            );
+          }
+          if (parsed.values.defer === true) {
+            controller.defer({
+              runId,
+              decisionId: parsed.values.decision,
+              expectedVersion: version,
+              idempotencyKey: mutationKey("defer", {
+                runId,
+                decisionId: parsed.values.decision,
+                version,
+              }),
+            });
+          } else {
+            const selectedOptionId = parsed.values.option ?? null;
+            const freeformOverride = parsed.values.freeform ?? null;
+            controller.decide({
+              runId,
+              decisionId: parsed.values.decision,
+              selectedOptionId,
+              freeformOverride,
+              rationale: parsed.values.rationale ?? null,
+              expectedVersion: version,
+              idempotencyKey: mutationKey("decision", {
+                runId,
+                decisionId: parsed.values.decision,
+                selectedOptionId,
+                freeformOverride,
+                rationale: parsed.values.rationale ?? null,
+                version,
+              }),
+            });
+          }
+        } else if (parsed.values.defer === true) {
+          throw new TypeError("--defer requires --decision");
+        }
+        review = controller.review(runId);
+        io.stdout.write(renderTerminalReview(review.run, review.decisions, review.contract));
+        return 0;
+      }
+      case "approve": {
+        const runId = positional(positionals, 0, "RUN_ID");
+        const review = controller.review(runId);
+        const contractId = required(
+          parsed.values.contract ?? review.run.activeContractId ?? undefined,
+          "--contract or active contract",
+        );
+        const version = expectedVersion(parsed.values["expected-version"], review.run.version);
+        const run = controller.approve({
+          runId,
+          contractId,
+          expectedVersion: version,
+          idempotencyKey: mutationKey("approve", { runId, contractId, version }),
+        });
+        io.stdout.write(renderTerminalStatus(run, store.listEvents(runId)));
+        return 0;
+      }
       case "status": {
         const runId = positional(positionals, 0, "RUN_ID");
         const status = controller.status(runId);

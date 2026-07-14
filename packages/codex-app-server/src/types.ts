@@ -52,6 +52,7 @@ export interface PlanProbeInput {
   readonly model: string;
   readonly reasoningEffort: string;
   readonly timeoutMs?: number;
+  readonly signal?: AbortSignal;
 }
 
 export interface PlanProbeResult {
@@ -66,7 +67,7 @@ export interface PlanProbeResult {
 export interface ProbeAttemptResult {
   readonly probeId: string;
   readonly attempt: number;
-  readonly state: "completed" | "failed" | "timed_out";
+  readonly state: "completed" | "failed" | "timed_out" | "cancelled";
   readonly threadId: string | null;
   readonly artifact: PlanArtifact | null;
   readonly errorCode: string | null;
@@ -101,4 +102,5 @@ export interface RunProbeBatchInput {
   readonly temporaryParent?: string;
   readonly probeCount?: 1 | 2 | 3;
   readonly maxAttempts?: 1 | 2;
+  readonly signal?: AbortSignal;
 }

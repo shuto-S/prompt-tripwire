@@ -141,6 +141,13 @@ export const ComparisonCandidateSchema = z
   })
   .strict();
 
+export const ComparisonCandidateContentSchema = ComparisonCandidateSchema.omit({
+  comparisonId: true,
+  snapshotHash: true,
+  taskHash: true,
+  planIds: true,
+});
+
 export const DecisionCategorySchema = z.enum([
   "destructive",
   "production",
@@ -485,7 +492,13 @@ export type RepositorySnapshotInput = z.infer<typeof RepositorySnapshotInputSche
 export type RepositoryEvidence = z.infer<typeof RepositoryEvidenceSchema>;
 export type PlanArtifact = z.infer<typeof PlanArtifactSchema>;
 export type PlanArtifactContent = z.infer<typeof PlanArtifactContentSchema>;
+export type ComparisonSubject = z.infer<typeof ComparisonSubjectSchema>;
+export type ComparisonAlternative = z.infer<typeof ComparisonAlternativeSchema>;
+export type ComparisonDivergence = z.infer<typeof ComparisonDivergenceSchema>;
 export type ComparisonCandidate = z.infer<typeof ComparisonCandidateSchema>;
+export type ComparisonCandidateContent = z.infer<typeof ComparisonCandidateContentSchema>;
+export type DecisionCategory = z.infer<typeof DecisionCategorySchema>;
+export type DecisionOption = z.infer<typeof DecisionOptionSchema>;
 export type DecisionPoint = z.infer<typeof DecisionPointSchema>;
 export type HumanDecision = z.infer<typeof HumanDecisionSchema>;
 export type ExecutionContract = z.infer<typeof ExecutionContractSchema>;

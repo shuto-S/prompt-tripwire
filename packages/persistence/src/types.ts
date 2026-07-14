@@ -1,5 +1,9 @@
 import type {
+  ComparisonCandidate,
+  DecisionPoint,
   ExecutionContract,
+  HumanDecision,
+  PlanArtifact,
   RepositorySnapshot,
   RunRecord,
   RunReport,
@@ -113,6 +117,88 @@ export interface StoredReport {
   readonly report: RunReport;
   readonly jsonArtifact: ArtifactMetadata;
   readonly markdownArtifact: ArtifactMetadata;
+}
+
+export interface ProbeRunRecordInput {
+  readonly runId: string;
+  readonly probeId: string;
+  readonly attempt: number;
+  readonly threadId: string | null;
+  readonly state: "completed" | "failed" | "timed_out" | "cancelled";
+  readonly errorCode: string | null;
+  readonly worktreeId: string | null;
+  readonly createdAt: string;
+}
+
+export interface ComparatorUsageRecord {
+  readonly inputTokens: number | null;
+  readonly outputTokens: number | null;
+  readonly totalTokens: number | null;
+  readonly reasoningTokens: number | null;
+}
+
+export interface ComparatorAttemptRecordInput {
+  readonly attempt: number;
+  readonly state: "completed" | "failed" | "refused" | "timed_out" | "cancelled";
+  readonly responseId: string | null;
+  readonly model: string;
+  readonly errorCode: string | null;
+  readonly usage: ComparatorUsageRecord;
+}
+
+export interface SaveComparisonInput {
+  readonly runId: string;
+  readonly candidate: ComparisonCandidate;
+  readonly model: string;
+  readonly reasoningEffort: string;
+  readonly attempts: readonly ComparatorAttemptRecordInput[];
+  readonly createdAt: string;
+}
+
+export interface PersistedComparison {
+  readonly candidate: ComparisonCandidate;
+  readonly model: string;
+  readonly reasoningEffort: string;
+  readonly attempts: readonly ComparatorAttemptRecordInput[];
+  readonly createdAt: string;
+}
+
+export interface SaveDecisionPointsInput {
+  readonly runId: string;
+  readonly comparisonId: string;
+  readonly decisions: readonly DecisionPoint[];
+  readonly createdAt: string;
+}
+
+export interface RecordHumanDecisionInput {
+  readonly idempotencyKey: string;
+  readonly runId: string;
+  readonly decision: HumanDecision;
+}
+
+export interface RecordHumanDecisionResult {
+  readonly run: RunRecord;
+  readonly decision: DecisionPoint;
+  readonly humanDecision: HumanDecision;
+}
+
+export interface DeferDecisionInput {
+  readonly idempotencyKey: string;
+  readonly runId: string;
+  readonly decisionId: string;
+  readonly expectedVersion: number;
+  readonly deferredAt: string;
+}
+
+export interface DeferDecisionResult {
+  readonly run: RunRecord;
+  readonly decision: DecisionPoint;
+}
+
+export interface PersistedPlanArtifact {
+  readonly runId: string;
+  readonly artifact: PlanArtifact;
+  readonly createdAt: string;
 }
 
 export interface PersistenceOptions {

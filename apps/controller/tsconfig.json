@@ -9,6 +9,9 @@
   "include": ["src/**/*.ts"],
   "references": [
     {
+      "path": "../../packages/codex-app-server"
+    },
+    {
       "path": "../../packages/domain"
     },
     {
@@ -16,6 +19,9 @@
     },
     {
       "path": "../../packages/persistence"
+    },
+    {
+      "path": "../../packages/openai-comparator"
     }
   ]
 }

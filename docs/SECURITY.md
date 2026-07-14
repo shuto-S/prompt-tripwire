@@ -95,6 +95,8 @@ Pattern matching is a backstop, not proof that a file is safe. Before export and
 
 Credentials are read from the user's existing Codex/OpenAI setup at runtime. PromptTripwire does not provide a settings screen that stores API keys in the MVP.
 
+The Responses comparator uses the official SDK with `store: false` and receives no tools. Only task text and already validated/sanitized plan artifacts are sent. Structured comparison output is rejected if deterministic sanitization would alter it, so secret-like model output cannot be persisted under a content hash. Model refusal, invalid references, timeout, or missing API credentials never infer approval and never fall back to extracting credentials from Codex configuration.
+
 ## 7. Network and external tools
 
 Network is denied by default in both planning and execution. A request to enable it is a blocking decision that must state:

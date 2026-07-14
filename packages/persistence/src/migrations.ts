@@ -111,6 +111,78 @@ const MIGRATIONS = [
     created_at TEXT NOT NULL
   ) STRICT;
   `,
+  `
+  CREATE TABLE probe_runs (
+    run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+    probe_id TEXT NOT NULL,
+    attempt INTEGER NOT NULL CHECK (attempt > 0),
+    thread_id TEXT,
+    state TEXT NOT NULL CHECK (state IN ('completed', 'failed', 'timed_out', 'cancelled')),
+    error_code TEXT,
+    worktree_id TEXT REFERENCES worktrees(worktree_id),
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(run_id, probe_id, attempt)
+  ) STRICT;
+
+  CREATE TABLE plan_artifacts (
+    run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+    probe_id TEXT NOT NULL,
+    thread_id TEXT NOT NULL,
+    snapshot_hash TEXT NOT NULL REFERENCES snapshots(snapshot_hash),
+    task_hash TEXT NOT NULL,
+    record_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(run_id, probe_id)
+  ) STRICT;
+
+  CREATE TABLE comparison_candidates (
+    comparison_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL UNIQUE REFERENCES runs(run_id) ON DELETE CASCADE,
+    snapshot_hash TEXT NOT NULL REFERENCES snapshots(snapshot_hash),
+    task_hash TEXT NOT NULL,
+    model TEXT NOT NULL,
+    reasoning_effort TEXT NOT NULL,
+    record_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  ) STRICT;
+
+  CREATE TABLE comparator_attempts (
+    run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+    attempt INTEGER NOT NULL CHECK (attempt > 0),
+    comparison_id TEXT REFERENCES comparison_candidates(comparison_id),
+    state TEXT NOT NULL CHECK (state IN ('completed', 'failed', 'refused', 'timed_out', 'cancelled')),
+    response_id TEXT,
+    model TEXT NOT NULL,
+    error_code TEXT,
+    usage_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(run_id, attempt)
+  ) STRICT;
+
+  CREATE TABLE decision_points (
+    run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+    decision_id TEXT NOT NULL,
+    comparison_id TEXT NOT NULL REFERENCES comparison_candidates(comparison_id),
+    status TEXT NOT NULL CHECK (status IN ('unresolved', 'resolved', 'deferred')),
+    record_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(run_id, decision_id)
+  ) STRICT;
+
+  CREATE TABLE human_decisions (
+    run_id TEXT NOT NULL,
+    decision_id TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL UNIQUE REFERENCES idempotency_keys(idempotency_key),
+    record_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(run_id, decision_id),
+    FOREIGN KEY(run_id, decision_id) REFERENCES decision_points(run_id, decision_id) ON DELETE CASCADE
+  ) STRICT;
+
+  CREATE INDEX probe_runs_run_idx ON probe_runs(run_id, probe_id, attempt);
+  CREATE INDEX decision_points_run_status_idx ON decision_points(run_id, status, decision_id);
+  `,
 ] as const;
 
 export function migrate(database: DatabaseSync, appliedAt: string): void {

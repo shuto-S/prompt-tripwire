@@ -97,6 +97,9 @@ The intended command surface is:
 tripwire inspect --task "..." [--repo PATH]
 tripwire inspect --task-file issue.md [--repo PATH]
 tripwire review RUN_ID [--terminal]
+tripwire review RUN_ID --decision DECISION_ID (--option OPTION_ID | --freeform TEXT | --defer)
+tripwire review RUN_ID (--approve [--contract CONTRACT_ID] | --cancel)
+tripwire approve RUN_ID [--contract CONTRACT_ID]
 tripwire run --contract CONTRACT_ID
 tripwire status RUN_ID
 tripwire report RUN_ID [--format json|markdown]

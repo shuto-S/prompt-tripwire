@@ -1,6 +1,6 @@
 # Architecture and protocols
 
-Status: Implementation baseline; App Server 0.144.4 spike verified
+Status: Implementation baseline; App Server 0.144.4 probes and terminal comparison slice verified
 
 Date: 2026-07-14
 
@@ -25,7 +25,7 @@ Official references:
 
 ## 2. Proposed technology stack
 
-These choices are specifications, not installed dependencies.
+These choices describe the installed implementation baseline; browser UI dependencies remain pending.
 
 | Area | Choice | Reason |
 |---|---|---|
@@ -80,6 +80,8 @@ Starts three independent threads with identical inputs and read-only policies, c
 ### GPT-5.6 comparator
 
 Sends only task metadata and validated plan artifacts to the Responses API, requests strict Structured Outputs, handles refusals and retries, and returns an untrusted `ComparisonCandidate`.
+
+The current adapter uses the official JavaScript SDK `responses.parse`, Zod-derived output formatting, `store: false`, no tools, and an abort signal. It validates every evidence and probe reference, rejects secret-like output before binding a content-addressed comparison identity, and records sanitized attempt/usage metadata. After two refusal/schema/timeout failures it creates an explicit unknown candidate for deterministic manual review; it never treats comparator unavailability as consensus.
 
 ### Deterministic policy engine
 
@@ -223,6 +225,7 @@ Conceptual tables:
 - `probe_runs`
 - `plan_artifacts`
 - `comparison_candidates`
+- `comparator_attempts`
 - `decision_points`
 - `human_decisions`
 - `contracts`

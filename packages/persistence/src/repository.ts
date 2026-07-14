@@ -6,7 +6,11 @@ import { DatabaseSync } from "node:sqlite";
 import {
   approveExecutionContract,
   canonicalHash,
+  ComparisonCandidateSchema,
+  DecisionPointSchema,
   ExecutionContractSchema,
+  HumanDecisionSchema,
+  PlanArtifactSchema,
   renderRunReportMarkdown,
   RepositorySnapshotSchema,
   RunRecordSchema,
@@ -16,6 +20,9 @@ import {
   verifyExecutionContract,
   verifyRepositorySnapshot,
   type ExecutionContract,
+  type DecisionPoint,
+  type HumanDecision,
+  type PlanArtifact,
   type RepositorySnapshot,
   type RunRecord,
   type RunReport,
@@ -31,10 +38,20 @@ import type {
   ApprovalInput,
   ApprovalResult,
   ArtifactMetadata,
+  ComparatorAttemptRecordInput,
+  DeferDecisionInput,
+  DeferDecisionResult,
   IngestEventInput,
+  PersistedComparison,
+  PersistedPlanArtifact,
   PersistedRun,
   PersistedWorktree,
   PersistenceOptions,
+  ProbeRunRecordInput,
+  RecordHumanDecisionInput,
+  RecordHumanDecisionResult,
+  SaveComparisonInput,
+  SaveDecisionPointsInput,
   StartExecutionPersistenceInput,
   StartExecutionPersistenceResult,
   StoredEvent,
@@ -89,6 +106,44 @@ interface LogRow {
   readonly created_at: string;
 }
 
+interface PlanArtifactRow {
+  readonly run_id: string;
+  readonly record_json: string;
+  readonly created_at: string;
+}
+
+interface ComparisonRow {
+  readonly comparison_id: string;
+  readonly record_json: string;
+  readonly model: string;
+  readonly reasoning_effort: string;
+  readonly created_at: string;
+}
+
+interface ComparatorAttemptRow {
+  readonly attempt: number;
+  readonly state: ComparatorAttemptRecordInput["state"];
+  readonly response_id: string | null;
+  readonly model: string;
+  readonly error_code: string | null;
+  readonly usage_json: string;
+}
+
+interface DecisionPointRow {
+  readonly record_json: string;
+}
+
+interface ProbeRunRow {
+  readonly run_id: string;
+  readonly probe_id: string;
+  readonly attempt: number;
+  readonly thread_id: string | null;
+  readonly state: ProbeRunRecordInput["state"];
+  readonly error_code: string | null;
+  readonly worktree_id: string | null;
+  readonly created_at: string;
+}
+
 const TERMINAL_RETENTION_STATES = new Set<RunState>(["completed", "failed", "cancelled"]);
 const DEFAULT_RETENTION_MILLISECONDS = 7 * 24 * 60 * 60 * 1_000;
 const NO_OMITTED_FINGERPRINT_KEYS = new Set<string>();
@@ -103,6 +158,41 @@ function parseJson(value: string, label: string): unknown {
   } catch (error) {
     throw new PersistenceError("DATABASE_CORRUPTION", `invalid ${label} JSON`, { cause: error });
   }
+}
+
+function sanitizeStructured(value: unknown, label: string): unknown {
+  const sanitized = sanitizeForExport(value);
+  if (!sanitized.allowed) {
+    throw new PersistenceError("REDACTION_FAILED", `${label}: ${sanitized.reason}`);
+  }
+  return sanitized.value;
+}
+
+function validateComparatorAttempt(
+  value: ComparatorAttemptRecordInput,
+): ComparatorAttemptRecordInput {
+  if (!Number.isInteger(value.attempt) || value.attempt < 1) {
+    throw new TypeError("comparator attempt must be a positive integer");
+  }
+  if (
+    !(["completed", "failed", "refused", "timed_out", "cancelled"] as const).includes(value.state)
+  ) {
+    throw new TypeError("invalid comparator attempt state");
+  }
+  if (value.model.length === 0) throw new TypeError("comparator model is required");
+  for (const count of Object.values(value.usage)) {
+    if (count !== null && (!Number.isInteger(count) || count < 0)) {
+      throw new TypeError("comparator usage counts must be non-negative integers or null");
+    }
+  }
+  return {
+    attempt: value.attempt,
+    state: value.state,
+    responseId: value.responseId,
+    model: value.model,
+    errorCode: value.errorCode,
+    usage: { ...value.usage },
+  };
 }
 
 function validateIdentifier(value: string, label: string): void {
@@ -316,6 +406,426 @@ export class SqlitePersistence {
       throw new PersistenceError("DATABASE_CORRUPTION", "stored snapshot content hash is invalid");
     }
     return snapshot;
+  }
+
+  recordProbeRun(input: ProbeRunRecordInput): void {
+    this.getRun(input.runId);
+    validateIdentifier(input.probeId, "probeId");
+    if (!Number.isInteger(input.attempt) || input.attempt < 1) {
+      throw new TypeError("probe attempt must be a positive integer");
+    }
+    this.database
+      .prepare(
+        `INSERT INTO probe_runs(
+          run_id, probe_id, attempt, thread_id, state, error_code, worktree_id, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        input.runId,
+        input.probeId,
+        input.attempt,
+        input.threadId,
+        input.state,
+        input.errorCode,
+        input.worktreeId,
+        input.createdAt,
+      );
+  }
+
+  listProbeRuns(runId: string): ProbeRunRecordInput[] {
+    this.getRun(runId);
+    const rows = this.database
+      .prepare(
+        `SELECT run_id, probe_id, attempt, thread_id, state, error_code, worktree_id, created_at
+         FROM probe_runs WHERE run_id = ? ORDER BY probe_id, attempt`,
+      )
+      .all(runId) as unknown as ProbeRunRow[];
+    return rows.map((row) => ({
+      runId: row.run_id,
+      probeId: row.probe_id,
+      attempt: row.attempt,
+      threadId: row.thread_id,
+      state: row.state,
+      errorCode: row.error_code,
+      worktreeId: row.worktree_id,
+      createdAt: row.created_at,
+    }));
+  }
+
+  savePlanArtifact(
+    runId: string,
+    artifact: PlanArtifact,
+    createdAt = this.now(),
+  ): PersistedPlanArtifact {
+    const parsed = PlanArtifactSchema.parse(sanitizeStructured(artifact, "plan artifact"));
+    const run = this.getRun(runId).run;
+    if (run.snapshotHash !== parsed.snapshotHash || run.taskHash !== parsed.taskHash) {
+      throw new PersistenceError(
+        "DATABASE_CORRUPTION",
+        "plan artifact does not match the run snapshot and task",
+      );
+    }
+    this.getSnapshot(parsed.snapshotHash);
+    this.database
+      .prepare(
+        `INSERT INTO plan_artifacts(
+          run_id, probe_id, thread_id, snapshot_hash, task_hash, record_json, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        runId,
+        parsed.probeId,
+        parsed.threadId,
+        parsed.snapshotHash,
+        parsed.taskHash,
+        JSON.stringify(parsed),
+        createdAt,
+      );
+    return { runId, artifact: parsed, createdAt };
+  }
+
+  listPlanArtifacts(runId: string): PersistedPlanArtifact[] {
+    this.getRun(runId);
+    const rows = this.database
+      .prepare(
+        `SELECT run_id, record_json, created_at FROM plan_artifacts
+         WHERE run_id = ? ORDER BY probe_id`,
+      )
+      .all(runId) as unknown as PlanArtifactRow[];
+    return rows.map((row) => ({
+      runId: row.run_id,
+      artifact: PlanArtifactSchema.parse(parseJson(row.record_json, "plan artifact")),
+      createdAt: row.created_at,
+    }));
+  }
+
+  saveComparison(input: SaveComparisonInput): PersistedComparison {
+    const candidate = ComparisonCandidateSchema.parse(input.candidate);
+    const safe = sanitizeForExport(candidate);
+    if (!safe.allowed || safe.redactionCount > 0) {
+      throw new PersistenceError(
+        "REDACTION_FAILED",
+        "comparison candidate contained secret-like or unsupported content",
+      );
+    }
+    const run = this.getRun(input.runId).run;
+    if (run.snapshotHash !== candidate.snapshotHash || run.taskHash !== candidate.taskHash) {
+      throw new PersistenceError(
+        "DATABASE_CORRUPTION",
+        "comparison candidate does not match the run snapshot and task",
+      );
+    }
+    const planIds = this.listPlanArtifacts(input.runId)
+      .map((item) => item.artifact.probeId)
+      .sort();
+    if (canonicalHash(planIds) !== canonicalHash([...candidate.planIds].sort())) {
+      throw new PersistenceError(
+        "DATABASE_CORRUPTION",
+        "comparison candidate does not reference every persisted plan",
+      );
+    }
+    if (input.model.length === 0 || input.reasoningEffort.length === 0) {
+      throw new TypeError("comparator model and reasoning effort are required");
+    }
+    const attempts = input.attempts.map(validateComparatorAttempt);
+    if (
+      attempts.length === 0 ||
+      new Set(attempts.map((item) => item.attempt)).size !== attempts.length
+    ) {
+      throw new TypeError("comparison attempts must be non-empty and unique");
+    }
+    this.transaction(() => {
+      this.database
+        .prepare(
+          `INSERT INTO comparison_candidates(
+            comparison_id, run_id, snapshot_hash, task_hash, model, reasoning_effort,
+            record_json, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          candidate.comparisonId,
+          input.runId,
+          candidate.snapshotHash,
+          candidate.taskHash,
+          input.model,
+          input.reasoningEffort,
+          JSON.stringify(candidate),
+          input.createdAt,
+        );
+      const statement = this.database.prepare(
+        `INSERT INTO comparator_attempts(
+          run_id, attempt, comparison_id, state, response_id, model, error_code,
+          usage_json, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      for (const attempt of attempts) {
+        statement.run(
+          input.runId,
+          attempt.attempt,
+          candidate.comparisonId,
+          attempt.state,
+          attempt.responseId,
+          attempt.model,
+          attempt.errorCode,
+          JSON.stringify(attempt.usage),
+          input.createdAt,
+        );
+      }
+    });
+    return {
+      candidate,
+      model: input.model,
+      reasoningEffort: input.reasoningEffort,
+      attempts,
+      createdAt: input.createdAt,
+    };
+  }
+
+  getComparison(runId: string): PersistedComparison {
+    this.getRun(runId);
+    const row = this.database
+      .prepare(
+        `SELECT comparison_id, record_json, model, reasoning_effort, created_at
+         FROM comparison_candidates WHERE run_id = ?`,
+      )
+      .get(runId) as ComparisonRow | undefined;
+    if (!row) throw new PersistenceError("NOT_FOUND", `comparison for run ${runId} was not found`);
+    const attempts = this.database
+      .prepare(
+        `SELECT attempt, state, response_id, model, error_code, usage_json
+         FROM comparator_attempts WHERE run_id = ? ORDER BY attempt`,
+      )
+      .all(runId) as unknown as ComparatorAttemptRow[];
+    return {
+      candidate: ComparisonCandidateSchema.parse(parseJson(row.record_json, "comparison")),
+      model: row.model,
+      reasoningEffort: row.reasoning_effort,
+      attempts: attempts.map((attempt) =>
+        validateComparatorAttempt({
+          attempt: attempt.attempt,
+          state: attempt.state,
+          responseId: attempt.response_id,
+          model: attempt.model,
+          errorCode: attempt.error_code,
+          usage: parseJson(
+            attempt.usage_json,
+            "comparator usage",
+          ) as ComparatorAttemptRecordInput["usage"],
+        }),
+      ),
+      createdAt: row.created_at,
+    };
+  }
+
+  saveDecisionPoints(input: SaveDecisionPointsInput): DecisionPoint[] {
+    const comparison = this.getComparison(input.runId);
+    if (comparison.candidate.comparisonId !== input.comparisonId) {
+      throw new PersistenceError("DATABASE_CORRUPTION", "decisions reference another comparison");
+    }
+    const decisions = input.decisions.map((decision) =>
+      DecisionPointSchema.parse(sanitizeStructured(decision, "decision point")),
+    );
+    if (new Set(decisions.map((decision) => decision.decisionId)).size !== decisions.length) {
+      throw new TypeError("decision IDs must be unique");
+    }
+    this.transaction(() => {
+      const statement = this.database.prepare(
+        `INSERT INTO decision_points(
+          run_id, decision_id, comparison_id, status, record_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      );
+      for (const decision of decisions) {
+        statement.run(
+          input.runId,
+          decision.decisionId,
+          input.comparisonId,
+          decision.status,
+          JSON.stringify(decision),
+          input.createdAt,
+          input.createdAt,
+        );
+      }
+    });
+    return decisions;
+  }
+
+  listDecisionPoints(runId: string): DecisionPoint[] {
+    this.getRun(runId);
+    const rows = this.database
+      .prepare(
+        `SELECT record_json FROM decision_points
+         WHERE run_id = ? ORDER BY decision_id`,
+      )
+      .all(runId) as unknown as DecisionPointRow[];
+    return rows.map((row) =>
+      DecisionPointSchema.parse(parseJson(row.record_json, "decision point")),
+    );
+  }
+
+  recordHumanDecision(input: RecordHumanDecisionInput): RecordHumanDecisionResult {
+    validateIdentifier(input.idempotencyKey, "idempotencyKey");
+    const humanDecision = HumanDecisionSchema.parse(
+      sanitizeStructured(input.decision, "human decision"),
+    );
+    const operation = "record_human_decision";
+    const requestHash = requestFingerprint({
+      runId: input.runId,
+      decision: humanDecision,
+    });
+    return this.transaction(() => {
+      const prior = this.idempotentResult(input.idempotencyKey, operation, requestHash);
+      if (prior !== null)
+        return this.parseHumanDecisionResult(parseJson(prior, "human decision result"));
+      const current = this.getRun(input.runId).run;
+      if (current.state !== "needs_review") {
+        throw new PersistenceError("CONFLICTING_VERSION", "run is not awaiting human review");
+      }
+      if (current.version !== humanDecision.expectedRunVersion) {
+        throw new PersistenceError(
+          "CONFLICTING_VERSION",
+          `run ${input.runId} no longer has version ${String(humanDecision.expectedRunVersion)}`,
+        );
+      }
+      const row = this.database
+        .prepare("SELECT record_json FROM decision_points WHERE run_id = ? AND decision_id = ?")
+        .get(input.runId, humanDecision.decisionId) as DecisionPointRow | undefined;
+      if (!row) {
+        throw new PersistenceError(
+          "NOT_FOUND",
+          `decision ${humanDecision.decisionId} was not found`,
+        );
+      }
+      const decision = DecisionPointSchema.parse(parseJson(row.record_json, "decision point"));
+      if (decision.status === "resolved") {
+        throw new PersistenceError("CONFLICTING_VERSION", "decision was already resolved");
+      }
+      if (
+        humanDecision.selectedOptionId !== null &&
+        !decision.options.some((option) => option.id === humanDecision.selectedOptionId)
+      ) {
+        throw new TypeError("selected option does not belong to the decision");
+      }
+      if (humanDecision.freeformOverride !== null && !decision.freeformAllowed) {
+        throw new TypeError("free-form override is not allowed for the decision");
+      }
+      const resolved = DecisionPointSchema.parse({ ...decision, status: "resolved" });
+      const next = RunRecordSchema.parse({
+        ...current,
+        version: current.version + 1,
+        blockingDecisionIds: current.blockingDecisionIds.filter(
+          (decisionId) => decisionId !== decision.decisionId,
+        ),
+        updatedAt: humanDecision.decidedAt,
+      });
+      const result = { run: next, decision: resolved, humanDecision };
+      this.insertIdempotency(
+        input.idempotencyKey,
+        operation,
+        requestHash,
+        JSON.stringify(result),
+        humanDecision.decidedAt,
+      );
+      this.database
+        .prepare(
+          `INSERT INTO human_decisions(
+            run_id, decision_id, idempotency_key, record_json, created_at
+          ) VALUES (?, ?, ?, ?, ?)`,
+        )
+        .run(
+          input.runId,
+          decision.decisionId,
+          input.idempotencyKey,
+          JSON.stringify(humanDecision),
+          humanDecision.decidedAt,
+        );
+      this.database
+        .prepare(
+          `UPDATE decision_points SET status = ?, record_json = ?, updated_at = ?
+           WHERE run_id = ? AND decision_id = ? AND status IN ('unresolved', 'deferred')`,
+        )
+        .run(
+          resolved.status,
+          JSON.stringify(resolved),
+          humanDecision.decidedAt,
+          input.runId,
+          decision.decisionId,
+        );
+      this.updateRun(current.version, next);
+      return result;
+    });
+  }
+
+  listHumanDecisions(runId: string): HumanDecision[] {
+    this.getRun(runId);
+    const rows = this.database
+      .prepare(
+        `SELECT record_json FROM human_decisions
+         WHERE run_id = ? ORDER BY decision_id`,
+      )
+      .all(runId) as unknown as DecisionPointRow[];
+    return rows.map((row) =>
+      HumanDecisionSchema.parse(parseJson(row.record_json, "human decision")),
+    );
+  }
+
+  deferDecision(input: DeferDecisionInput): DeferDecisionResult {
+    validateIdentifier(input.idempotencyKey, "idempotencyKey");
+    const operation = "defer_decision";
+    const requestHash = requestFingerprint({
+      runId: input.runId,
+      decisionId: input.decisionId,
+      expectedVersion: input.expectedVersion,
+    });
+    return this.transaction(() => {
+      const prior = this.idempotentResult(input.idempotencyKey, operation, requestHash);
+      if (prior !== null) {
+        return this.parseDeferDecisionResult(parseJson(prior, "defer result"));
+      }
+      const current = this.getRun(input.runId).run;
+      if (current.state !== "needs_review" || current.version !== input.expectedVersion) {
+        throw new PersistenceError("CONFLICTING_VERSION", "run review version changed");
+      }
+      const row = this.database
+        .prepare("SELECT record_json FROM decision_points WHERE run_id = ? AND decision_id = ?")
+        .get(input.runId, input.decisionId) as DecisionPointRow | undefined;
+      if (!row) {
+        throw new PersistenceError("NOT_FOUND", `decision ${input.decisionId} was not found`);
+      }
+      const currentDecision = DecisionPointSchema.parse(
+        parseJson(row.record_json, "decision point"),
+      );
+      if (currentDecision.status !== "unresolved") {
+        throw new PersistenceError("CONFLICTING_VERSION", "decision cannot be deferred again");
+      }
+      const decision = DecisionPointSchema.parse({ ...currentDecision, status: "deferred" });
+      const run = RunRecordSchema.parse({
+        ...current,
+        version: current.version + 1,
+        updatedAt: input.deferredAt,
+      });
+      const result = { run, decision };
+      this.insertIdempotency(
+        input.idempotencyKey,
+        operation,
+        requestHash,
+        JSON.stringify(result),
+        input.deferredAt,
+      );
+      this.database
+        .prepare(
+          `UPDATE decision_points SET status = ?, record_json = ?, updated_at = ?
+           WHERE run_id = ? AND decision_id = ? AND status = 'unresolved'`,
+        )
+        .run(
+          decision.status,
+          JSON.stringify(decision),
+          input.deferredAt,
+          input.runId,
+          input.decisionId,
+        );
+      this.updateRun(current.version, run);
+      return result;
+    });
   }
 
   saveContractAndReady(
@@ -852,6 +1362,29 @@ export class SqlitePersistence {
       payload: record.payload,
       occurredAt: record.occurredAt,
       runVersionAfter: record.runVersionAfter,
+    };
+  }
+
+  private parseHumanDecisionResult(value: unknown): RecordHumanDecisionResult {
+    if (value === null || typeof value !== "object") {
+      throw new PersistenceError("DATABASE_CORRUPTION", "invalid human decision result");
+    }
+    const record = value as Record<string, unknown>;
+    return {
+      run: RunRecordSchema.parse(record.run),
+      decision: DecisionPointSchema.parse(record.decision),
+      humanDecision: HumanDecisionSchema.parse(record.humanDecision),
+    };
+  }
+
+  private parseDeferDecisionResult(value: unknown): DeferDecisionResult {
+    if (value === null || typeof value !== "object") {
+      throw new PersistenceError("DATABASE_CORRUPTION", "invalid defer decision result");
+    }
+    const record = value as Record<string, unknown>;
+    return {
+      run: RunRecordSchema.parse(record.run),
+      decision: DecisionPointSchema.parse(record.decision),
     };
   }
 

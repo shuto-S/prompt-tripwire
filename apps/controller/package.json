@@ -8,8 +8,10 @@
     "dist"
   ],
   "dependencies": {
+    "@prompt-tripwire/codex-app-server": "0.1.0",
     "@prompt-tripwire/domain": "0.1.0",
     "@prompt-tripwire/git-snapshot": "0.1.0",
+    "@prompt-tripwire/openai-comparator": "0.1.0",
     "@prompt-tripwire/persistence": "0.1.0"
   }
 }

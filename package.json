@@ -30,6 +30,7 @@
     "check:schema": "node scripts/spikes/codex-app-server.mjs schema",
     "check:licenses": "node scripts/check-licenses.mjs",
     "check:diff": "node scripts/check-diff.mjs",
+    "eval:comparator": "npm run build && node scripts/eval-comparator.mjs",
     "smoke:real-probes": "npm run build && node scripts/smoke-real-probes.mjs"
   },
   "devDependencies": {

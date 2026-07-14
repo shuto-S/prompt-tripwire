@@ -27,7 +27,12 @@ function failedAttempt(probeId: string, attempt: number, error: unknown): ProbeA
   return {
     probeId,
     attempt,
-    state: errorCode === "PROBE_TIMEOUT" ? "timed_out" : "failed",
+    state:
+      errorCode === "PROBE_TIMEOUT"
+        ? "timed_out"
+        : errorCode === "PROBE_CANCELLED"
+          ? "cancelled"
+          : "failed",
     threadId: null,
     artifact: null,
     errorCode,
@@ -89,6 +94,16 @@ export class ProbeCoordinator {
         const probeId = `probe_${String(index + 1)}_${input.prepared.snapshot.snapshotHash.slice(0, 12)}`;
         const attempts: ProbeAttemptResult[] = [];
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          if (input.signal?.aborted === true) {
+            attempts.push(
+              failedAttempt(
+                probeId,
+                attempt,
+                new AppServerError("PROBE_CANCELLED", "probe batch was cancelled"),
+              ),
+            );
+            break;
+          }
           let worktree: DisposableWorktree;
           try {
             worktree = await createWorktree();
@@ -106,6 +121,7 @@ export class ProbeCoordinator {
               model: input.prepared.snapshot.model.id,
               reasoningEffort: input.prepared.snapshot.model.reasoningEffort,
               ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs }),
+              ...(input.signal === undefined ? {} : { signal: input.signal }),
             });
             result = completedAttempt(completed, attempt);
           } catch (error) {

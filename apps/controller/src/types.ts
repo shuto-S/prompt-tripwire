@@ -1,5 +1,7 @@
 import type {
+  DecisionPoint,
   ExecutionContract,
+  HumanDecision,
   RepositorySnapshot,
   RunRecord,
   RunReport,
@@ -76,4 +78,35 @@ export interface ControllerStatus {
 export interface ReportInput {
   readonly report?: RunReport;
   readonly runId: string;
+}
+
+export interface ReviewResult {
+  readonly run: RunRecord;
+  readonly decisions: readonly DecisionPoint[];
+  readonly humanDecisions: readonly HumanDecision[];
+  readonly contract: ExecutionContract | null;
+}
+
+export interface DecideInput {
+  readonly runId: string;
+  readonly decisionId: string;
+  readonly selectedOptionId: string | null;
+  readonly freeformOverride: string | null;
+  readonly rationale?: string | null;
+  readonly expectedVersion: number;
+  readonly idempotencyKey: string;
+}
+
+export interface DeferInput {
+  readonly runId: string;
+  readonly decisionId: string;
+  readonly expectedVersion: number;
+  readonly idempotencyKey: string;
+}
+
+export interface ApproveInput {
+  readonly runId: string;
+  readonly contractId: string;
+  readonly expectedVersion: number;
+  readonly idempotencyKey: string;
 }

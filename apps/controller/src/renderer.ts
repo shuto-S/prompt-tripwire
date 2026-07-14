@@ -1,4 +1,5 @@
-import type { RunRecord } from "@prompt-tripwire/domain";
+import type { DecisionPoint, ExecutionContract, RunRecord } from "@prompt-tripwire/domain";
+import { renderContractPreview, renderDecisionCards } from "@prompt-tripwire/openai-comparator";
 import type { StoredEvent } from "@prompt-tripwire/persistence";
 
 function text(value: string): string {
@@ -24,4 +25,18 @@ export function renderTerminalStatus(run: RunRecord, events: readonly StoredEven
       lines.push(`- ${text(event.eventType)} (${text(event.occurredAt)})`);
   }
   return `${lines.join("\n")}\n`;
+}
+
+export function renderTerminalReview(
+  run: RunRecord,
+  decisions: readonly DecisionPoint[],
+  contract: ExecutionContract | null,
+): string {
+  const sections = [renderTerminalStatus(run)];
+  if (decisions.length > 0) sections.push(renderDecisionCards(decisions));
+  if (contract !== null) sections.push(renderContractPreview(contract));
+  if (decisions.length === 0 && contract === null) {
+    sections.push("No persisted review artifacts are available.\n");
+  }
+  return sections.join("\n");
 }
