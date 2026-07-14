@@ -90,6 +90,12 @@ This log separates confirmed product decisions from assumptions that still requi
 
 **Reason:** The deterministic policy layer must remain independent of filesystem and process access. Explicit evidence inputs preserve that boundary while preventing the matcher from treating an unresolved path or raw command prefix as safe.
 
+### D-015 — Materialize snapshots with disposable Git worktrees
+
+**Decision:** Snapshot preparation uses only read-only Git commands against the user's checkout. Probe worktrees are detached; execution worktrees use generated local branches. Hooks and global/system Git configuration are disabled, child environment inheritance is minimized, submodules are materialized with network transports disabled and no fetch, and the source checkout's content and Git state are fingerprinted before and after each worktree operation.
+
+**Reason:** Git worktrees preserve exact tracked commits and binary patches while keeping all planned and partial execution changes outside the user's checkout. Explicit fingerprint and cleanup results make containment and cleanup failures observable instead of assuming isolation succeeded.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage
