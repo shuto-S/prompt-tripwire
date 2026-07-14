@@ -4,6 +4,8 @@
 !.env.example
 node_modules/
 dist/
+web-dist/
+.playwright-cli/
 coverage/
 generated/
 artifacts/

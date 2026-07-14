@@ -29,10 +29,10 @@
       "path": "apps/controller"
     },
     {
-      "path": "apps/cli"
+      "path": "apps/ui"
     },
     {
-      "path": "apps/ui"
+      "path": "apps/cli"
     }
   ]
 }

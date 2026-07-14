@@ -1,6 +1,6 @@
 # Security and privacy specification
 
-Status: Required MVP controls; implementation unverified
+Status: Required MVP controls; Decision Inbox boundary verified, execution enforcement pending
 
 Date: 2026-07-14
 
@@ -117,13 +117,15 @@ P0 does not enable runtime experimental APIs, granular approval, or permission p
 - Bind only to loopback.
 - Generate a high-entropy capability token for each run.
 - Prefer the token in a short-lived URL fragment or secure bootstrap flow rather than persistent query logs.
-- Require token and same-origin checks for mutations.
+- Require the token for all API and SSE requests, and same-origin checks for mutations.
 - Set restrictive Content Security Policy and frame protection.
 - Disable wildcard CORS.
 - Escape all task, repository, command, path, and model-provided text.
 - Do not render model-provided HTML.
 - Do not load third-party scripts, fonts, analytics, or images.
 - Expire access when the controller exits or the run is archived.
+
+The implemented CLI starts one server on `127.0.0.1` with an OS-assigned port and a 256-bit random capability. The capability is displayed once in the local URL fragment, never persisted or written to structured logs, removed from the browser address after bootstrap, hashed before server comparison, and sent thereafter only in the authorization header. Native `EventSource` is intentionally not used because it cannot attach that header. The server scopes the capability to one run, validates the exact Host and Origin, requires idempotency and expected-version headers on writes, caps JSON bodies, and serves only the bundled static root. Browser E2E verifies missing/invalid-token rejection, cross-origin mutation rejection, same-origin-only assets, no high-impact default, keyboard-only review/approval/cancel, bounded cards, and assistive-technology state text.
 
 ## 9. Contract and approval integrity
 

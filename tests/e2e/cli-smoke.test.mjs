@@ -14,7 +14,16 @@ test("compiled CLI reports its version and complete command surface", () => {
     encoding: "utf8",
   });
   assert.equal(help.status, 0);
-  for (const command of ["inspect", "review", "run", "status", "report", "cancel", "export"]) {
+  for (const command of [
+    "inspect",
+    "review",
+    "approve",
+    "run",
+    "status",
+    "report",
+    "cancel",
+    "export",
+  ]) {
     assert.match(help.stdout, new RegExp(`\\b${command}\\b`, "u"));
   }
 });

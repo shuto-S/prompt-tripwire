@@ -16,12 +16,15 @@ import { ControllerError } from "./errors.js";
 import { withTimeout } from "./timeout.js";
 import type {
   ApproveInput,
+  CancelInput,
   ControllerOptions,
   ControllerStatus,
   DecideInput,
   DeferInput,
   InspectInput,
   ReportInput,
+  ReviewEvidence,
+  ReopenReviewInput,
   ReviewResult,
   RunInput,
 } from "./types.js";
@@ -308,6 +311,31 @@ export class LocalController {
     );
   }
 
+  async cancelVersioned(input: CancelInput): Promise<RunRecord> {
+    this.assertStarted();
+    const current = this.store.getRun(input.runId).run;
+    const cancelled = this.store.cancelRun({
+      idempotencyKey: input.idempotencyKey,
+      runId: input.runId,
+      expectedVersion: input.expectedVersion,
+      cancelledAt: this.now(),
+    });
+    if (current.state === "running" || current.state === "pausing") {
+      await this.options.executionPort?.interrupt(input.runId);
+    }
+    return cancelled;
+  }
+
+  reopenReview(input: ReopenReviewInput): RunRecord {
+    this.assertStarted();
+    return this.store.reopenReview({
+      idempotencyKey: input.idempotencyKey,
+      runId: input.runId,
+      expectedVersion: input.expectedVersion,
+      reopenedAt: this.now(),
+    });
+  }
+
   status(runId: string): ControllerStatus {
     this.assertStarted();
     let hasReport = true;
@@ -327,11 +355,27 @@ export class LocalController {
   review(runId: string): ReviewResult {
     this.assertStarted();
     const run = this.store.getRun(runId).run;
+    let report: RunReport | null = null;
+    try {
+      report = this.store.getReport(runId).report;
+    } catch (error) {
+      if (!(error instanceof PersistenceError) || error.code !== "NOT_FOUND") throw error;
+    }
     return {
       run,
+      snapshot: run.snapshotHash === null ? null : this.store.getSnapshot(run.snapshotHash),
       decisions: this.store.listDecisionPoints(runId),
       humanDecisions: this.store.listHumanDecisions(runId),
       contract: run.activeContractId === null ? null : this.store.getContract(run.activeContractId),
+      report,
+    };
+  }
+
+  reviewEvidence(runId: string): ReviewEvidence {
+    this.assertStarted();
+    return {
+      plans: this.store.listPlanArtifacts(runId).map((item) => item.artifact),
+      comparison: this.store.getComparison(runId).candidate,
     };
   }
 
@@ -388,6 +432,7 @@ export class LocalController {
       humanDecisions: this.store.listHumanDecisions(input.runId),
       comparatorModel: comparison.model,
       createdAt: this.now(),
+      version: this.store.nextContractVersion(input.runId),
     }).contract;
     return this.store.saveContractAndReady(input.runId, contract, recorded.run.version, this.now());
   }

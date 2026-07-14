@@ -19,6 +19,7 @@ import {
 } from "@prompt-tripwire/domain";
 import { prepareRepositorySnapshot } from "@prompt-tripwire/git-snapshot";
 import { SqlitePersistence } from "@prompt-tripwire/persistence";
+import { startReviewServer } from "@prompt-tripwire/ui";
 
 export const CLI_FOUNDATION = Object.freeze({ name: "cli", version: "0.1.0" });
 
@@ -87,6 +88,18 @@ function expectedVersion(value: string | undefined, fallback: number): number {
 
 function mutationKey(kind: string, value: unknown): string {
   return `cli:${kind}:${canonicalHash(value).slice(0, 32)}`;
+}
+
+async function waitForShutdownSignal(): Promise<void> {
+  await new Promise<void>((resolveSignal) => {
+    const finish = (): void => {
+      process.off("SIGINT", finish);
+      process.off("SIGTERM", finish);
+      resolveSignal();
+    };
+    process.once("SIGINT", finish);
+    process.once("SIGTERM", finish);
+  });
 }
 
 export async function runCli(
@@ -181,8 +194,22 @@ export async function runCli(
         if (mutationCount > 1) {
           throw new TypeError("review accepts only one decision, approval, or cancellation");
         }
+        if (mutationCount === 0 && parsed.values.terminal !== true) {
+          const reviewServer = await startReviewServer({ controller, runId });
+          io.stdout.write(`Decision Inbox: ${reviewServer.url}\nPress Ctrl-C to close it.\n`);
+          try {
+            await waitForShutdownSignal();
+          } finally {
+            await reviewServer.close();
+          }
+          return 0;
+        }
         if (parsed.values.cancel === true) {
-          await controller.cancel(runId);
+          await controller.cancelVersioned({
+            runId,
+            expectedVersion: version,
+            idempotencyKey: mutationKey("cancel", { runId, version }),
+          });
         } else if (parsed.values.approve === true) {
           const contractId = required(
             parsed.values.contract ?? review.run.activeContractId ?? undefined,

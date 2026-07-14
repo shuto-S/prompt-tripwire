@@ -11,7 +11,8 @@
       "@prompt-tripwire/git-snapshot": ["./packages/git-snapshot/src/index.ts"],
       "@prompt-tripwire/openai-comparator": ["./packages/openai-comparator/src/index.ts"],
       "@prompt-tripwire/persistence": ["./packages/persistence/src/index.ts"],
-      "@prompt-tripwire/policy": ["./packages/policy/src/index.ts"]
+      "@prompt-tripwire/policy": ["./packages/policy/src/index.ts"],
+      "@prompt-tripwire/ui": ["./apps/ui/src/index.ts"]
     },
     "types": ["node"],
     "strict": true,

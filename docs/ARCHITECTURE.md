@@ -206,15 +206,19 @@ The internal API is not public or stable in the MVP. Expected routes:
 GET  /api/runs/:id
 GET  /api/runs/:id/events
 GET  /api/runs/:id/decisions
+GET  /api/runs/:id/evidence
 POST /api/runs/:id/decisions/:decisionId
 GET  /api/runs/:id/contracts/current
 POST /api/runs/:id/contracts/approve
+POST /api/runs/:id/contracts/reopen
 POST /api/runs/:id/cancel
 POST /api/runs/:id/deviations/:deviationId/resolve
 GET  /api/runs/:id/report
 ```
 
-All mutating requests require the capability token and same-origin checks. Decision and approval writes include an idempotency key and expected state/version.
+The browser currently uses the aggregate `GET /api/runs/:id` response rather than fetching the decision and contract resources serially. Every API request, including the fetch-based SSE stream, requires the per-run bearer capability. Mutations additionally require the exact loopback Origin, JSON content type, expected run version, and an idempotency key. The server rejects a mismatched Host or run ID, returns no wildcard CORS headers, and never places the capability in a query string. The CLI supplies it once in a URL fragment; the client removes that fragment immediately after bootstrap.
+
+The Vite build emits only same-origin React, JavaScript, and CSS assets. Content Security Policy, frame denial, MIME sniffing protection, referrer suppression, and browser capability restrictions are set on every response. Model and repository strings flow through React text rendering; model-provided HTML and remote runtime assets are not supported.
 
 ## 10. Persistence
 

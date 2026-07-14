@@ -12,6 +12,9 @@
       "path": "../controller"
     },
     {
+      "path": "../ui"
+    },
+    {
       "path": "../../packages/domain"
     },
     {

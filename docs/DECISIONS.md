@@ -114,6 +114,12 @@ This log separates confirmed product decisions from assumptions that still requi
 
 **Reason:** Model-created identity and evidence references are untrusted. Persisting attempts and token usage supports auditability, while a deterministic manual-review fallback preserves useful plan/policy evidence without treating an unavailable comparator as consensus. The current runtime has no OpenAI API credential, so model quality/cost selection must remain explicitly unverified rather than inferred from Codex authentication or documentation alone.
 
+### D-019 — Use an authenticated loopback React Decision Inbox
+
+**Decision:** Build the browser review surface as bundled React/Vite assets served by a Node HTTP server bound to `127.0.0.1` on a random port. Scope a 256-bit capability to one run, bootstrap it through a URL fragment, remove the fragment immediately, and use authorization-header fetches for both aggregate state and SSE. Require exact Host, Origin, expected version, and idempotency on mutations. Editing an unapproved contract reopens all decisions and creates the next immutable contract version; the superseded contract remains stored but inactive.
+
+**Reason:** An aggregate first read avoids a client waterfall and full raw plans, while native semantic controls preserve keyboard and assistive-technology behavior. Header-authenticated streaming keeps the capability out of query and Referer logs. Strict loopback/run scoping, same-origin checks, bundled assets, React text escaping, CSP, and frame denial reduce the local-web attack surface without adding a hosted backend or account system.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage

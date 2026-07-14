@@ -38,6 +38,7 @@ import type {
   ApprovalInput,
   ApprovalResult,
   ArtifactMetadata,
+  CancelRunPersistenceInput,
   ComparatorAttemptRecordInput,
   DeferDecisionInput,
   DeferDecisionResult,
@@ -50,6 +51,7 @@ import type {
   ProbeRunRecordInput,
   RecordHumanDecisionInput,
   RecordHumanDecisionResult,
+  ReopenReviewPersistenceInput,
   SaveComparisonInput,
   SaveDecisionPointsInput,
   StartExecutionPersistenceInput,
@@ -670,7 +672,13 @@ export class SqlitePersistence {
     const operation = "record_human_decision";
     const requestHash = requestFingerprint({
       runId: input.runId,
-      decision: humanDecision,
+      decision: {
+        decisionId: humanDecision.decisionId,
+        selectedOptionId: humanDecision.selectedOptionId,
+        freeformOverride: humanDecision.freeformOverride,
+        rationale: humanDecision.rationale,
+        expectedRunVersion: humanDecision.expectedRunVersion,
+      },
     });
     return this.transaction(() => {
       const prior = this.idempotentResult(input.idempotencyKey, operation, requestHash);
@@ -874,6 +882,14 @@ export class SqlitePersistence {
     return contract;
   }
 
+  nextContractVersion(runId: string): number {
+    this.getRun(runId);
+    const row = this.database
+      .prepare("SELECT COALESCE(MAX(version), 0) AS version FROM contracts WHERE run_id = ?")
+      .get(runId) as { version: number };
+    return row.version + 1;
+  }
+
   approveContract(input: ApprovalInput): ApprovalResult {
     validateIdentifier(input.idempotencyKey, "idempotencyKey");
     const operation = "approve_contract";
@@ -917,6 +933,96 @@ export class SqlitePersistence {
         input.approvedAt,
       );
       return result;
+    });
+  }
+
+  cancelRun(input: CancelRunPersistenceInput): RunRecord {
+    validateIdentifier(input.idempotencyKey, "idempotencyKey");
+    const operation = "cancel_run";
+    const requestHash = requestFingerprint({
+      runId: input.runId,
+      expectedVersion: input.expectedVersion,
+    });
+    return this.transaction(() => {
+      const prior = this.idempotentResult(input.idempotencyKey, operation, requestHash);
+      if (prior !== null) return RunRecordSchema.parse(parseJson(prior, "cancel result"));
+      const current = this.getRun(input.runId).run;
+      if (current.version !== input.expectedVersion) {
+        throw new PersistenceError("CONFLICTING_VERSION", "run version changed before cancel");
+      }
+      const run = ["completed", "failed", "cancelled", "stale"].includes(current.state)
+        ? current
+        : RunRecordSchema.parse({
+            ...transitionRun(current, "cancelled", input.expectedVersion, input.cancelledAt),
+            lastErrorCode: "USER_CANCELLED",
+          });
+      if (run !== current) this.updateRun(current.version, run);
+      this.insertIdempotency(
+        input.idempotencyKey,
+        operation,
+        requestHash,
+        JSON.stringify(run),
+        input.cancelledAt,
+      );
+      return run;
+    });
+  }
+
+  reopenReview(input: ReopenReviewPersistenceInput): RunRecord {
+    validateIdentifier(input.idempotencyKey, "idempotencyKey");
+    const operation = "reopen_review";
+    const requestHash = requestFingerprint({
+      runId: input.runId,
+      expectedVersion: input.expectedVersion,
+    });
+    return this.transaction(() => {
+      const prior = this.idempotentResult(input.idempotencyKey, operation, requestHash);
+      if (prior !== null) return RunRecordSchema.parse(parseJson(prior, "reopen result"));
+      const current = this.getRun(input.runId).run;
+      if (current.state !== "ready_for_approval" || current.version !== input.expectedVersion) {
+        throw new PersistenceError(
+          "CONFLICTING_VERSION",
+          "contract is not editable at this version",
+        );
+      }
+      const decisions = this.listDecisionPoints(input.runId);
+      if (decisions.length === 0) {
+        throw new PersistenceError("NOT_FOUND", "run has no decisions to edit");
+      }
+      const transitioned = transitionRun(
+        current,
+        "needs_review",
+        input.expectedVersion,
+        input.reopenedAt,
+      );
+      const run = RunRecordSchema.parse({
+        ...transitioned,
+        activeContractId: null,
+        blockingDecisionIds: decisions.map((decision) => decision.decisionId),
+      });
+      const updateDecision = this.database.prepare(
+        `UPDATE decision_points SET status = 'unresolved', record_json = ?, updated_at = ?
+         WHERE run_id = ? AND decision_id = ?`,
+      );
+      for (const decision of decisions) {
+        const unresolved = DecisionPointSchema.parse({ ...decision, status: "unresolved" });
+        updateDecision.run(
+          JSON.stringify(unresolved),
+          input.reopenedAt,
+          input.runId,
+          decision.decisionId,
+        );
+      }
+      this.database.prepare("DELETE FROM human_decisions WHERE run_id = ?").run(input.runId);
+      this.updateRun(current.version, run);
+      this.insertIdempotency(
+        input.idempotencyKey,
+        operation,
+        requestHash,
+        JSON.stringify(run),
+        input.reopenedAt,
+      );
+      return run;
     });
   }
 

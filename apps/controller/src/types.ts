@@ -1,7 +1,9 @@
 import type {
+  ComparisonCandidate,
   DecisionPoint,
   ExecutionContract,
   HumanDecision,
+  PlanArtifact,
   RepositorySnapshot,
   RunRecord,
   RunReport,
@@ -82,9 +84,16 @@ export interface ReportInput {
 
 export interface ReviewResult {
   readonly run: RunRecord;
+  readonly snapshot: RepositorySnapshot | null;
   readonly decisions: readonly DecisionPoint[];
   readonly humanDecisions: readonly HumanDecision[];
   readonly contract: ExecutionContract | null;
+  readonly report: RunReport | null;
+}
+
+export interface ReviewEvidence {
+  readonly plans: readonly PlanArtifact[];
+  readonly comparison: ComparisonCandidate;
 }
 
 export interface DecideInput {
@@ -107,6 +116,18 @@ export interface DeferInput {
 export interface ApproveInput {
   readonly runId: string;
   readonly contractId: string;
+  readonly expectedVersion: number;
+  readonly idempotencyKey: string;
+}
+
+export interface CancelInput {
+  readonly runId: string;
+  readonly expectedVersion: number;
+  readonly idempotencyKey: string;
+}
+
+export interface ReopenReviewInput {
+  readonly runId: string;
   readonly expectedVersion: number;
   readonly idempotencyKey: string;
 }

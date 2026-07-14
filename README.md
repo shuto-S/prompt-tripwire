@@ -4,7 +4,7 @@
 
 PromptTripwire is a local-first preflight and execution gate for Codex. It runs the same engineering task through multiple independent, read-only Codex planning threads, turns material disagreements into a small number of human decisions, and binds the approved choices into an execution contract.
 
-Implementation is in progress. The Codex App Server 0.144.4 adapter, three independent real planning probes, GPT-5.6 Structured Outputs comparator, deterministic policy normalization, terminal review/approval flow, immutable contracts, Git snapshot/worktree containment, and crash-safe local persistence are executable and tested. Execution monitoring and the browser Decision Inbox remain in progress.
+Implementation is in progress. The Codex App Server 0.144.4 adapter, three independent real planning probes, GPT-5.6 Structured Outputs comparator, deterministic policy normalization, terminal and browser review/approval flows, immutable contracts, Git snapshot/worktree containment, and crash-safe local persistence are executable and tested. Execution monitoring remains in progress.
 
 ## Why this exists
 
@@ -90,7 +90,9 @@ npm run eval:comparator
 
 The evaluator records only pass/fail, candidate counts, timing, and token usage. It never prints prompts, plans, model output, or credentials. `gpt-5.6-terra` with low reasoning is the provisional comparator default because the current official model guidance positions Terra as the cost/intelligence balance; the Sol/Terra Responses API evaluation has not been run in this checkout because no API credential was available, so this is not an empirical model-selection claim.
 
-The terminal vertical slice supports `tripwire review RUN_ID`, decision selection or free-form resolution, defer/cancel, contract preview, and `tripwire approve RUN_ID`. Every mutation uses an expected run version and idempotency key, and execution remains disabled until all blocking decisions are resolved and the content-addressed contract is explicitly approved.
+`tripwire review RUN_ID` starts a random-port loopback Decision Inbox and keeps it available until Ctrl-C. The capability token appears only in the one-time URL fragment, is removed from the address bar after bootstrap, and is required as an authorization header for the aggregate review API and authenticated fetch-based SSE stream. The UI shows at most three decision cards plus the remaining count, never preselects a high-impact option, supports selection, free-form resolution, defer, pre-approval edit, explicit approval, cancellation, deviation display, keyboard operation, visible focus, and assistive-technology state announcements. It loads only its bundled React/Vite assets and renders model content as escaped text.
+
+Use `tripwire review RUN_ID --terminal` for the terminal fallback. Both interfaces require expected run versions and idempotency keys for mutations, and execution remains disabled until every blocker is resolved and the content-addressed contract is explicitly approved.
 
 ## Build Week positioning
 
@@ -103,7 +105,7 @@ The project is being created during the OpenAI Build Week submission period. The
 
 ## Codex collaboration record
 
-Codex was used to research the current OpenAI integration surfaces, challenge the UI-first concept, define the local-first product boundary, draft the requirements and threat model, verify the App Server boundary, establish the TypeScript/npm test foundation, implement and test the domain/policy/snapshot layers, build the SQLite-backed controller and CLI foundation, implement the version-pinned App Server adapter with three real independent probes, and complete the Responses API comparator plus terminal decision/contract flow. During live verification, Codex identified that App Server 0.144.4 reports `pwd` and `sed` as unknown command actions; the implementation kept unknown actions denied and tightened probe instructions instead of inferring safety from raw shell text. Codex also found no OpenAI API credential in the runtime environment, so it added a bounded secret-safe Sol/Terra evaluator and explicitly left the live comparison unclaimed. The human set Codex CLI 0.144.4 as the compatibility baseline and authorized autonomous implementation through the pre-submission milestone; implementation choices are recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
+Codex was used to research the current OpenAI integration surfaces, challenge the UI-first concept, define the local-first product boundary, draft the requirements and threat model, verify the App Server boundary, establish the TypeScript/npm test foundation, implement and test the domain/policy/snapshot layers, build the SQLite-backed controller and CLI foundation, implement the version-pinned App Server adapter with three real independent probes, complete the Responses API comparator and terminal decision/contract flow, and implement the loopback-only browser Decision Inbox with keyboard and security E2E coverage. During live verification, Codex identified that App Server 0.144.4 reports `pwd` and `sed` as unknown command actions; the implementation kept unknown actions denied and tightened probe instructions instead of inferring safety from raw shell text. Codex also found no OpenAI API credential in the runtime environment, so it added a bounded secret-safe Sol/Terra evaluator and explicitly left the live comparison unclaimed. The human set Codex CLI 0.144.4 as the compatibility baseline and authorized autonomous implementation through the pre-submission milestone; implementation choices are recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
 
 Before submission, this section must be expanded with:
 
@@ -114,4 +116,4 @@ Before submission, this section must be expanded with:
 
 ## Status
 
-Specification baseline: 2026-07-14. App Server hard gate and three-real-probe milestone passed with documented constraints on 2026-07-14. Domain, deterministic policy, Git isolation, App Server planning adapter, Responses comparator, terminal review/approval, and local persistence are implemented; the live Sol/Terra API evaluation, browser Decision Inbox, execution enforcement, packaging, license selection, and judge-ready installation are pending.
+Specification baseline: 2026-07-14. App Server hard gate and three-real-probe milestone passed with documented constraints on 2026-07-14. Domain, deterministic policy, Git isolation, App Server planning adapter, Responses comparator, terminal/browser review and approval, and local persistence are implemented; the live Sol/Terra API evaluation, execution enforcement, packaging, license selection, and judge-ready installation are pending.

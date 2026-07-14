@@ -76,6 +76,20 @@ export interface ApprovalResult {
   readonly contract: ExecutionContract;
 }
 
+export interface CancelRunPersistenceInput {
+  readonly idempotencyKey: string;
+  readonly runId: string;
+  readonly expectedVersion: number;
+  readonly cancelledAt: string;
+}
+
+export interface ReopenReviewPersistenceInput {
+  readonly idempotencyKey: string;
+  readonly runId: string;
+  readonly expectedVersion: number;
+  readonly reopenedAt: string;
+}
+
 export interface StartExecutionPersistenceInput {
   readonly idempotencyKey: string;
   readonly runId: string;

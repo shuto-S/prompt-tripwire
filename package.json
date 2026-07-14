@@ -14,7 +14,7 @@
   },
   "packageManager": "npm@11.17.0",
   "scripts": {
-    "build": "tsc -b --pretty false",
+    "build": "tsc -b --pretty false && npm run build:web --workspace @prompt-tripwire/ui",
     "clean": "node scripts/clean.mjs",
     "typecheck": "tsc -p tsconfig.typecheck.json --pretty false",
     "lint": "eslint .",
@@ -35,8 +35,10 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.61.1",
     "@types/node": "24.13.3",
     "eslint": "10.7.0",
+    "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.7.0",
     "prettier": "3.9.5",
     "typescript": "6.0.3",

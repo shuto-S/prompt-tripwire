@@ -7,6 +7,7 @@ for (const workspaceRoot of ["apps", "packages"]) {
   if (!existsSync(workspaceRoot)) continue;
   for (const workspace of readdirSync(workspaceRoot)) {
     rmSync(join(workspaceRoot, workspace, "dist"), { recursive: true, force: true });
+    rmSync(join(workspaceRoot, workspace, "web-dist"), { recursive: true, force: true });
   }
 }
 rmSync("coverage", { recursive: true, force: true });
