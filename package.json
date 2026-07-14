@@ -29,7 +29,8 @@
     "check:versions": "node scripts/check-versions.mjs",
     "check:schema": "node scripts/spikes/codex-app-server.mjs schema",
     "check:licenses": "node scripts/check-licenses.mjs",
-    "check:diff": "node scripts/check-diff.mjs"
+    "check:diff": "node scripts/check-diff.mjs",
+    "smoke:real-probes": "npm run build && node scripts/smoke-real-probes.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

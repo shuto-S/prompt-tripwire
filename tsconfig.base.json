@@ -5,6 +5,7 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "paths": {
+      "@prompt-tripwire/codex-app-server": ["./packages/codex-app-server/src/index.ts"],
       "@prompt-tripwire/controller": ["./apps/controller/src/index.ts"],
       "@prompt-tripwire/domain": ["./packages/domain/src/index.ts"],
       "@prompt-tripwire/git-snapshot": ["./packages/git-snapshot/src/index.ts"],

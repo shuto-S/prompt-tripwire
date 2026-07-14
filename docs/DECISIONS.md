@@ -102,6 +102,12 @@ This log separates confirmed product decisions from assumptions that still requi
 
 **Reason:** [Node.js marked `node:sqlite` as Stability 1.2 (release candidate) in 24.15.0](https://nodejs.org/download/release/latest-v24.x/docs/api/sqlite.html). The synchronous API fits the single-user local controller, avoids native-addon installation risk, and is exercised on the pinned Node 24 CI baseline. Startup fails closed on an older runtime instead of silently selecting another storage implementation. This remains an explicit release-candidate dependency rather than being described as a fully stable Node API.
 
+### D-017 — Bind plan identity in the adapter and trust only structured static-read actions
+
+**Decision:** Codex produces the identity-free `PlanArtifactContent` schema. The App Server adapter binds the probe ID, fresh thread ID, snapshot hash, and task hash after validating the final agent message. Probe commands continue only when every App Server `CommandAction` is `read`, `listFiles`, or `search`, its cwd and resolved path remain inside the disposable worktree, and no permission or network expansion is requested. Relative action paths resolve from the command cwd. Raw command text and `unknown` actions never establish safety.
+
+**Reason:** Giving the model identity fields would let schema-valid output claim the wrong probe or snapshot. App Server 0.144.4 also reports some apparently read-only shell commands, including `pwd` and `sed`, as `unknown`; classifying those from raw text would contradict the fail-closed protocol boundary. Probe instructions therefore avoid command shapes that the pinned structured parser cannot identify. Completed command/file items and non-empty diffs remain independently monitored.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage

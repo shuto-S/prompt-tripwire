@@ -87,6 +87,13 @@ export const PlanArtifactSchema = z
   })
   .strict();
 
+export const PlanArtifactContentSchema = PlanArtifactSchema.omit({
+  probeId: true,
+  threadId: true,
+  snapshotHash: true,
+  taskHash: true,
+});
+
 export const ComparisonSubjectSchema = z
   .object({
     id: IdSchema,
@@ -477,6 +484,7 @@ export type RepositorySnapshot = z.infer<typeof RepositorySnapshotSchema>;
 export type RepositorySnapshotInput = z.infer<typeof RepositorySnapshotInputSchema>;
 export type RepositoryEvidence = z.infer<typeof RepositoryEvidenceSchema>;
 export type PlanArtifact = z.infer<typeof PlanArtifactSchema>;
+export type PlanArtifactContent = z.infer<typeof PlanArtifactContentSchema>;
 export type ComparisonCandidate = z.infer<typeof ComparisonCandidateSchema>;
 export type DecisionPoint = z.infer<typeof DecisionPointSchema>;
 export type HumanDecision = z.infer<typeof HumanDecisionSchema>;

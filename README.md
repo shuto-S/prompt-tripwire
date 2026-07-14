@@ -4,7 +4,7 @@
 
 PromptTripwire is a local-first preflight and execution gate for Codex. It runs the same engineering task through multiple independent, read-only Codex planning threads, turns material disagreements into a small number of human decisions, and binds the approved choices into an execution contract.
 
-Implementation is in progress. The Codex App Server 0.144.4 feasibility gate, immutable domain contracts, deterministic policy gates, Git snapshot/worktree containment, and crash-safe local controller/persistence foundation are executable and tested. Real planning probes, comparison, execution monitoring, and the Decision Inbox remain in progress.
+Implementation is in progress. The Codex App Server 0.144.4 adapter, three independent real planning probes, immutable domain contracts, deterministic policy gates, Git snapshot/worktree containment, and crash-safe local controller/persistence foundation are executable and tested. Comparison, execution monitoring, and the Decision Inbox remain in progress.
 
 ## Why this exists
 
@@ -74,6 +74,14 @@ npm run check
 
 Individual entry points are available for `typecheck`, `lint`, `build`, `test:unit`, `test:integration`, `test:e2e`, `check:boundaries`, `check:versions`, `check:schema`, and `check:licenses`. CI runs the same checks on `macos-latest` and verifies that build/test steps leave no tracked or unignored artifacts.
 
+Run the bounded real-probe smoke test with an authenticated Codex CLI:
+
+```sh
+npm run smoke:real-probes
+```
+
+The 2026-07-14 fixture run used `codex-cli 0.144.4`, `gpt-5.6-sol`, and low reasoning. It produced three schema-valid plans on distinct fresh thread IDs with the same snapshot/task hashes, cleaned all disposable worktrees, and left the source checkout unchanged. The sanitized metadata evidence is in [`fixtures/app-server/real-probes-2026-07-14.json`](fixtures/app-server/real-probes-2026-07-14.json); plan text, raw reasoning, command output, and process environments are intentionally not retained.
+
 ## Build Week positioning
 
 - **Track:** Developer Tools
@@ -85,7 +93,7 @@ The project is being created during the OpenAI Build Week submission period. The
 
 ## Codex collaboration record
 
-Codex was used to research the current OpenAI integration surfaces, challenge the UI-first concept, define the local-first product boundary, draft the requirements and threat model, verify the App Server boundary, establish the TypeScript/npm test foundation, implement and test the domain/policy/snapshot layers, and build the SQLite-backed controller and CLI foundation. The human set Codex CLI 0.144.4 as the compatibility baseline and authorized autonomous implementation through the pre-submission milestone; implementation choices such as the fail-closed `node:sqlite` baseline are recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
+Codex was used to research the current OpenAI integration surfaces, challenge the UI-first concept, define the local-first product boundary, draft the requirements and threat model, verify the App Server boundary, establish the TypeScript/npm test foundation, implement and test the domain/policy/snapshot layers, build the SQLite-backed controller and CLI foundation, and implement the version-pinned App Server adapter with three real independent probes. During live verification, Codex identified that App Server 0.144.4 reports `pwd` and `sed` as unknown command actions; the implementation kept unknown actions denied and tightened probe instructions instead of inferring safety from raw shell text. The human set Codex CLI 0.144.4 as the compatibility baseline and authorized autonomous implementation through the pre-submission milestone; implementation choices are recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
 
 Before submission, this section must be expanded with:
 
@@ -96,4 +104,4 @@ Before submission, this section must be expanded with:
 
 ## Status
 
-Specification baseline: 2026-07-14. App Server hard gate: passed with documented constraints on 2026-07-14. Domain, deterministic policy, Git isolation, and local controller/persistence foundations are implemented; the complete vertical slice, packaging, license selection, and judge-ready installation are pending.
+Specification baseline: 2026-07-14. App Server hard gate and three-real-probe milestone passed with documented constraints on 2026-07-14. Domain, deterministic policy, Git isolation, App Server planning adapter, and local controller/persistence foundations are implemented; comparison/review, execution enforcement, packaging, license selection, and judge-ready installation are pending.
