@@ -12,9 +12,9 @@ This file prepares the English submission fields. It is not a saved or final Dev
 - **Supported platform:** macOS arm64
 - **Release artifact:** `https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.0`
 - **Demo video:** `<PENDING: public YouTube URL, audio, under 3 minutes>`
-- **Codex /feedback Session ID:** `<PENDING: run /feedback in the primary Codex task, attach the existing session, and copy the returned Session ID here>`
+- **Codex /feedback Session ID:** `<PENDING: paste the formal Session ID captured outside source into Devpost>`
 
-Do not replace the Session ID placeholder with a local task/thread UUID.
+The formal Session ID was captured on 2026-07-15 and is intentionally retained outside source until Devpost entry. Do not replace the placeholder with a local task/thread UUID.
 
 ## One-line pitch
 
@@ -110,7 +110,7 @@ Known limitations are visible in the README, Judge Guide, and security document.
 
 - [x] Select public + Apache-2.0 as the repository route.
 - [x] Verify the final GitHub Release artifact/checksum from an unauthenticated download: `fbff8b060d6309d151f5ffdf66fc2c76abf2ebe39da4122195bba2c801856b98`.
-- [ ] Obtain the formal `/feedback` Session ID from the primary Codex task.
+- [x] Obtain the formal `/feedback` Session ID from the primary Codex task and retain it outside source.
 - [ ] Record and upload the public YouTube demo with audio under three minutes.
 - [ ] Replace thumbnail/screenshot/video placeholders with owned media.
 - [ ] Save the Devpost draft.

@@ -123,7 +123,7 @@ Keep full-plan comparisons, setup narration, and secondary features out of the v
 ### Evidence
 
 - [x] Primary Codex task used for most core functionality retained.
-- [ ] `/feedback` Session ID captured and stored outside code until submission.
+- [x] `/feedback` Session ID captured and stored outside code until submission.
 - [x] Exact Codex CLI, Codex model, GPT-5.6, Node, and package versions recorded.
 - [x] Accepted, modified, and rejected Codex suggestions documented.
 - [x] Human product, engineering, safety, and design decisions documented.
@@ -140,7 +140,6 @@ Keep full-plan comparisons, setup narration, and secondary features out of the v
 
 ## 9. Remaining submission actions
 
-- Formal `/feedback` Session ID from the retained primary Codex task.
 - Public YouTube demo and owned submission media.
 - Final Devpost save/submit.
 
