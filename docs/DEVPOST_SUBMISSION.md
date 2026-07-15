@@ -109,7 +109,7 @@ Known limitations are visible in the README, Judge Guide, and security document.
 ## Final external-action checklist
 
 - [x] Select public + Apache-2.0 as the repository route.
-- [ ] Verify the final GitHub Release artifact/checksum from a clean environment.
+- [x] Verify the final GitHub Release artifact/checksum from an unauthenticated download: `fbff8b060d6309d151f5ffdf66fc2c76abf2ebe39da4122195bba2c801856b98`.
 - [ ] Obtain the formal `/feedback` Session ID from the primary Codex task.
 - [ ] Record and upload the public YouTube demo with audio under three minutes.
 - [ ] Replace thumbnail/screenshot/video placeholders with owned media.
