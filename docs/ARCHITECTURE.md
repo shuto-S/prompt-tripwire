@@ -24,7 +24,7 @@ Official references:
 
 ## 2. Proposed technology stack
 
-These choices describe the installed implementation baseline; browser UI dependencies remain pending.
+These choices describe the installed implementation and judge-distribution baseline.
 
 | Area | Choice | Reason |
 |---|---|---|
@@ -129,7 +129,7 @@ The adapter treats the final completed plan item or final structured agent outpu
 
 ### 4.3 Comparison thread
 
-Each comparison uses a separate `thread/start`, never a probe thread or `thread/fork`. Its CWD is a fresh empty disposable directory rather than the target repository. `turn/start` includes the exact model/effort, read-only sandbox with network disabled, no summary, and the `ComparisonCandidate` content schema. Command, file, permission, unknown server requests, tool items, and diffs are denied and fail closed. Only the final completed schema-constrained agent message is accepted. Stable `thread/tokenUsage/updated` notifications supply audit usage; thread and turn IDs are persisted with each attempt.
+Each comparison uses a separate `thread/start`, never a probe thread or `thread/fork`. Its CWD is a fresh empty disposable directory rather than the target repository. `turn/start` includes the exact model/effort, read-only sandbox with network disabled, no summary, and the `ComparisonCandidate` content schema. Command, file, permission, unknown server requests, tool items, and diffs are denied and fail closed. Only the final completed schema-constrained agent message is accepted. Stable `thread/tokenUsage/updated` notifications supply audit usage; thread and turn IDs, plus usage observed before failure, are persisted with each attempt. A comparison thread keeps its deny-all classification for the App Server client lifetime so a delayed request cannot inherit the planning probe's static-read policy.
 
 ### 4.4 Execution thread
 
@@ -201,8 +201,12 @@ Matching is fail-closed.
 - Commands are parsed from App Server action metadata when available; raw shell-string prefix matching is insufficient.
 - Compound commands are split into actions and every action must be allowed.
 - A command not confidently classified is denied.
-- Network and remote tools use explicit host/tool/action allowlists; wildcards are not supported in P0.
+- Network and remote tools are deny-only in the P0 executor. The contract schema reserves explicit host/tool/action fields for a future executor; P0 neither interprets them as authority nor supports wildcards.
 - Contract changes require a new version, hash, review, and clean execution worktree.
+
+Model-divergence choices affect the enforceable local boundary. The contract contains the global intersection plus the values shared by the probes supporting each selected alternative for paths, components, assumptions, and verification commands. A free-form answer cannot expand these fields because it has no independently validated probe support.
+
+Before creating an execution worktree, the P0 runtime rejects any contract with an allowlist network/data/dependency/external-effect policy or a high-impact command class in its allowed set. This makes the reserved schema fields inert even if a contract is created through a lower-level API instead of the normal review builder.
 
 ## 9. Local API
 
@@ -223,6 +227,8 @@ GET  /api/runs/:id/report
 ```
 
 The browser currently uses the aggregate `GET /api/runs/:id` response rather than fetching the decision and contract resources serially. Every API request, including the fetch-based SSE stream, requires the per-run bearer capability. Mutations additionally require the exact loopback Origin, JSON content type, expected run version, and an idempotency key. The server rejects a mismatched Host or run ID, returns no wildcard CORS headers, and never places the capability in a query string. The CLI supplies it once in a URL fragment; the client removes that fragment immediately after bootstrap.
+
+Recorded judge replay uses the same loopback/capability controls but marks every aggregate response with `mode: "recorded"` and rejects every POST with `RECORDED_REPLAY_READ_ONLY`. Its controller state is generated in a disposable private directory from sanitized bundled values, never from a target repository. The UI shows a persistent recorded/read-only banner and disables decision, approval, and cancellation controls.
 
 The Vite build emits only same-origin React, JavaScript, and CSS assets. Content Security Policy, frame denial, MIME sniffing protection, referrer suppression, and browser capability restrictions are set on every response. Model and repository strings flow through React text rendering; model-provided HTML and remote runtime assets are not supported.
 
@@ -289,6 +295,8 @@ docs/
 ```
 
 The domain and policy packages must not import UI, process-spawning, filesystem, or network modules.
+
+The macOS arm64 release archive materializes only compiled PromptTripwire JavaScript, bundled UI assets, and the four third-party runtime packages required by those outputs. Workspace symlinks and development dependencies are not required at judge runtime. A shell launcher checks platform and Node version before starting the compiled CLI; the CLI retains the exact Codex/schema compatibility gate.
 
 ## 13. Implementation sequence
 

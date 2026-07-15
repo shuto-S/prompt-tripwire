@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { runCli } from "../../apps/cli/dist/index.js";
+import { formatCliError, runCli } from "../../apps/cli/dist/index.js";
 import { LocalController } from "../../apps/controller/dist/index.js";
 import {
   createExecutionContract,
@@ -672,4 +672,109 @@ test("FR-001 fixture accepts task text and a UTF-8 task file", async () => {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("AC-006/AC-015: inspect opens the Decision Inbox only when review is useful", async () => {
+  const root = await mkdtemp(join(tmpdir(), "prompt-tripwire-inspect-review-fixture-"));
+  try {
+    const repository = join(root, "repository");
+    assert.equal(spawnSync("git", ["init", "-b", "main", repository]).status, 0);
+    await writeFile(join(repository, "tracked.txt"), "fixture\n");
+    for (const args of [
+      ["-C", repository, "config", "user.email", "fixture@example.invalid"],
+      ["-C", repository, "config", "user.name", "PromptTripwire Fixture"],
+      ["-C", repository, "add", "tracked.txt"],
+      ["-C", repository, "commit", "-m", "fixture"],
+    ]) {
+      assert.equal(spawnSync("git", args).status, 0);
+    }
+    let stdout = "";
+    let openedRunId = null;
+    let closed = false;
+    let waited = false;
+    const exitCode = await runCli(
+      ["inspect", "--task", "Choose one implementation", "--repo", repository],
+      {
+        dataRoot: join(root, "data"),
+        io: {
+          stdout: { write: (value) => (stdout += value) },
+          stderr: { write: () => undefined },
+        },
+        createController: (store) =>
+          new LocalController({
+            store,
+            inspectionPort: {
+              async inspect() {
+                return { blockingDecisionIds: ["decision_fixture"], contract: null };
+              },
+            },
+          }),
+        async startReviewServer({ runId }) {
+          openedRunId = runId;
+          return {
+            url: `http://127.0.0.1:43127/runs/${runId}#token=fixture`,
+            async close() {
+              closed = true;
+            },
+          };
+        },
+        async waitForShutdownSignal() {
+          waited = true;
+        },
+      },
+    );
+    assert.equal(exitCode, 0);
+    assert.match(stdout, /State: needs_review/u);
+    assert.match(stdout, /Decision Inbox: http:\/\/127\.0\.0\.1:43127/u);
+    assert.match(openedRunId, /^run_/u);
+    assert.equal(waited, true);
+    assert.equal(closed, true);
+
+    let terminalOutput = "";
+    assert.equal(
+      await runCli(
+        ["inspect", "--task", "Choose one implementation", "--repo", repository, "--terminal"],
+        {
+          dataRoot: join(root, "data-terminal"),
+          io: {
+            stdout: { write: (value) => (terminalOutput += value) },
+            stderr: { write: () => undefined },
+          },
+          createController: (store) =>
+            new LocalController({
+              store,
+              inspectionPort: {
+                async inspect() {
+                  return { blockingDecisionIds: ["decision_fixture"], contract: null };
+                },
+              },
+            }),
+        },
+      ),
+      0,
+    );
+    assert.match(terminalOutput, /Next: tripwire review run_.+ --terminal/u);
+    assert.doesNotMatch(terminalOutput, /Decision Inbox:/u);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("FR-002/AC-019: CLI errors give safe, actionable setup guidance", () => {
+  assert.equal(
+    formatCliError({ code: "DIRTY_CHOICE_REQUIRED" }),
+    "DIRTY_CHOICE_REQUIRED: the checkout is dirty; rerun with --dirty committed or --dirty include\n",
+  );
+  assert.equal(
+    formatCliError(
+      Object.assign(new Error("Codex 0.144.4 is required; detected 0.143.0"), {
+        code: "CODEX_VERSION_MISMATCH",
+      }),
+    ),
+    "CODEX_VERSION_MISMATCH: Codex 0.144.4 is required; detected 0.143.0\n",
+  );
+  assert.equal(
+    formatCliError(new Error("contains private implementation detail")),
+    "CLI_ERROR: request failed\n",
+  );
 });

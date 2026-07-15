@@ -17,6 +17,7 @@ const checks = [
   "check:licenses",
   "check:security",
   "check:traceability",
+  "check:submission",
 ];
 
 for (const check of checks) {

@@ -1,3 +1,5 @@
+import type { ComparatorAttempt, ComparatorTransportResult } from "./types.js";
+
 export type ComparatorErrorCode =
   | "COMPARATOR_CANCELLED"
   | "COMPARATOR_INPUT_INVALID"
@@ -25,4 +27,13 @@ export class ComparatorRunError extends ComparatorError {
     this.attempts = [...attempts];
   }
 }
-import type { ComparatorAttempt } from "./types.js";
+
+export class ComparatorTransportError extends Error {
+  readonly result: ComparatorTransportResult;
+
+  constructor(error: unknown, result: ComparatorTransportResult) {
+    super("comparison transport failed", { cause: error });
+    this.name = "ComparatorTransportError";
+    this.result = result;
+  }
+}

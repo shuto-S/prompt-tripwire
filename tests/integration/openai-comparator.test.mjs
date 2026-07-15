@@ -313,6 +313,38 @@ test("AC-008/AC-018: comparator transport uses an empty disposable directory", a
   }
 });
 
+test("AC-008/AC-019: failed App Server attempts retain thread, turn, and usage metadata", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "prompt-tripwire-comparator-failure-parent-"));
+  const metadata = {
+    threadId: "thread_failed_comparison",
+    turnId: "turn_failed_comparison",
+    model: "gpt-5.6-terra",
+    usage: USAGE,
+  };
+  const runner = {
+    async runComparison() {
+      throw Object.assign(new Error("invalid structured output"), { metadata });
+    },
+  };
+  try {
+    await assert.rejects(
+      new PlanComparator(
+        new AppServerComparatorTransport(runner, { temporaryParent: parent }),
+      ).compare(compareInput([plan("probe_1"), plan("probe_2")], { maxAttempts: 1 })),
+      (error) => {
+        assert.equal(error.code, "COMPARATOR_PARSE_FAILED");
+        assert.equal(error.attempts[0].threadId, metadata.threadId);
+        assert.equal(error.attempts[0].turnId, metadata.turnId);
+        assert.deepEqual(error.attempts[0].usage, USAGE);
+        return true;
+      },
+    );
+    assert.deepEqual(await readdir(parent), []);
+  } finally {
+    await rm(parent, { recursive: true, force: true });
+  }
+});
+
 test("AC-008/AC-019: refusal and invalid references retry once without auto-approval", async () => {
   const plans = [plan("probe_1"), plan("probe_2"), plan("probe_3")];
   const invalid = safeContent({
@@ -410,11 +442,15 @@ test("AC-003/AC-004 spec fixture: ambiguous account deletion becomes a decision"
     [["probe_1"], ["probe_2", "probe_3"]],
   );
   assert.ok(divergence.options.every((option) => option.effects.length > 0));
-  assert.ok(
-    review.decisions.some((decision) =>
-      decision.deterministicTriggers.includes("destructive_data"),
-    ),
+  const policyDecision = review.decisions.find((decision) =>
+    decision.deterministicTriggers.includes("destructive_data"),
   );
+  assert.ok(policyDecision);
+  assert.deepEqual(
+    policyDecision.options.map((option) => option.label),
+    ["Do not allow", "Allow implementation only"],
+  );
+  assert.match(policyDecision.options[1].description, /will not perform the effect in P0/u);
   assert.equal(createReviewRound(review.decisions).executionAllowed, false);
 
   const rendered = renderDecisionCards(review.decisions);
@@ -548,6 +584,77 @@ test("AC-006/AC-007: at most three decisions render and each answer changes the 
   }).contract;
   assert.notEqual(first.contentHash, changed.contentHash);
   assert.notEqual(first.contractId, changed.contractId);
+});
+
+test("AC-006/AC-007: a selected plan alternative defines enforceable contract scope", async () => {
+  const plans = [
+    plan("probe_1", {
+      filesToChange: ["src/common.ts", "src/retain.ts"],
+      components: ["common", "retention"],
+      commands: ["npm run test:common", "npm run test:retain"],
+    }),
+    plan("probe_2", {
+      filesToChange: ["src/common.ts", "src/delete.ts"],
+      components: ["common", "deletion"],
+      commands: ["npm run test:common", "npm run test:delete"],
+    }),
+    plan("probe_3", {
+      filesToChange: ["src/common.ts", "src/delete.ts"],
+      components: ["common", "deletion"],
+      commands: ["npm run test:common", "npm run test:delete"],
+    }),
+  ];
+  const candidate = (
+    await new PlanComparator(new QueueTransport([response(divergenceContent(plans))])).compare(
+      compareInput(plans),
+    )
+  ).candidate;
+  const review = normalizeReview({
+    candidate,
+    plans,
+    model: "gpt-5.6-terra",
+    reasoningEffort: "low",
+    usage: USAGE,
+    degraded: false,
+  });
+  const decision = review.decisions.find((item) => item.deterministicTriggers.length === 0);
+  assert.ok(decision);
+  const resolved = [{ ...decision, status: "resolved" }];
+  const contractFor = (selectedOptionId, freeformOverride = null) =>
+    createContractPreview({
+      runId: "run_selected_scope",
+      snapshot: snapshot(),
+      plans,
+      comparison: candidate,
+      decisions: resolved,
+      humanDecisions: [
+        {
+          decisionId: decision.decisionId,
+          selectedOptionId,
+          freeformOverride,
+          rationale: null,
+          expectedRunVersion: 1,
+          decidedAt: "2026-07-14T00:01:00.000Z",
+        },
+      ],
+      comparatorModel: "gpt-5.6-terra",
+      createdAt: "2026-07-14T00:02:00.000Z",
+    }).contract;
+
+  const retain = contractFor(decision.options[0].id);
+  assert.deepEqual(retain.allowedPaths, ["src/common.ts", "src/retain.ts"]);
+  assert.deepEqual(retain.allowedComponents, ["common", "retention"]);
+  assert.deepEqual(retain.requiredChecks, ["npm run test:common", "npm run test:retain"]);
+
+  const remove = contractFor(decision.options[1].id);
+  assert.deepEqual(remove.allowedPaths, ["src/common.ts", "src/delete.ts"]);
+  assert.deepEqual(remove.allowedComponents, ["common", "deletion"]);
+  assert.deepEqual(remove.requiredChecks, ["npm run test:common", "npm run test:delete"]);
+
+  const freeform = contractFor(null, "Use a third implementation not present in the plans.");
+  assert.deepEqual(freeform.allowedPaths, ["src/common.ts"]);
+  assert.deepEqual(freeform.allowedComponents, ["common"]);
+  assert.deepEqual(freeform.requiredChecks, ["npm run test:common"]);
 });
 
 test("AC-007/AC-019: review artifacts and idempotent answers survive restart", async () => {

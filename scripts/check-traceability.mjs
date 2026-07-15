@@ -14,24 +14,35 @@ function files(root) {
   return result;
 }
 
-const testText = files(resolve("tests"))
-  .map((path) => readFileSync(path, "utf8"))
-  .join("\n");
+const testSources = files(resolve("tests")).map((path) => readFileSync(path, "utf8"));
+const testTitles = testSources.flatMap((source) =>
+  [...source.matchAll(/\btest(?:\.only)?\(\s*(["'`])([\s\S]*?)\1/gu)].map(
+    (match) => match[2] ?? "",
+  ),
+);
+const testTitleText = testTitles.join("\n");
 const specification = readFileSync(resolve("docs/SPECIFICATION.md"), "utf8");
 
 for (let value = 1; value <= 19; value += 1) {
   const id = String(value).padStart(3, "0");
-  const direct = testText.includes(`AC-${id}`);
-  const grouped = new RegExp(`AC-[0-9]{3}(?:/[0-9]{3})*/${id}(?:\\D|$)`, "u").test(testText);
+  const direct = testTitleText.includes(`AC-${id}`);
+  const grouped = new RegExp(`AC-[0-9]{3}(?:/[0-9]{3})*/${id}(?:\\D|$)`, "u").test(testTitleText);
   assert.equal(direct || grouped, true, `AC-${id} has no executable test evidence`);
 }
 
 for (let value = 1; value <= 18; value += 1) {
   const id = String(value).padStart(3, "0");
-  assert.match(
-    specification,
-    new RegExp(`\\| FR-${id} \\| AC-`, "u"),
-    `FR-${id} is missing from requirement traceability`,
+  const row = specification.match(new RegExp(`^\\| FR-${id} \\| ([^|]+)\\|$`, "mu"));
+  assert.ok(row?.[1], `FR-${id} is missing from requirement traceability`);
+  const acceptanceIds = [...row[1].matchAll(/AC-([0-9]{3})/gu)].map((match) => match[1]);
+  assert.ok(acceptanceIds.length > 0, `FR-${id} has no acceptance evidence`);
+  assert.equal(
+    acceptanceIds.every((acceptanceId) => {
+      const numeric = Number(acceptanceId);
+      return numeric >= 1 && numeric <= 19;
+    }),
+    true,
+    `FR-${id} references an unknown acceptance criterion`,
   );
 }
 

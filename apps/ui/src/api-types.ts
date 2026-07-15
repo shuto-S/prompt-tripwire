@@ -50,6 +50,7 @@ export interface DeviationDto {
 }
 
 export interface RunReviewDto {
+  readonly mode: "live" | "recorded";
   readonly runId: string;
   readonly state: string;
   readonly version: number;

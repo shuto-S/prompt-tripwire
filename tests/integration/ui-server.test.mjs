@@ -208,3 +208,28 @@ test("contract decisions can be edited before explicit approval", async () => {
     await fixture.close();
   }
 });
+
+test("recorded replay is labeled and rejects every mutation", async () => {
+  const fixture = await createReviewFixture({ decisionCount: 1, runId: "run_ui_recorded" });
+  const server = await startReviewServer({
+    controller: fixture.controller,
+    runId: fixture.run.runId,
+    mode: "recorded",
+  });
+  const endpoint = `${server.origin}/api/runs/${fixture.run.runId}`;
+  try {
+    const review = await (await fetch(endpoint, { headers: apiHeaders(server) })).json();
+    assert.equal(review.mode, "recorded");
+    const response = await fetch(`${endpoint}/cancel`, {
+      method: "POST",
+      headers: mutationHeaders(server, "recorded-cancel"),
+      body: JSON.stringify({ expectedVersion: review.version }),
+    });
+    assert.equal(response.status, 405);
+    assert.deepEqual(await response.json(), { code: "RECORDED_REPLAY_READ_ONLY" });
+    assert.equal(fixture.controller.status(fixture.run.runId).run.state, "needs_review");
+  } finally {
+    await server.close();
+    await fixture.close();
+  }
+});

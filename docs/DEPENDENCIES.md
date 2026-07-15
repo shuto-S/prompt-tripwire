@@ -29,5 +29,9 @@ Runtime persistence uses the built-in `node:sqlite` module from Node.js 24.15+; 
 | Package | Version | License | Purpose |
 |---|---:|---|---|
 | `zod` | 4.4.3 | MIT | Strict runtime validation and inferred types for domain artifacts and persisted state |
+| `react` | 19.2.7 | MIT | Bundled local Decision Inbox UI |
+| `react-dom` | 19.2.7 | MIT | Browser renderer for the bundled local UI |
+
+`scheduler` 0.27.0 (MIT) is the only packaged transitive runtime dependency. The release archive also includes the license files shipped by these packages.
 
 `npm run check:licenses` verifies that every installed lockfile package records a license and rejects GPL, AGPL, and SSPL dependencies. New runtime dependencies require the same review and a synchronized update to this file.

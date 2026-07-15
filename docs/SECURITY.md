@@ -47,7 +47,7 @@ Repository text, model output, tool requests, App Server events, local HTTP requ
 | Local UI hijack | Loopback bind, random port, per-run capability token, same-origin/CORS/CSP, no remote bind | Other processes under the same OS user may still access local resources |
 | Contract tampering | Canonical hash, immutable versions, recompute before use, transactional state | Same-user local attacker can alter both program and data |
 | Stale approval | Bind to task/snapshot/config/model hashes; invalidate on drift | Undetected external state drift is possible |
-| External or production side effect | Network and remote tools disabled; deterministic decision and explicit allowlist | User can explicitly authorize a dangerous action |
+| External or production side effect | Network and remote tools disabled; deterministic decision separates implementation intent from operation authority | User can perform a separately authorized action outside the P0 executor |
 | Approval confusion | Concrete effects, no high-impact default, expected version/idempotency checks | Human review can still be mistaken |
 | Malicious model output | Strict schemas plus deterministic policy; model cannot approve | Policy omissions or semantic misclassification |
 | Denial of service/cost runaway | Probe/time/token limits, capped concurrency/retry, usage display, cancel | Provider-side cost estimates may be unavailable |
@@ -98,7 +98,7 @@ The comparator uses a fresh ephemeral App Server thread in an empty user-only te
 
 ## 7. Network and external tools
 
-Network is denied by default in both planning and execution. A request to enable it is a blocking decision that must state:
+Network is denied throughout P0 planning and execution. A request to prepare code that would later need it is a blocking decision that must state:
 
 - exact purpose;
 - destination host or service;
@@ -107,7 +107,7 @@ Network is denied by default in both planning and execution. A request to enable
 - expected cost or production impact;
 - rollback or compensating action.
 
-The P0 contract supports explicit hosts/actions, not unrestricted internet access. MCP/app tools are disabled unless named by the contract. Remote writes, deploy, release, publish, migration application, billing, and production operations require both contract approval and separate user authorization at the point of action.
+The contract schema reserves explicit hosts/actions rather than unrestricted internet access, but the P0 executor is deny-only and never turns those fields into runtime authority. It rejects a contract containing an allowlist policy or high-impact allowed command class before creating a worktree. A review choice may authorize local code changes that prepare a disclosed network or external effect; it cannot perform that effect. MCP/app tools remain disabled. Remote writes, deploy, release, publish, migration application, billing, production operations, and permission expansion require a separate explicitly authorized workflow outside the P0 executor.
 
 P0 does not enable runtime experimental APIs, granular approval, or permission profiles. Any normal-schema permission-expansion request that arrives receives an empty grant and pauses the run. Proactive `request_permissions` support is deferred because Codex 0.144.4 requires the experimental capability for the granular route.
 
@@ -150,6 +150,8 @@ Default retention:
 Deletion removes database references and artifacts. Secure erasure on SSDs is not claimed.
 
 The implemented CLI exposes archive/unarchive as the pinned-retention control, explicit deletion, and expiry purge. Deletion is refused while execution is active or any disposable worktree still has pending cleanup. Idempotency records are run-scoped and cascade with the run; orphaned snapshots and private artifact files are removed only when no remaining run references them.
+
+Recorded judge replay is generated in a private OS temporary directory, contains sanitized synthetic evidence, and is deleted when the replay closes. It calls no model, reads no target repository, and rejects all HTTP mutations. The UI states that replay is recorded and cannot substitute for live integration evidence.
 
 ## 11. Incident behavior
 

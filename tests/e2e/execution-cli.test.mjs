@@ -173,3 +173,73 @@ test("AC-019 E2E: tripwire run passes the approved prepared snapshot and persist
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("AC-010/AC-015 E2E: a paused run opens the Decision Inbox", async () => {
+  const root = await mkdtemp(join(tmpdir(), "prompt-tripwire-cli-paused-review-"));
+  const repositoryPath = join(root, "repository");
+  const dataRoot = join(root, "data");
+  await mkdir(join(repositoryPath, "src"), { recursive: true });
+  await writeFile(join(repositoryPath, "src", "allowed.txt"), "before\n", "utf8");
+  git(repositoryPath, ["init", "-q"]);
+  git(repositoryPath, ["config", "user.email", "fixture@example.test"]);
+  git(repositoryPath, ["config", "user.name", "Fixture"]);
+  git(repositoryPath, ["add", "."]);
+  git(repositoryPath, ["commit", "-qm", "fixture"]);
+  const seeded = await seedApprovedRun(repositoryPath, dataRoot);
+  let stdout = "";
+  let reviewOpened = false;
+  let reviewClosed = false;
+  try {
+    const exitCode = await runCli(["run", "--contract", seeded.contract.contractId], {
+      cwd: repositoryPath,
+      dataRoot,
+      io: {
+        stdout: { write: (value) => (stdout += String(value)) },
+        stderr: { write: () => undefined },
+      },
+      createController: (store) =>
+        new LocalController({
+          store,
+          executionPort: {
+            async start() {
+              return { outcome: "paused", errorCode: "OUTSIDE_CONTRACT" };
+            },
+            async interrupt() {},
+          },
+        }),
+      async startReviewServer({ runId }) {
+        assert.equal(runId, "run_cli_execution");
+        reviewOpened = true;
+        return {
+          url: `http://127.0.0.1:43127/runs/${runId}#token=fixture`,
+          async close() {
+            reviewClosed = true;
+          },
+        };
+      },
+      async waitForShutdownSignal() {},
+    });
+    assert.equal(exitCode, 0);
+    assert.match(stdout, /State: paused/u);
+    assert.match(stdout, /Decision Inbox:/u);
+    assert.equal(reviewOpened, true);
+    assert.equal(reviewClosed, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("judge replay is explicitly recorded, read-only, and terminal-safe", async () => {
+  let stdout = "";
+  const exitCode = await runCli(["replay", "--terminal"], {
+    io: {
+      stdout: { write: (value) => (stdout += String(value)) },
+      stderr: { write: () => undefined },
+    },
+  });
+  assert.equal(exitCode, 0);
+  assert.match(stdout, /Recorded replay · read-only · no Codex call or code execution/u);
+  assert.match(stdout, /What should happen to persisted account data after deletion\?/u);
+  assert.match(stdout, /Delete immediately/u);
+  assert.match(stdout, /Retain for 30 days/u);
+});

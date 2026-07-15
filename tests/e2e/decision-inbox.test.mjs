@@ -103,3 +103,32 @@ test("AC-006/015: review shows three blockers plus remaining count and supports 
     await fixture.close();
   }
 });
+
+test("recorded replay is visibly labeled and cannot mutate review state", async () => {
+  const fixture = await createReviewFixture({ decisionCount: 1, runId: "run_ui_browser_recorded" });
+  const server = await startReviewServer({
+    controller: fixture.controller,
+    runId: fixture.run.runId,
+    mode: "recorded",
+  });
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage();
+  try {
+    await page.goto(server.url);
+    await page.getByText("Recorded replay · read-only", { exact: true }).waitFor();
+    assert.equal(await page.getByText(/does not call Codex or execute code/u).count(), 1);
+    assert.deepEqual(
+      await page
+        .getByRole("radio")
+        .evaluateAll((items) => items.map((item) => item.matches(":disabled"))),
+      [true, true],
+    );
+    assert.equal(await page.getByRole("button", { name: "Cancel run" }).count(), 0);
+    assert.equal(fixture.controller.status(fixture.run.runId).run.state, "needs_review");
+  } finally {
+    await page.close();
+    await browser.close();
+    await server.close();
+    await fixture.close();
+  }
+});

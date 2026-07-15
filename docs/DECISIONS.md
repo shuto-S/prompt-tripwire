@@ -140,6 +140,24 @@ This log separates confirmed product decisions from assumptions that still requi
 
 **Reason:** PromptTripwire is a Codex-user tool, so a second credential path adds setup and secret-handling risk without product value. Codex App Server already supports authenticated model turns and JSON Schema output, while arbitrary direct API calls cannot safely reuse the CLI's ChatGPT session. An isolated tool-free thread preserves comparator boundaries and keeps one version-pinned protocol surface. The bounded 2026-07-15 App Server evaluation passed both fixtures on Sol and Terra; Terra used 48,910 total tokens versus Sol's 49,131, completed in 21,619 ms versus 29,657 ms, and did not add an unnecessary unknown on the divergence fixture.
 
+### D-023 — Bind selected plan scope and keep high-impact operations deny-only in P0
+
+**Decision:** A selected model-divergence option expands the execution contract only with paths, components, assumptions, and verification commands shared by the probes that support that option, in addition to the global intersection. Free-form answers do not expand those machine-enforced fields. Deterministic high-impact decisions offer an implementation-only choice: the contract may authorize local code changes that prepare a disclosed effect, while network, remote writes, deploy, release, migration application, production-data operations, billing, credentials, and permission expansion remain denied by the P0 executor. Before worktree creation, the runtime rejects reserved allowlist policies and high-impact allowed command classes. Comparison thread IDs keep their deny-all classification for the App Server client lifetime, and failed comparison attempts retain any observed thread, turn, and usage metadata.
+
+**Reason:** Previously, human choices changed only descriptive contract text while path scope and required checks always came from unselected plan intersections or unions. That made a valid selected alternative either unenforceable or over-broad. The UI also said “Allow as stated” although the version-pinned runtime always disabled these operational capabilities. Binding scope to probe support makes the choice enforceable; labeling operational intent as implementation-only accurately preserves the fail-closed runtime boundary. Permanent comparison classification prevents delayed requests from falling through to the less restrictive probe policy, and failure metadata completes the audit trail promised by D-022.
+
+### D-024 — Open review conditionally and use the OS account boundary as local approval context
+
+**Decision:** `tripwire inspect` starts the loopback Decision Inbox and prints its one-time URL when the result needs review, and `tripwire run` does the same when a deviation pauses execution, unless `--terminal` was requested. A dirty checkout error names the two non-destructive rerun choices, and a Codex version mismatch reports the required and detected versions; other CLI failures remain generic to avoid leaking untrusted detail. Approval persists the timestamp and immutable contract hash but does not copy the local account name into the contract or export. The private single-user database under the OS account is the P0 approving context.
+
+**Reason:** The documented hybrid workflow was not reached from `inspect`, forcing a second command even when review was immediately useful, while generic dirty/version errors did not tell the user how to recover. Conversely, persisting an OS username adds a personal identifier without strengthening the same-user threat boundary or providing a cryptographic identity proof. Conditional review startup, terminal fallback, and narrowly allowlisted error detail align the implementation with the local-first workflow and privacy model.
+
+### D-025 — Ship a relocatable macOS arm64 archive with an unmistakable recorded fallback
+
+**Decision:** Package compiled PromptTripwire JavaScript, bundled UI assets, minimal runtime dependencies, checksum, direct launcher, user-local installer/uninstaller, and a dependency-free Git fixture in a macOS arm64 tar archive. The launcher still requires Node 24.15+, Git, npm 11+, and an authenticated `codex-cli 0.144.4`; it does not run a source build. Add `tripwire replay` as a sanitized, disposable, read-only Decision Inbox example that calls no model or command, rejects all mutations, and is persistently labeled recorded.
+
+**Reason:** Build Week judges need a reproducible way to run a developer tool without rebuilding it, while live Codex availability can still be affected by login or usage limits. A relocatable runtime archive is lower-risk than adding a native compiler/signing dependency during the event and preserves the version-pinned App Server boundary. A clearly non-live replay improves review reliability without falsely claiming the core integration works.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage
@@ -156,7 +174,7 @@ This log separates confirmed product decisions from assumptions that still requi
 
 ### A-004 — Packaging
 
-Choose between a published npm CLI, signed standalone macOS binary/app, or both after the vertical slice works. Judges must not need to build from source.
+**Resolution:** Ship the compiled/runtime macOS arm64 archive defined by D-025. Do not publish an npm package or claim a signed/notarized native app for v0.1.0. A GitHub Release remains the preferred delivery surface after repository visibility/license confirmation.
 
 ### A-005 — Exact model identifiers
 

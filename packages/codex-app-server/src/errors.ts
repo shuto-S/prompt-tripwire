@@ -25,3 +25,25 @@ export class AppServerError extends Error {
     this.code = code;
   }
 }
+
+export interface AppServerComparisonFailureMetadata {
+  readonly threadId: string;
+  readonly turnId: string | null;
+  readonly model: string;
+  readonly usage: {
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly totalTokens: number;
+    readonly reasoningTokens: number;
+  } | null;
+}
+
+export class AppServerComparisonError extends AppServerError {
+  readonly metadata: AppServerComparisonFailureMetadata;
+
+  constructor(error: AppServerError, metadata: AppServerComparisonFailureMetadata) {
+    super(error.code, error.message, { cause: error });
+    this.name = "AppServerComparisonError";
+    this.metadata = metadata;
+  }
+}

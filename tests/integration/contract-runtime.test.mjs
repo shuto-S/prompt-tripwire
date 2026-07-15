@@ -449,6 +449,36 @@ test("AC-009 AC-013 AC-019: successful execution is isolated and reports real ch
   }
 });
 
+test("AC-011: P0 rejects an allowlisted external capability before creating a worktree", async () => {
+  const repository = await repositoryFixture();
+  const persisted = await storage();
+  const harnesses = [];
+  const controller = new LocalController({
+    store: persisted.store,
+    executionPort: runtimeWithScenarios([], harnesses),
+  });
+  controller.start();
+  try {
+    const approved = approvedContract(persisted.store, repository.prepared, "run_allowlist", {
+      networkPolicy: { mode: "allowlist", hosts: ["example.invalid"], actions: ["read"] },
+    });
+    const result = await runApproved(
+      controller,
+      repository.prepared,
+      approved,
+      "execute:run_allowlist:1",
+    );
+    assert.equal(result.state, "failed");
+    assert.equal(result.lastErrorCode, "UNSUPPORTED_P0_CONTRACT");
+    assert.equal(persisted.store.listWorktrees(result.runId).length, 0);
+    assert.equal(harnesses.length, 0);
+  } finally {
+    await controller.stop();
+    await rm(repository.root, { recursive: true, force: true });
+    await rm(persisted.root, { recursive: true, force: true });
+  }
+});
+
 test("AC-010: outside-path write is detected, interrupted, discarded, and never completed", async () => {
   const repository = await repositoryFixture();
   const persisted = await storage();

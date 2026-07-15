@@ -66,6 +66,33 @@ interface ActiveExecution {
   turnId: string | null;
 }
 
+const P0_FORBIDDEN_COMMAND_CLASSES = new Set([
+  "dependency",
+  "deploy",
+  "destructive",
+  "migration",
+  "network",
+  "permission",
+  "release",
+  "remote_write",
+  "secret_access",
+]);
+
+function unsupportedP0Contract(contract: ExecutionContract): boolean {
+  return (
+    contract.networkPolicy.mode !== "deny" ||
+    contract.networkPolicy.hosts.length > 0 ||
+    contract.networkPolicy.actions.length > 0 ||
+    contract.dependencyPolicy.mode !== "deny" ||
+    contract.dependencyPolicy.allowed.length > 0 ||
+    contract.dataPolicy.mode !== "deny" ||
+    contract.dataPolicy.allowed.length > 0 ||
+    contract.externalEffectPolicy.mode !== "deny" ||
+    contract.externalEffectPolicy.allowed.length > 0 ||
+    contract.allowedCommandClasses.some((value) => P0_FORBIDDEN_COMMAND_CLASSES.has(value))
+  );
+}
+
 function errorCode(error: unknown): string {
   if (
     error !== null &&
@@ -154,6 +181,16 @@ export class ContractExecutionPort {
   }
 
   async start(context: RuntimeExecutionContext): Promise<RuntimeExecutionResult> {
+    if (unsupportedP0Contract(context.contract)) {
+      return {
+        outcome: "failed",
+        errorCode: "UNSUPPORTED_P0_CONTRACT",
+        evidence: emptyEvidence(
+          context.contract,
+          "Execution did not start because the contract requested a capability unavailable in the P0 executor.",
+        ),
+      };
+    }
     const prepared = context.preparedSnapshot;
     if (
       prepared === undefined ||

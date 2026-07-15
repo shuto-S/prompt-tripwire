@@ -9,7 +9,12 @@ import {
 } from "@prompt-tripwire/domain";
 import { sanitizeForExport } from "@prompt-tripwire/policy";
 
-import { ComparatorError, ComparatorRunError, type ComparatorErrorCode } from "./errors.js";
+import {
+  ComparatorError,
+  ComparatorRunError,
+  ComparatorTransportError,
+  type ComparatorErrorCode,
+} from "./errors.js";
 import type {
   ComparatorAttempt,
   ComparatorTransport,
@@ -227,12 +232,20 @@ export class PlanComparator {
           usage: response.usage,
         };
       } catch (error) {
+        const transportFailure = error instanceof ComparatorTransportError ? error : null;
         lastError = comparatorFailure(
-          error,
+          transportFailure?.cause ?? error,
           timeout.signal.aborted,
           input.signal?.aborted === true,
         );
-        attempts.push(attemptFailure(attempt, input.model, lastError.code, response));
+        attempts.push(
+          attemptFailure(
+            attempt,
+            input.model,
+            lastError.code,
+            transportFailure?.result ?? response,
+          ),
+        );
         if (lastError.code === "COMPARATOR_CANCELLED") {
           throw new ComparatorRunError(lastError, attempts);
         }

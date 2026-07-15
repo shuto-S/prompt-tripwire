@@ -4,7 +4,7 @@
 
 PromptTripwire is a local-first preflight and execution gate for Codex. It runs the same engineering task through multiple independent, read-only Codex planning threads, turns material disagreements into a small number of human decisions, and binds the approved choices into an execution contract.
 
-The local-first P0 engine is implemented and tested: a unified Codex App Server 0.144.4 planning/comparison/execution adapter, three independent real planning probes, tool-free GPT-5.6 structured comparison, deterministic policy normalization, terminal and browser review/approval, immutable contracts, Git worktree containment, contract-bound execution/deviation handling, sanitized audit reports, crash recovery, retention, and security/traceability gates. Judge distribution and submission work remain separate.
+The local-first P0 engine and judge distribution are implemented and tested: a unified Codex App Server 0.144.4 planning/comparison/execution adapter, three independent real planning probes, tool-free GPT-5.6 structured comparison, deterministic policy normalization, terminal and browser review/approval, immutable contracts, Git worktree containment, contract-bound execution/deviation handling, sanitized audit reports, crash recovery, retention, security/traceability gates, a compiled macOS arm64 archive, a safe fixture, and an explicitly recorded read-only replay.
 
 ## Why this exists
 
@@ -29,7 +29,7 @@ The local UI shows decision cards, not three walls of plan text:
 - the repository evidence behind each interpretation;
 - the files, data, and external effects each option changes.
 
-After review, PromptTripwire creates a versioned execution contract. Codex runs in an isolated worktree with network access disabled by default. Contract deviations pause the run and require an explicit update or rejection.
+After review, PromptTripwire creates a versioned execution contract. Codex runs in an isolated worktree with network and remote tools disabled throughout P0 execution. A high-impact decision may approve local implementation that prepares an effect, but PromptTripwire does not perform that operation. Contract deviations pause the run and require an explicit update or rejection.
 
 ## Product decisions
 
@@ -46,10 +46,30 @@ After review, PromptTripwire creates a versioned execution contract. Codex runs 
 - [Security and privacy](docs/SECURITY.md)
 - [Market and competitor research](docs/RESEARCH.md)
 - [Build Week plan and compliance](docs/BUILD_WEEK.md)
+- [Build Week requirements matrix](docs/BUILD_WEEK_REQUIREMENTS_MATRIX.md)
+- [Judge guide](docs/JUDGE_GUIDE.md)
+- [Devpost submission draft](docs/DEVPOST_SUBMISSION.md)
+- [Codex collaboration record](docs/CODEX_COLLABORATION.md)
 - [Decision log and open questions](docs/DECISIONS.md)
 - [Codex App Server 0.144.4 feasibility spike](docs/CODEX_APP_SERVER_SPIKE.md)
 
 `docs/SPECIFICATION.md` is the authoritative product scope. The other documents provide implementation detail and evidence.
+
+## Judge quickstart
+
+The judge artifact is a compiled JavaScript/runtime archive for macOS arm64. It does not require the TypeScript source tree or a source build.
+
+Prerequisites are Node.js 24.15+, npm 11+, Git, and an already authenticated `codex-cli 0.144.4`. PromptTripwire reuses the existing Codex CLI login for probes, GPT-5.6 comparison, and execution. It does not require `OPENAI_API_KEY`, expose an API-key setting, or copy Codex credentials.
+
+```sh
+shasum -a 256 -c SHA256SUMS.txt
+tar -xzf prompt-tripwire-v0.1.0-macos-arm64.tar.gz
+cd prompt-tripwire-v0.1.0-macos-arm64
+./bin/tripwire --help
+./bin/tripwire replay --terminal
+```
+
+`tripwire replay` is clearly labeled recorded and read-only; it makes no Codex call and executes no code. The included dependency-free fixture exercises the real `inspect → review → approve → contained execution → report` path. See the [Judge Guide](docs/JUDGE_GUIDE.md) for exact commands, install/uninstall, safety boundaries, and troubleshooting.
 
 ## Development baseline
 
@@ -62,7 +82,7 @@ Supported Build Week development baseline:
 
 PromptTripwire uses that existing Codex CLI login for probes, comparison, and execution. It does not require `OPENAI_API_KEY` or another API credential.
 
-Install a clean checkout with one command:
+Install a clean source checkout with one command:
 
 ```sh
 npm ci
@@ -74,7 +94,7 @@ Run the complete local foundation verification:
 npm run check
 ```
 
-Individual entry points are available for `typecheck`, `lint`, `build`, `test:unit`, `test:integration`, `test:e2e`, `check:boundaries`, `check:versions`, `check:schema`, `check:licenses`, `check:security`, and `check:traceability`. CI runs the same checks on `macos-latest` and verifies that build/test steps leave no tracked or unignored artifacts. The E2E suite replays all seven specification fixtures from [`fixtures/repositories/spec-scenarios.json`](fixtures/repositories/spec-scenarios.json).
+Individual entry points are available for `typecheck`, `lint`, `build`, `test:unit`, `test:integration`, `test:e2e`, `check:boundaries`, `check:versions`, `check:schema`, `check:licenses`, `check:security`, `check:traceability`, and `check:submission`. `npm run package:macos-arm64` builds the judge archive and `npm run verify:release` verifies its checksum, install/uninstall path, replay, fixture, and content boundaries. CI runs the same source checks on `macos-latest` and verifies that build/test steps leave no tracked or unignored artifacts. The E2E suite replays all seven specification fixtures from [`fixtures/repositories/spec-scenarios.json`](fixtures/repositories/spec-scenarios.json).
 
 Run the bounded real-probe smoke test with an authenticated Codex CLI:
 
@@ -102,7 +122,7 @@ Use `tripwire review RUN_ID --terminal` for the terminal fallback. Both interfac
 
 ## Verified evidence and residual risks
 
-On macOS/arm64 with `codex-cli 0.144.4`, the bounded live execution fixture completed with one contract-scoped file, `npm test` exit 0, no deviation, an unchanged source checkout, and a removed execution worktree. The full local check passes 23 unit, 62 integration, and 13 E2E tests, including App Server disconnect, comparator tool denial/schema failure, snapshot drift, duplicate/reordered events, idempotent approval, controller restart, cleanup failure, retention/deletion, UI capability/origin controls, secret redaction, seven specification fixtures, and FR-001–018 / AC-001–019 traceability. CI runs the same gates on macOS.
+On macOS/arm64 with `codex-cli 0.144.4`, the bounded live execution fixture completed with one contract-scoped file, `npm test` exit 0, no deviation, an unchanged source checkout, and a removed execution worktree. The full local check passes 23 unit, 71 integration, and 17 E2E tests, including App Server disconnect, comparator tool denial/schema failure and late-request isolation, selected-alternative contract binding, P0 allowlist rejection before worktree creation, snapshot drift, duplicate/reordered events, idempotent approval, controller restart, cleanup failure, retention/deletion, conditional Decision Inbox startup, recorded replay immutability, UI capability/origin controls, secret redaction, seven specification fixtures, and FR-001–018 / AC-001–019 traceability. CI runs the same gates on macOS.
 
 Known residual risks are explicit:
 
@@ -124,15 +144,16 @@ The project is being created during the OpenAI Build Week submission period. The
 
 ## Codex collaboration record
 
-Codex was used to research the current OpenAI integration surfaces, challenge the UI-first concept, define the local-first product boundary, draft the requirements and threat model, verify the App Server boundary, establish the TypeScript/npm test foundation, implement and test the domain/policy/snapshot layers, build the SQLite-backed controller and CLI foundation, implement the version-pinned App Server adapter with three real independent probes, complete the comparator and terminal decision/contract flow, implement the loopback-only browser Decision Inbox with keyboard and security E2E coverage, and complete the contract-bound execution, audit, recovery, retention, security, and traceability layers. Live verification changed the implementation rather than merely confirming it: Codex 0.144.4 reported `pwd` and `sed` as unknown, so the human-approved safety response was to retain denial and narrow execution instructions; pathless file approvals were first rejected, then modified to accept only when live ordering exposed a same-ID, contract-valid file item; empty and rename paths remain fail-closed. User environment inheritance was rejected, while a fixed non-secret macOS executable `PATH` was accepted so sandboxed checks could run. When the human clarified that Codex users should need no extra credential setup, the direct Responses API comparator was replaced with an isolated tool-free App Server comparison thread. The bounded authenticated Sol/Terra run then selected Terra/low empirically. The human set Codex CLI 0.144.4 as the compatibility baseline, retained the local-first/single-user scope, and authorized autonomous implementation through the pre-submission milestone; implementation choices are recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
+Codex researched current OpenAI integration surfaces, challenged the earlier UI-first concept, drafted the specification/threat model, built the protocol spike, and implemented the tested vertical slice and distribution. The human retained authority over the local-first/single-user scope, credential experience, fail-closed boundaries, and external publication.
 
-Before submission, this section must be expanded with:
+Concrete outcomes include:
 
-- concrete examples of Codex suggestions that were accepted, changed, or rejected;
-- the exact GPT-5.6 and Codex model versions used;
-- the core Codex `/feedback` Session ID;
-- links to implementation commits and dated evidence.
+- **Accepted:** identical-input fresh probes, CLI-first conditional UI, App Server over stdio, and immutable execution contracts.
+- **Changed:** direct Responses API comparison became an isolated tool-free App Server turn so Codex users need no extra API key; pathless file approvals became same-thread/same-item correlated approvals; required checks use a fixed non-secret executable `PATH` instead of inheriting the user environment.
+- **Rejected:** forced expert personas, a synthetic risk score, raw-text trust for App Server `unknown` actions such as `pwd`/`sed`, runtime experimental permission expansion, and operational deploy/release/network authority in P0.
+
+The exact baseline is `codex-cli 0.144.4`, `gpt-5.6-sol`/low for planning, and `gpt-5.6-terra`/low for comparison. The full accepted/changed/rejected record, dated commits from `39a32d7` through `dc77c15`, live evidence links, and the formal `/feedback` retrieval rule are in [docs/CODEX_COLLABORATION.md](docs/CODEX_COLLABORATION.md). The `/feedback` Session ID is intentionally not replaced by a local task UUID or committed to source; it must be copied from the primary Codex task into the Devpost field.
 
 ## Status
 
-Specification baseline: 2026-07-15. App Server hard gate, three-real-probe smoke, tool-free App Server Sol/Terra comparison, live compliant execution, full P0 test traceability, macOS secret scan, and seven specification fixtures passed with documented constraints. No separate OpenAI API credential is required. Packaging, license selection, judge-ready installation, demo, and submission are Issue #12 work and have not started.
+Specification baseline: 2026-07-15. App Server hard gate, three-real-probe smoke, tool-free App Server Sol/Terra comparison, live compliant execution, full P0 traceability, macOS secret scan, seven specification fixtures, recorded replay, and the judge archive verification are covered by executable gates. No separate OpenAI API credential is required. The repository is currently private and has no project license; public + Apache-2.0 versus private + judge sharing is the remaining distribution decision. Video creation/upload and Devpost save/final submit remain intentionally outside this preparation work.

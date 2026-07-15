@@ -1,6 +1,7 @@
 export * from "./controller.js";
 export * from "./errors.js";
 export * from "./inspection-pipeline.js";
+export * from "./recorded-review.js";
 export * from "./renderer.js";
 export * from "./timeout.js";
 export * from "./types.js";

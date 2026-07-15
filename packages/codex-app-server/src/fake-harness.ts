@@ -80,6 +80,27 @@ export class FakeAppServerHarness {
     });
   }
 
+  requestStaticReadApproval(threadId: string, turnId: string, cwd: string): void {
+    this.requestApproval(
+      "item/commandExecution/requestApproval",
+      {
+        threadId,
+        turnId,
+        itemId: `late_command_${turnId}`,
+        cwd,
+        commandActions: [
+          {
+            type: "read",
+            command: "cat README.md",
+            path: `${cwd}/README.md`,
+            name: "README.md",
+          },
+        ],
+      },
+      () => undefined,
+    );
+  }
+
   private receive(value: unknown): void {
     if (value === null || typeof value !== "object") return;
     const message = value as Record<string, unknown>;

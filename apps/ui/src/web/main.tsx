@@ -277,6 +277,10 @@ function App(): JSX.Element {
 
   async function mutate(path: string, body: Record<string, unknown>): Promise<void> {
     if (bootstrap === null || review === null) return;
+    if (review.mode === "recorded") {
+      setError("Recorded replay is read-only. Run a live inspection to make decisions.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -343,6 +347,15 @@ function App(): JSX.Element {
           {error}
         </p>
       ) : null}
+      {review?.mode === "recorded" ? (
+        <aside className="recorded-banner" role="note">
+          <strong>Recorded replay · read-only</strong>
+          <span>
+            This sanitized example does not call Codex or execute code. Use the judge fixture for
+            live verification.
+          </span>
+        </aside>
+      ) : null}
       {review === null ? (
         <section aria-labelledby="loading-heading">
           <h2 id="loading-heading">Loading review</h2>
@@ -389,7 +402,7 @@ function App(): JSX.Element {
                   <DecisionCard
                     key={decision.decisionId}
                     decision={decision}
-                    disabled={busy}
+                    disabled={busy || review.mode === "recorded"}
                     onResolve={async (item, payload) => {
                       await mutate(
                         `/api/runs/${encodeURIComponent(review.runId)}/decisions/${encodeURIComponent(item.decisionId)}`,
@@ -434,7 +447,7 @@ function App(): JSX.Element {
                 </div>
               </div>
               <p className="contract-hash">Contract hash: {review.contract.contentHash}</p>
-              {review.state === "ready_for_approval" ? (
+              {review.state === "ready_for_approval" && review.mode === "live" ? (
                 <div className="card-actions">
                   <button
                     className="primary"
@@ -506,7 +519,7 @@ function App(): JSX.Element {
             </section>
           ) : null}
 
-          {!terminalStates.has(review.state) ? (
+          {!terminalStates.has(review.state) && review.mode === "live" ? (
             <section className="cancel-zone" aria-labelledby="cancel-heading">
               <div>
                 <h2 id="cancel-heading">Stop this run</h2>

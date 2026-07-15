@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { getEventListeners } from "node:events";
 import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -196,6 +197,57 @@ test("AC-008/AC-018: comparator uses a fresh tool-free structured-output thread"
   }
 });
 
+test("AC-008/AC-019: a late comparator request never inherits probe read approval", async () => {
+  const repository = await mkdtemp(join(tmpdir(), "prompt-tripwire-late-comparison-request-"));
+  const { client, harness } = await fakeClient(repository, [
+    { outcome: "valid", content: COMPARISON_CONTENT },
+  ]);
+  try {
+    const result = await client.runComparison(comparisonInput(repository));
+    harness.requestStaticReadApproval(result.threadId, result.turnId, repository);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(harness.clientResponses.at(-1).result, { decision: "decline" });
+  } finally {
+    await client.close();
+    await rm(repository, { recursive: true, force: true });
+  }
+});
+
+test("AC-019: successful turns remove their abort listeners", async () => {
+  const repository = await mkdtemp(join(tmpdir(), "prompt-tripwire-abort-listener-fixture-"));
+  const controller = new AbortController();
+  const { client } = await fakeClient(repository, [{ outcome: "valid" }]);
+  try {
+    await client.runPlanProbe({ ...probeInput(repository), signal: controller.signal });
+    assert.equal(getEventListeners(controller.signal, "abort").length, 0);
+  } finally {
+    await client.close();
+    await rm(repository, { recursive: true, force: true });
+  }
+});
+
+test("AC-019: cancelled turns remove their waiter and abort listener", async () => {
+  const repository = await mkdtemp(join(tmpdir(), "prompt-tripwire-abort-cleanup-fixture-"));
+  const controller = new AbortController();
+  const { client } = await fakeClient(repository, [{ outcome: "timeout" }]);
+  try {
+    const pending = client.runPlanProbe({
+      ...probeInput(repository),
+      signal: controller.signal,
+      timeoutMs: 1_000,
+    });
+    setImmediate(() => controller.abort());
+    await assert.rejects(
+      pending,
+      (error) => error instanceof AppServerError && error.code === "PROBE_CANCELLED",
+    );
+    assert.equal(getEventListeners(controller.signal, "abort").length, 0);
+  } finally {
+    await client.close();
+    await rm(repository, { recursive: true, force: true });
+  }
+});
+
 test("AC-008/AC-018: comparator tool requests and invalid output fail closed", async () => {
   const repository = await mkdtemp(join(tmpdir(), "prompt-tripwire-comparison-denial-"));
   const { client, harness } = await fakeClient(repository, [
@@ -203,10 +255,13 @@ test("AC-008/AC-018: comparator tool requests and invalid output fail closed", a
     { outcome: "invalid_output" },
   ]);
   try {
-    await assert.rejects(
-      client.runComparison(comparisonInput(repository)),
-      (error) => error instanceof AppServerError && error.code === "COMPARISON_TOOL_VIOLATION",
-    );
+    await assert.rejects(client.runComparison(comparisonInput(repository)), (error) => {
+      assert.equal(error instanceof AppServerError, true);
+      assert.equal(error.code, "COMPARISON_TOOL_VIOLATION");
+      assert.match(error.metadata.threadId, /^thread_fake_/u);
+      assert.match(error.metadata.turnId, /^turn_fake_/u);
+      return true;
+    });
     assert.deepEqual(harness.clientResponses[0].result, { decision: "decline" });
     await assert.rejects(
       client.runComparison(comparisonInput(repository)),

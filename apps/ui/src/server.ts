@@ -20,6 +20,7 @@ export interface ReviewServerOptions {
   readonly controller: LocalController;
   readonly runId: string;
   readonly staticRoot?: string;
+  readonly mode?: "live" | "recorded";
 }
 
 export interface ReviewServer {
@@ -132,7 +133,11 @@ function mutationKey(request: IncomingMessage): string {
   return requiredString(header(request, "idempotency-key"), "Idempotency-Key");
 }
 
-function toReviewDto(controller: LocalController, runId: string): RunReviewDto {
+function toReviewDto(
+  controller: LocalController,
+  runId: string,
+  mode: "live" | "recorded",
+): RunReviewDto {
   const review = controller.review(runId);
   const open = review.decisions.filter(
     (decision): decision is typeof decision & { status: "unresolved" | "deferred" } =>
@@ -152,6 +157,7 @@ function toReviewDto(controller: LocalController, runId: string): RunReviewDto {
     status: decision.status,
   }));
   return {
+    mode,
     runId: review.run.runId,
     state: review.run.state,
     version: review.run.version,
@@ -244,6 +250,7 @@ export async function startReviewServer(options: ReviewServerOptions): Promise<R
   const capabilityToken = randomBytes(32).toString("base64url");
   const tokenDigest = createHash("sha256").update(capabilityToken, "utf8").digest();
   const staticRoot = options.staticRoot ?? DEFAULT_STATIC_ROOT;
+  const mode = options.mode ?? "live";
   let origin = "";
   const streams = new Set<ServerResponse>();
 
@@ -286,13 +293,17 @@ export async function startReviewServer(options: ReviewServerOptions): Promise<R
         writeJson(response, 404, { code: "NOT_FOUND" });
         return;
       }
+      if (isApi && request.method === "POST" && mode === "recorded") {
+        writeJson(response, 405, { code: "RECORDED_REPLAY_READ_ONLY" });
+        return;
+      }
       if (isApi && request.method === "POST" && !sameOriginMutation(request, origin)) {
         writeJson(response, 403, { code: "CROSS_ORIGIN_MUTATION_DENIED" });
         return;
       }
       if (runApi !== null && request.method === "GET") {
         const runId = decodeURIComponent(requiredString(runApi[1], "runId"));
-        writeJson(response, 200, toReviewDto(options.controller, runId));
+        writeJson(response, 200, toReviewDto(options.controller, runId, mode));
         return;
       }
       if (eventsApi !== null && request.method === "GET") {
@@ -326,7 +337,7 @@ export async function startReviewServer(options: ReviewServerOptions): Promise<R
       }
       if (decisionsApi !== null && request.method === "GET") {
         const runId = decodeURIComponent(requiredString(decisionsApi[1], "runId"));
-        const review = toReviewDto(options.controller, runId);
+        const review = toReviewDto(options.controller, runId, mode);
         writeJson(response, 200, {
           runId: review.runId,
           state: review.state,
@@ -344,7 +355,7 @@ export async function startReviewServer(options: ReviewServerOptions): Promise<R
       }
       if (currentContractApi !== null && request.method === "GET") {
         const runId = decodeURIComponent(requiredString(currentContractApi[1], "runId"));
-        const review = toReviewDto(options.controller, runId);
+        const review = toReviewDto(options.controller, runId, mode);
         writeJson(response, 200, {
           runId: review.runId,
           state: review.state,

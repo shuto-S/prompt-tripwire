@@ -2,11 +2,12 @@
 
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
 
 import {
+  createRecordedReviewFixture,
   DefaultInspectionPort,
   LocalController,
   renderTerminalReview,
@@ -27,13 +28,14 @@ export const CLI_FOUNDATION = Object.freeze({ name: "cli", version: "0.1.0" });
 const HELP = `PromptTripwire ${CLI_FOUNDATION.version}
 
 Usage:
-  tripwire inspect --task TEXT [--repo PATH] [--dirty committed|include]
-  tripwire inspect --task-file PATH [--repo PATH] [--dirty committed|include]
+  tripwire inspect --task TEXT [--repo PATH] [--dirty committed|include] [--terminal]
+  tripwire inspect --task-file PATH [--repo PATH] [--dirty committed|include] [--terminal]
+  tripwire replay [--terminal]
   tripwire review RUN_ID [--terminal]
   tripwire review RUN_ID --decision DECISION_ID (--option OPTION_ID | --freeform TEXT | --defer)
   tripwire review RUN_ID (--approve [--contract CONTRACT_ID] | --cancel)
   tripwire approve RUN_ID [--contract CONTRACT_ID]
-  tripwire run --contract CONTRACT_ID
+  tripwire run --contract CONTRACT_ID [--terminal]
   tripwire status RUN_ID
   tripwire report RUN_ID [--format json|markdown]
   tripwire cancel RUN_ID
@@ -54,6 +56,22 @@ export interface CliDependencies {
   readonly dataRoot?: string;
   readonly io?: CliIo;
   readonly createController?: (store: SqlitePersistence) => LocalController;
+  readonly startReviewServer?: typeof startReviewServer;
+  readonly waitForShutdownSignal?: () => Promise<void>;
+}
+
+export function formatCliError(error: unknown): string {
+  const code =
+    error !== null && typeof error === "object" && "code" in error && typeof error.code === "string"
+      ? error.code
+      : "CLI_ERROR";
+  if (code === "DIRTY_CHOICE_REQUIRED") {
+    return `${code}: the checkout is dirty; rerun with --dirty committed or --dirty include\n`;
+  }
+  if (code === "CODEX_VERSION_MISMATCH" && error instanceof Error && error.message.length > 0) {
+    return `${code}: ${error.message}\n`;
+  }
+  return `${code}: request failed\n`;
 }
 
 function defaultDataRoot(): string {
@@ -107,6 +125,42 @@ async function waitForShutdownSignal(): Promise<void> {
   });
 }
 
+async function serveReview(
+  controller: LocalController,
+  runId: string,
+  io: CliIo,
+  dependencies: CliDependencies,
+  mode: "live" | "recorded" = "live",
+): Promise<void> {
+  const reviewServer = await (dependencies.startReviewServer ?? startReviewServer)({
+    controller,
+    runId,
+    mode,
+  });
+  io.stdout.write(`Decision Inbox: ${reviewServer.url}\nPress Ctrl-C to close it.\n`);
+  try {
+    await (dependencies.waitForShutdownSignal ?? waitForShutdownSignal)();
+  } finally {
+    await reviewServer.close();
+  }
+}
+
+async function reviewIfUseful(
+  controller: LocalController,
+  runId: string,
+  state: string,
+  terminalOnly: boolean,
+  io: CliIo,
+  dependencies: CliDependencies,
+): Promise<void> {
+  if (state !== "needs_review" && state !== "paused") return;
+  if (terminalOnly) {
+    io.stdout.write(`Next: tripwire review ${runId} --terminal\n`);
+    return;
+  }
+  await serveReview(controller, runId, io, dependencies);
+}
+
 export async function runCli(
   args: readonly string[],
   dependencies: CliDependencies = {},
@@ -144,6 +198,23 @@ export async function runCli(
   if (parsed.values.help === true || parsed.positionals.length === 0) {
     io.stdout.write(HELP);
     return 0;
+  }
+
+  if (parsed.positionals[0] === "replay") {
+    if (parsed.positionals.length !== 1) throw new TypeError("replay accepts no positional values");
+    const fixture = await createRecordedReviewFixture();
+    try {
+      const review = fixture.controller.review(fixture.runId);
+      if (parsed.values.terminal === true) {
+        io.stdout.write("Recorded replay · read-only · no Codex call or code execution\n");
+        io.stdout.write(renderTerminalReview(review.run, review.decisions, review.contract));
+      } else {
+        await serveReview(fixture.controller, fixture.runId, io, dependencies, "recorded");
+      }
+      return 0;
+    } finally {
+      await fixture.close();
+    }
   }
 
   const dataRoot = resolve(dependencies.dataRoot ?? defaultDataRoot());
@@ -190,6 +261,14 @@ export async function runCli(
           ...(dirtyChoice === undefined ? {} : { dirtyChoice }),
         });
         io.stdout.write(renderTerminalStatus(run, store.listEvents(run.runId)));
+        await reviewIfUseful(
+          controller,
+          run.runId,
+          run.state,
+          parsed.values.terminal === true,
+          io,
+          dependencies,
+        );
         return 0;
       }
       case "review": {
@@ -204,13 +283,7 @@ export async function runCli(
           throw new TypeError("review accepts only one decision, approval, or cancellation");
         }
         if (mutationCount === 0 && parsed.values.terminal !== true) {
-          const reviewServer = await startReviewServer({ controller, runId });
-          io.stdout.write(`Decision Inbox: ${reviewServer.url}\nPress Ctrl-C to close it.\n`);
-          try {
-            await waitForShutdownSignal();
-          } finally {
-            await reviewServer.close();
-          }
+          await serveReview(controller, runId, io, dependencies);
           return 0;
         }
         if (parsed.values.cancel === true) {
@@ -326,6 +399,14 @@ export async function runCli(
           idempotencyKey: `cli:start:${contractId}`,
         });
         io.stdout.write(renderTerminalStatus(run, store.listEvents(run.runId)));
+        await reviewIfUseful(
+          controller,
+          run.runId,
+          run.state,
+          parsed.values.terminal === true,
+          io,
+          dependencies,
+        );
         return 0;
       }
       case "report": {
@@ -389,18 +470,13 @@ async function main(): Promise<void> {
   try {
     process.exitCode = await runCli(process.argv.slice(2));
   } catch (error) {
-    const code =
-      error !== null &&
-      typeof error === "object" &&
-      "code" in error &&
-      typeof error.code === "string"
-        ? error.code
-        : "CLI_ERROR";
-    process.stderr.write(`${code}: request failed\n`);
+    process.stderr.write(formatCliError(error));
     process.exitCode = 1;
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+const cliEntrypoint =
+  process.argv[1] === undefined ? null : pathToFileURL(realpathSync(process.argv[1])).href;
+if (cliEntrypoint === import.meta.url) {
   await main();
 }

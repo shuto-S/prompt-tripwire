@@ -20,6 +20,44 @@ function shared(values: readonly (readonly string[])[]): string[] {
   return unique(first.filter((value) => rest.every((items) => items.includes(value))));
 }
 
+function selectedPlanGroups(
+  decisions: readonly DecisionPoint[],
+  answers: ReadonlyMap<string, HumanDecision>,
+  plans: readonly PlanArtifact[],
+): readonly (readonly PlanArtifact[])[] {
+  const plansById = new Map(plans.map((plan) => [plan.probeId, plan]));
+  return decisions.flatMap((decision) => {
+    if (decision.deterministicTriggers.length > 0) return [];
+    const answer = answers.get(decision.decisionId);
+    if (answer === undefined || answer.freeformOverride !== null) return [];
+    const option = decision.options.find((candidate) => candidate.id === answer.selectedOptionId);
+    if (option === undefined) throw new TypeError("human decision references an unknown option");
+    const supportedProbeIds = unique(option.supportedByProbeIds);
+    if (supportedProbeIds.length === 0) {
+      throw new TypeError("selected model alternative has no supporting probe");
+    }
+    const group = supportedProbeIds.flatMap((probeId) => {
+      const plan = plansById.get(probeId);
+      return plan === undefined ? [] : [plan];
+    });
+    if (group.length !== supportedProbeIds.length) {
+      throw new TypeError("selected model alternative references an unknown probe");
+    }
+    return [group];
+  });
+}
+
+function selectedBoundary(
+  plans: readonly PlanArtifact[],
+  groups: readonly (readonly PlanArtifact[])[],
+  values: (plan: PlanArtifact) => readonly string[],
+): string[] {
+  return unique([
+    ...shared(plans.map(values)),
+    ...groups.flatMap((group) => shared(group.map(values))),
+  ]);
+}
+
 function selectedSummary(decision: DecisionPoint, answer: HumanDecision): string {
   if (answer.freeformOverride !== null) {
     return `${decision.question} Free-form decision: ${answer.freeformOverride}`;
@@ -29,13 +67,9 @@ function selectedSummary(decision: DecisionPoint, answer: HumanDecision): string
   return `${decision.question} Selected: ${option.label}. ${option.description}`;
 }
 
-function requiredChecks(plans: readonly PlanArtifact[]): string[] {
-  return unique(
-    plans.flatMap((plan) =>
-      plan.commands.filter((command) =>
-        /(?:\btest\b|\blint\b|\btypecheck\b|\bbuild\b|\bcheck\b)/iu.test(command),
-      ),
-    ),
+function verificationCommands(plan: PlanArtifact): string[] {
+  return plan.commands.filter((command) =>
+    /(?:\btest\b|\blint\b|\btypecheck\b|\bbuild\b|\bcheck\b)/iu.test(command),
   );
 }
 
@@ -76,6 +110,7 @@ export function createContractPreview(input: ContractPreviewInput): ContractPrev
     if (answer === undefined) throw new TypeError("decision answer disappeared");
     return selectedSummary(decision, answer);
   });
+  const planGroups = selectedPlanGroups(decisions, answers, input.plans);
   const contract = createExecutionContract({
     version: input.version ?? 1,
     runId: input.runId,
@@ -86,9 +121,9 @@ export function createContractPreview(input: ContractPreviewInput): ContractPrev
       ...input.comparison.consensus.map((subject) => subject.summary),
       ...selected,
     ]),
-    approvedAssumptions: shared(input.plans.map((plan) => plan.assumptions)),
-    allowedComponents: shared(input.plans.map((plan) => plan.components)),
-    allowedPaths: shared(input.plans.map((plan) => plan.filesToChange)),
+    approvedAssumptions: selectedBoundary(input.plans, planGroups, (plan) => plan.assumptions),
+    allowedComponents: selectedBoundary(input.plans, planGroups, (plan) => plan.components),
+    allowedPaths: selectedBoundary(input.plans, planGroups, (plan) => plan.filesToChange),
     protectedPaths: [".env", ".env.*", ".git/**", "**/.env", "**/.env.*"],
     allowedCommandClasses: ["static_read", "test", "lint", "typecheck", "build", "verification"],
     deniedCommandClasses: [
@@ -104,7 +139,7 @@ export function createContractPreview(input: ContractPreviewInput): ContractPrev
     dependencyPolicy: { mode: "deny", allowed: [] },
     dataPolicy: { mode: "deny", allowed: [] },
     externalEffectPolicy: { mode: "deny", allowed: [] },
-    requiredChecks: requiredChecks(input.plans),
+    requiredChecks: selectedBoundary(input.plans, planGroups, verificationCommands),
     stopConditions: [
       "snapshot or task hash changes",
       "an unresolved or unknown action is requested",

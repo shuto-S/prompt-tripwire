@@ -146,6 +146,17 @@ section {
   box-shadow: 0 1.2rem 3rem rgb(27 46 36 / 7%);
 }
 
+.recorded-banner {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 1.25rem;
+  padding: 0.9rem 1rem;
+  color: #5d310a;
+  background: #fff1d2;
+  border: 1px solid #d49d3b;
+  border-radius: 0.75rem;
+}
+
 .summary dl,
 .evidence,
 .contract-columns {

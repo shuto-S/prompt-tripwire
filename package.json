@@ -31,9 +31,12 @@
     "check:licenses": "node scripts/check-licenses.mjs",
     "check:security": "node scripts/check-security.mjs",
     "check:traceability": "node scripts/check-traceability.mjs",
+    "check:submission": "node scripts/check-submission-content.mjs",
     "check:diff": "node scripts/check-diff.mjs",
     "eval:comparator": "npm run build && node scripts/eval-comparator.mjs",
-    "smoke:real-probes": "npm run build && node scripts/smoke-real-probes.mjs"
+    "smoke:real-probes": "npm run build && node scripts/smoke-real-probes.mjs",
+    "package:macos-arm64": "npm run build && node scripts/package-macos-arm64.mjs",
+    "verify:release": "node scripts/verify-release-artifact.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

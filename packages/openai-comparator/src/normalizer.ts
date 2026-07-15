@@ -110,10 +110,14 @@ function policyDecision(blocker: PolicyBlocker, plans: readonly PlanArtifact[]):
         evidenceRefs: blocker.evidenceRefs,
       },
       {
-        id: `${decisionId}_allow`,
-        label: "Allow as stated",
-        description: "Include the disclosed effect in the execution contract.",
-        effects: [blocker.description],
+        id: `${decisionId}_implementation_only`,
+        label: "Allow implementation only",
+        description:
+          "Allow local code changes that prepare this disclosed effect. PromptTripwire will not perform the effect in P0; it remains denied and requires separate authorization.",
+        effects: [
+          blocker.description,
+          "The runtime operation remains denied by the P0 execution boundary.",
+        ],
         supportedByProbeIds: probes,
         evidenceRefs: blocker.evidenceRefs,
       },

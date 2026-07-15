@@ -6,7 +6,7 @@ import {
 } from "@prompt-tripwire/domain";
 import { z } from "zod";
 
-import { AppServerError } from "./errors.js";
+import { AppServerComparisonError, AppServerError, type AppServerErrorCode } from "./errors.js";
 import { ProtocolEventLedger } from "./event-ledger.js";
 import {
   CommandExecResponseSchema,
@@ -77,6 +77,16 @@ interface TurnWaiter {
   readonly resolve: (state: TurnState) => void;
   readonly reject: (error: Error) => void;
   readonly timer: NodeJS.Timeout;
+  readonly signal: AbortSignal | undefined;
+  readonly abortListener: (() => void) | undefined;
+}
+
+interface TurnWaitOptions {
+  readonly timeoutCode: AppServerErrorCode;
+  readonly timeoutMessage: string;
+  readonly signal: AbortSignal | undefined;
+  readonly cancelledCode: AppServerErrorCode;
+  readonly cancelledMessage: string;
 }
 
 interface TurnState {
@@ -253,26 +263,18 @@ export class CodexAppServerClient {
         }),
       );
       turnId = turn.turn.id;
-      const wait = this.waitForTurn(threadId, turnId, input.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS);
-      const state =
-        input.signal === undefined
-          ? await wait
-          : await Promise.race([
-              wait,
-              new Promise<never>((_resolve, reject) => {
-                if (input.signal?.aborted === true) {
-                  reject(new AppServerError("PROBE_CANCELLED", "probe was cancelled"));
-                  return;
-                }
-                input.signal?.addEventListener(
-                  "abort",
-                  () => {
-                    reject(new AppServerError("PROBE_CANCELLED", "probe was cancelled"));
-                  },
-                  { once: true },
-                );
-              }),
-            ]);
+      const state = await this.waitForTurn(
+        threadId,
+        turnId,
+        input.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS,
+        {
+          timeoutCode: "PROBE_TIMEOUT",
+          timeoutMessage: "probe turn timed out",
+          signal: input.signal,
+          cancelledCode: "PROBE_CANCELLED",
+          cancelledMessage: "probe was cancelled",
+        },
+      );
       if (state.status !== "completed") {
         throw new AppServerError(
           "INVALID_PLAN_ARTIFACT",
@@ -342,16 +344,21 @@ export class CodexAppServerClient {
         model: input.model,
       }),
     );
-    if (thread.model !== input.model) {
-      throw new AppServerError("PROTOCOL_VALIDATION_FAILED", "App Server changed comparator model");
-    }
     const threadId = thread.thread.id;
     this.threadRoots.set(threadId, input.cwd);
     this.threadApprovals.set(threadId, []);
+    // Keep this role for the client lifetime: App Server requests can arrive after
+    // the turn result settles and must never fall through to the probe allowlist.
     this.comparisonThreads.add(threadId);
 
     let turnId: string | null = null;
     try {
+      if (thread.model !== input.model) {
+        throw new AppServerError(
+          "PROTOCOL_VALIDATION_FAILED",
+          "App Server changed comparator model",
+        );
+      }
       const turn = TurnStartResponseSchema.parse(
         await this.request("turn/start", {
           threadId,
@@ -368,11 +375,17 @@ export class CodexAppServerClient {
         }),
       );
       turnId = turn.turn.id;
-      const state = await this.waitForComparisonTurn(
+      const state = await this.waitForTurn(
         threadId,
         turnId,
         input.timeoutMs ?? DEFAULT_COMPARISON_TIMEOUT_MS,
-        input.signal,
+        {
+          timeoutCode: "COMPARISON_TIMEOUT",
+          timeoutMessage: "comparison turn timed out",
+          signal: input.signal,
+          cancelledCode: "COMPARISON_CANCELLED",
+          cancelledMessage: "comparison was cancelled",
+        },
       );
       if (state.status !== "completed") {
         throw new AppServerError(
@@ -418,9 +431,14 @@ export class CodexAppServerClient {
           // The original comparison failure remains authoritative.
         }
       }
-      throw appServerError(error, "comparison failed protocol validation");
-    } finally {
-      this.comparisonThreads.delete(threadId);
+      const failure = appServerError(error, "comparison failed protocol validation");
+      const usage = turnId === null ? null : this.turnState(threadId, turnId).usage;
+      throw new AppServerComparisonError(failure, {
+        threadId,
+        turnId,
+        model: thread.model,
+        usage,
+      });
     }
   }
 
@@ -469,11 +487,17 @@ export class CodexAppServerClient {
       );
       turnId = turn.turn.id;
       input.onSessionStarted?.(threadId, turnId);
-      const state = await this.waitForExecutionTurn(
+      const state = await this.waitForTurn(
         threadId,
         turnId,
         input.timeoutMs ?? DEFAULT_EXECUTION_TIMEOUT_MS,
-        input.signal,
+        {
+          timeoutCode: "EXECUTION_TIMEOUT",
+          timeoutMessage: "execution turn timed out",
+          signal: input.signal,
+          cancelledCode: "EXECUTION_CANCELLED",
+          cancelledMessage: "execution was cancelled",
+        },
       );
       if (state.status === null || state.status === "inProgress") {
         throw new AppServerError(
@@ -834,102 +858,50 @@ export class CodexAppServerClient {
     }
   }
 
-  private waitForTurn(threadId: string, turnId: string, timeoutMs: number): Promise<TurnState> {
+  private waitForTurn(
+    threadId: string,
+    turnId: string,
+    timeoutMs: number,
+    options: TurnWaitOptions,
+  ): Promise<TurnState> {
     if (this.protocolFailure !== null) return Promise.reject(this.protocolFailure);
     const state = this.turnState(threadId, turnId);
     if (state.error !== null) return Promise.reject(state.error);
     if (state.status !== null && state.status !== "inProgress") return Promise.resolve(state);
+    if (options.signal?.aborted === true) {
+      return Promise.reject(new AppServerError(options.cancelledCode, options.cancelledMessage));
+    }
     return new Promise((resolve, reject) => {
+      const rejectAndRemove = (error: AppServerError): void => {
+        const index = state.waiters.indexOf(waiter);
+        if (index < 0) return;
+        state.waiters.splice(index, 1);
+        this.cleanupWaiter(waiter);
+        reject(error);
+      };
       const timer = setTimeout(() => {
-        const index = state.waiters.findIndex((waiter) => waiter.resolve === resolve);
-        if (index >= 0) state.waiters.splice(index, 1);
-        reject(new AppServerError("PROBE_TIMEOUT", "probe turn timed out"));
+        rejectAndRemove(new AppServerError(options.timeoutCode, options.timeoutMessage));
       }, timeoutMs);
-      state.waiters.push({ resolve, reject, timer });
+      const abortListener =
+        options.signal === undefined
+          ? undefined
+          : (): void => {
+              rejectAndRemove(new AppServerError(options.cancelledCode, options.cancelledMessage));
+            };
+      const waiter: TurnWaiter = { resolve, reject, timer, signal: options.signal, abortListener };
+      state.waiters.push(waiter);
+      if (abortListener !== undefined) {
+        options.signal?.addEventListener("abort", abortListener, { once: true });
+        // Close the race between the initial aborted check and listener registration.
+        if (options.signal?.aborted === true) abortListener();
+      }
     });
   }
 
-  private async waitForExecutionTurn(
-    threadId: string,
-    turnId: string,
-    timeoutMs: number,
-    signal: AbortSignal | undefined,
-  ): Promise<TurnState> {
-    const wait = this.waitForTurn(threadId, turnId, timeoutMs);
-    if (signal === undefined) {
-      try {
-        return await wait;
-      } catch (error) {
-        if (error instanceof AppServerError && error.code === "PROBE_TIMEOUT") {
-          throw new AppServerError("EXECUTION_TIMEOUT", "execution turn timed out");
-        }
-        throw error;
-      }
-    }
-    if (signal.aborted) {
-      throw new AppServerError("EXECUTION_CANCELLED", "execution was cancelled");
-    }
-    let rejectAbort: ((error: Error) => void) | null = null;
-    const listener = (): void => {
-      rejectAbort?.(new AppServerError("EXECUTION_CANCELLED", "execution was cancelled"));
-    };
-    try {
-      return await Promise.race([
-        wait,
-        new Promise<never>((_resolve, reject) => {
-          rejectAbort = reject;
-          signal.addEventListener("abort", listener, { once: true });
-        }),
-      ]);
-    } catch (error) {
-      if (error instanceof AppServerError && error.code === "PROBE_TIMEOUT") {
-        throw new AppServerError("EXECUTION_TIMEOUT", "execution turn timed out");
-      }
-      throw error;
-    } finally {
-      signal.removeEventListener("abort", listener);
-    }
-  }
-
-  private async waitForComparisonTurn(
-    threadId: string,
-    turnId: string,
-    timeoutMs: number,
-    signal: AbortSignal | undefined,
-  ): Promise<TurnState> {
-    if (signal === undefined) {
-      try {
-        return await this.waitForTurn(threadId, turnId, timeoutMs);
-      } catch (error) {
-        if (error instanceof AppServerError && error.code === "PROBE_TIMEOUT") {
-          throw new AppServerError("COMPARISON_TIMEOUT", "comparison turn timed out");
-        }
-        throw error;
-      }
-    }
-    if (signal.aborted) {
-      throw new AppServerError("COMPARISON_CANCELLED", "comparison was cancelled");
-    }
-    const wait = this.waitForTurn(threadId, turnId, timeoutMs);
-    let rejectAbort: ((error: Error) => void) | null = null;
-    const listener = (): void => {
-      rejectAbort?.(new AppServerError("COMPARISON_CANCELLED", "comparison was cancelled"));
-    };
-    try {
-      return await Promise.race([
-        wait,
-        new Promise<never>((_resolve, reject) => {
-          rejectAbort = reject;
-          signal.addEventListener("abort", listener, { once: true });
-        }),
-      ]);
-    } catch (error) {
-      if (error instanceof AppServerError && error.code === "PROBE_TIMEOUT") {
-        throw new AppServerError("COMPARISON_TIMEOUT", "comparison turn timed out");
-      }
-      throw error;
-    } finally {
-      signal.removeEventListener("abort", listener);
+  private cleanupWaiter(waiter: TurnWaiter): void {
+    clearTimeout(waiter.timer);
+    if (waiter.signal !== undefined && waiter.abortListener !== undefined) {
+      waiter.signal.removeEventListener("abort", waiter.abortListener);
     }
   }
 
@@ -977,7 +949,7 @@ export class CodexAppServerClient {
   private settleTurn(state: TurnState): void {
     if (state.error === null && (state.status === null || state.status === "inProgress")) return;
     for (const waiter of state.waiters.splice(0)) {
-      clearTimeout(waiter.timer);
+      this.cleanupWaiter(waiter);
       if (state.error !== null) waiter.reject(state.error);
       else waiter.resolve(state);
     }
