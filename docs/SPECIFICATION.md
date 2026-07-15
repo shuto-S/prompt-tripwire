@@ -126,6 +126,23 @@ Headless and terminal-only environments use the same decision schema through a t
 
 Replay is supporting judge evidence only. It cannot satisfy or replace a live probe, comparison, execution, containment, or acceptance-criterion claim.
 
+### 5.4 Explicit Codex Plugin adapter (P1)
+
+PromptTripwire may be installed as a repo-scoped Codex Plugin named
+`prompt-tripwire`. Version 1 exposes one bundled Skill, `preflight`, and no
+automatic hook or MCP server. The Skill is opt-in only and delegates to the
+existing `tripwire` CLI; it does not duplicate probes, policy, contract
+validation, worktree containment, or report rendering.
+
+The Skill passes the exact current task and repository snapshot to `tripwire
+inspect` in terminal mode, reports the run summary, and stops while a human uses
+the existing Decision Inbox. It must not choose a decision or invoke approval.
+After a human-approved current contract exists, it may delegate `tripwire run`
+and `tripwire report`. A deterministic `PROMPT_TRIPWIRE_PLUGIN_REENTRY` flag is
+propagated to the PromptTripwire child process and blocks recursive Plugin
+invocation. The adapter requires the supported macOS arm64 runtime and the
+existing logged-in Codex CLI; it introduces no API-key or hosted-backend path.
+
 ## 6. Repository snapshot
 
 Every run is bound to a `RepositorySnapshot` containing:
@@ -465,6 +482,10 @@ See `SECURITY.md` for the threat model and known limits.
 | FR-020 | P1 | Export a sanitized review artifact for PR or team discussion. |
 | FR-021 | P2 | Add adapters for non-Codex coding agents. |
 | FR-022 | P2 | Add historical team policies and shared approvals. |
+| PLUG-FR-001 | P1 | Expose an explicit `prompt-tripwire` Plugin Skill that delegates to the existing CLI with the exact task and repository snapshot. |
+| PLUG-FR-002 | P1 | Stop for human review and never select a decision or approve a contract automatically. |
+| PLUG-FR-003 | P1 | Fail closed for unsupported platform, missing runtime/login, dirty-choice ambiguity, and deterministic re-entry. |
+| PLUG-FR-004 | P1 | Validate Plugin metadata and Skill packaging with executable manifest, marketplace, smoke, and package-content checks. |
 
 ## 16. Non-functional requirements
 
@@ -502,6 +523,11 @@ See `SECURITY.md` for the threat model and known limits.
 | AC-017 | The local API listens only on loopback, rejects missing/invalid capability tokens and cross-origin mutations, and loads no third-party runtime assets. |
 | AC-018 | One failed probe produces degraded/manual review, fewer than two valid probes block approval, and an unrecoverable GPT-5.6 schema/refusal failure cannot auto-approve. |
 | AC-019 | An incompatible Codex App Server version fails before probing with the detected and required versions; duplicate or reordered protocol events cannot duplicate approval or completion. |
+| AC-PLUG-001 | The repo marketplace installs the `PromptTripwire` Plugin and exposes its `preflight` Skill to an explicit Codex task. |
+| AC-PLUG-002 | Plugin inspect leaves the target checkout's `git status --short` unchanged and returns a compact run summary or Decision Inbox next step. |
+| AC-PLUG-003 | No Skill or caller Codex path auto-approves a contract; approval remains an explicit human action. |
+| AC-PLUG-004 | The adapter propagates a deterministic re-entry guard and blocks recursive invocation. |
+| AC-PLUG-005 | API-key-free macOS arm64 runtime/login checks, unsupported-platform errors, manifest/marketplace/frontmatter validation, and package-content scans pass. |
 
 ## 18. Test strategy
 
@@ -558,6 +584,10 @@ No end-to-end test may use production credentials or a shared environment.
 | FR-016 | AC-016, AC-018, AC-019 and the failure-behavior table |
 | FR-017 | AC-014 |
 | FR-018 | AC-017 |
+| PLUG-FR-001 | AC-PLUG-001, AC-PLUG-002 |
+| PLUG-FR-002 | AC-PLUG-003 |
+| PLUG-FR-003 | AC-PLUG-004, AC-PLUG-005 |
+| PLUG-FR-004 | AC-PLUG-001, AC-PLUG-005 |
 
 P1/P2 requirements do not gate the MVP and require acceptance criteria when promoted.
 

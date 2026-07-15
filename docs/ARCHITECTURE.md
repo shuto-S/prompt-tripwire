@@ -98,6 +98,24 @@ Creates a disposable worktree, launches the approved Codex turn, resolves approv
 
 Exposes only review/run data needed by the UI. It binds to `127.0.0.1` or `::1`, requires a high-entropy per-run capability token, uses restrictive CORS/CSP, and has no remote-listen option in the MVP.
 
+### Codex Plugin adapter
+
+`plugins/prompt-tripwire` is a distribution adapter, not another controller.
+Its `preflight` Skill invokes the existing `tripwire` executable through a
+small Node script with `shell: false` and terminal output. When the task is
+supplied over standard input, the script forwards it to the existing CLI without
+creating a file in the target checkout. The script only exposes
+`inspect`, `status`, `review-url`, `run`, and `report`; approval and decision mutations remain
+CLI/UI operations owned by the controller. It checks macOS arm64, the pinned
+runtime, and the existing Codex CLI login before delegation, and propagates a
+deterministic re-entry environment flag to child PromptTripwire processes.
+
+V1 deliberately does not add hooks, MCP, a hosted service, npm distribution,
+or a second bundled runtime. The runtime is the existing relocatable release
+launcher on `PATH`, with `PROMPT_TRIPWIRE_BIN` as an explicit local override.
+This keeps the CLI, policy, contract, containment, and report paths as the
+source of truth.
+
 ## 4. Codex protocol use
 
 ### 4.1 Startup

@@ -94,7 +94,7 @@ Run the complete local foundation verification:
 npm run check
 ```
 
-Individual entry points are available for `typecheck`, `lint`, `build`, `test:unit`, `test:integration`, `test:e2e`, `check:boundaries`, `check:versions`, `check:schema`, `check:licenses`, `check:security`, `check:traceability`, and `check:submission`. `npm run package:macos-arm64` builds the judge archive and `npm run verify:release` verifies its checksum, install/uninstall path, replay, fixture, and content boundaries. CI runs the same source checks on `macos-latest` and verifies that build/test steps leave no tracked or unignored artifacts. The E2E suite replays all seven specification fixtures from [`fixtures/repositories/spec-scenarios.json`](fixtures/repositories/spec-scenarios.json).
+Individual entry points are available for `typecheck`, `lint`, `build`, `test:unit`, `test:integration`, `test:e2e`, `check:boundaries`, `check:versions`, `check:schema`, `check:licenses`, `check:security`, `check:plugin`, `check:traceability`, and `check:submission`. `npm run package:macos-arm64` builds the judge archive and `npm run verify:release` verifies its checksum, install/uninstall path, replay, fixture, and content boundaries. CI runs the same source checks on `macos-latest` and verifies that build/test steps leave no tracked or unignored artifacts. The E2E suite replays all seven specification fixtures from [`fixtures/repositories/spec-scenarios.json`](fixtures/repositories/spec-scenarios.json).
 
 Run the bounded real-probe smoke test with an authenticated Codex CLI:
 
@@ -113,6 +113,38 @@ npm run eval:comparator
 The evaluator records only pass/fail, candidate counts, timing, App Server thread/turn IDs, and token usage. It never prints prompts, plans, model output, raw reasoning, process environments, or credentials. On 2026-07-15, both `gpt-5.6-sol` and `gpt-5.6-terra` passed 2/2 at low reasoning. Terra used 48,910 total tokens versus Sol's 49,131, completed in 21,619 ms versus 29,657 ms, and returned no unnecessary unknown on the divergence fixture, so `gpt-5.6-terra`/low remains the bounded empirical default. Sanitized metadata is in [`fixtures/app-server/comparator-eval-2026-07-15.json`](fixtures/app-server/comparator-eval-2026-07-15.json).
 
 `tripwire review RUN_ID` starts a random-port loopback Decision Inbox and keeps it available until Ctrl-C. The capability token appears only in the one-time URL fragment, is removed from the address bar after bootstrap, and is required as an authorization header for the aggregate review API and authenticated fetch-based SSE stream. The UI shows at most three decision cards plus the remaining count, never preselects a high-impact option, supports selection, free-form resolution, defer, pre-approval edit, explicit approval, cancellation, deviation display, keyboard operation, visible focus, and assistive-technology state announcements. It loads only its bundled React/Vite assets and renders model content as escaped text.
+
+## Codex Plugin (explicit preflight)
+
+The repository also contains a thin, repo-scoped Codex Plugin adapter. The
+installed display name is `PromptTripwire` and its bundled Skill is `preflight`
+under the `prompt-tripwire` plugin namespace. V1 has no automatic hook and no
+MCP server: the Skill delegates to the existing `tripwire` CLI and never copies
+policy, contract, worktree, or report logic.
+
+Install it from this checkout:
+
+```sh
+codex plugin marketplace add .
+codex plugin add prompt-tripwire@prompt-tripwire-local
+codex plugin list --marketplace prompt-tripwire-local
+```
+
+In a new Codex task, explicitly say “Use the PromptTripwire preflight Skill
+before implementing this task.” The Skill runs a terminal `tripwire inspect`,
+returns the run summary, and stops at the existing Decision Inbox when human
+choices are needed. It never calls `approve` or selects a decision. After the
+user approves in the Decision Inbox, the Skill can delegate `tripwire run` and
+`tripwire report`; execution remains in PromptTripwire's disposable worktree.
+
+The Plugin does not bundle a second runtime or credential path. It requires the
+existing macOS arm64 `tripwire` launcher from the release artifact on `PATH`
+(or an explicit `PROMPT_TRIPWIRE_BIN` path), Node 24.15+, Git, and a logged-in
+`codex-cli 0.144.4`. `OPENAI_API_KEY` is not required. Unsupported platforms,
+missing runtime/login, dirty checkouts, and re-entry from an execution thread
+fail closed with an actionable error. Remove it with `codex plugin remove
+prompt-tripwire@prompt-tripwire-local`; removing the marketplace source is
+optional: `codex plugin marketplace remove prompt-tripwire-local`.
 
 Use `tripwire review RUN_ID --terminal` for the terminal fallback. Both interfaces require expected run versions and idempotency keys for mutations, and execution remains disabled until every blocker is resolved and the content-addressed contract is explicitly approved.
 
