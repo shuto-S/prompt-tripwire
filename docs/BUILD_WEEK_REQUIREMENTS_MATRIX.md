@@ -21,7 +21,7 @@ The official rules take precedence if they change. This matrix records the requi
 | Demo media must not use third-party trademarks, copyrighted music, or other material without permission. | Rights checklist specifies screen capture, system fonts, original copy, no music/logos/stock assets. | Ready for later recording |
 | Provide a repository URL; public with relevant licensing, or private and shared with both judge addresses. | Public repository: `https://github.com/shuto-S/prompt-tripwire`; Apache-2.0 is recorded in `LICENSE`, package metadata, and README. Anonymous `HTTP 200` checks passed for the repository and LICENSE URL. | Ready |
 | README must explain Codex collaboration, acceleration, human decisions, and GPT-5.6/Codex contributions. | README summary plus the detailed accepted/changed/rejected and dated record in `docs/CODEX_COLLABORATION.md`. | Ready |
-| Provide the `/feedback` Codex Session ID for the task where most core functionality was built. | `docs/DEVPOST_SUBMISSION.md` has a non-source placeholder and the exact manual retrieval step. A local task UUID is not treated as the Session ID. | Manual action required |
+| Provide the `/feedback` Codex Session ID for the task where most core functionality was built. | The retained primary session was uploaded through App Server `feedback/upload` on 2026-07-15 and the returned Session ID was captured outside the repository for Devpost entry. | Ready |
 | Developer tools need installation instructions, supported platforms, and a way to test without rebuilding. | `docs/JUDGE_GUIDE.md`; compiled JavaScript/runtime archive; safe local fixture; recorded read-only replay. | Ready |
 | Provide free, unrestricted working-project access through the judging period. | Public repository and `v0.1.0` release are reachable without authentication; no hosted account or paid PromptTripwire service is required. Codex account usage remains under the judge's own OpenAI access. | Ready |
 | Submission and testing materials must be English or have English translations. | README, Judge Guide, release notes, fixture, and Devpost draft are English. | Ready |
@@ -32,9 +32,8 @@ The official rules take precedence if they change. This matrix records the requi
 
 ## Remaining rule-owned actions
 
-1. Run `/feedback` in the primary Codex task and copy the returned Session ID into Devpost only.
-2. Record/upload the public YouTube demo and replace media placeholders.
-3. Save and finally submit on Devpost; neither action is performed by repository preparation.
+1. Record/upload the public YouTube demo and replace media placeholders.
+2. Save and finally submit on Devpost; neither action is performed by repository preparation.
 
 Publication evidence captured on 2026-07-15 JST:
 

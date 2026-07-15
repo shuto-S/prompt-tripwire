@@ -64,3 +64,5 @@ Sanitized live evidence is retained in `fixtures/app-server/real-probes-2026-07-
 ## Primary Codex task and `/feedback`
 
 The primary Codex task that carried the specification and core implementation must be opened in Codex and submitted through `/feedback` with the existing session attached. The Session ID displayed after that submission is the Build Week value. A local task/thread UUID is not substituted for it and is not committed to source. The final ID belongs only in the Devpost submission field or private submission checklist.
+
+This upload completed on 2026-07-15 through the App Server `feedback/upload` method with the retained primary thread attached. The returned Session ID remains outside the repository for Devpost entry.
