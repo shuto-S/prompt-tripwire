@@ -1,6 +1,6 @@
 # Dependency record
 
-Status date: 2026-07-14
+Status date: 2026-07-15
 
 PromptTripwire uses npm workspaces and keeps the foundation toolchain development-only. `package-lock.json` is authoritative for resolved transitive versions and integrity hashes.
 

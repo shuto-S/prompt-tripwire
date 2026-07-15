@@ -1,3 +1,7 @@
+import { chmod, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import {
   AppServerError,
   CodexAppServerClient,
@@ -7,8 +11,8 @@ import {
   type RunProbeBatchInput,
 } from "@prompt-tripwire/codex-app-server";
 import {
+  AppServerComparatorTransport,
   ComparatorRunError,
-  OpenAiResponsesTransport,
   PlanComparator,
   createContractPreview,
   createManualComparisonFallback,
@@ -191,7 +195,6 @@ export class InspectionPipeline implements InspectionPort {
 
 export interface DefaultInspectionPortOptions {
   readonly codexPath?: string;
-  readonly openAiApiKey?: string;
   readonly comparatorModel?: "gpt-5.6-sol" | "gpt-5.6-terra";
   readonly comparatorReasoningEffort?: "low" | "medium" | "high";
 }
@@ -200,16 +203,19 @@ export class DefaultInspectionPort implements InspectionPort {
   constructor(private readonly options: DefaultInspectionPortOptions = {}) {}
 
   async inspect(context: InspectionContext): Promise<InspectionResult> {
-    const transport = ProcessJsonRpcTransport.start({
-      cwd: context.preparedSnapshot.snapshot.repositoryPath,
-      ...(this.options.codexPath === undefined ? {} : { codexPath: this.options.codexPath }),
-    });
-    const client = new CodexAppServerClient(transport);
+    const runtimeRoot = await mkdtemp(join(tmpdir(), "prompt-tripwire-app-server-"));
+    let client: CodexAppServerClient | null = null;
     try {
+      await chmod(runtimeRoot, 0o700);
+      const transport = ProcessJsonRpcTransport.start({
+        cwd: runtimeRoot,
+        ...(this.options.codexPath === undefined ? {} : { codexPath: this.options.codexPath }),
+      });
+      client = new CodexAppServerClient(transport);
       await client.initialize();
-      const comparatorTransport = new OpenAiResponsesTransport(
-        this.options.openAiApiKey === undefined ? {} : { apiKey: this.options.openAiApiKey },
-      );
+      const comparatorTransport = new AppServerComparatorTransport(client, {
+        temporaryParent: runtimeRoot,
+      });
       return await new InspectionPipeline({
         probes: new ProbeCoordinator(client),
         comparator: new PlanComparator(comparatorTransport),
@@ -221,7 +227,11 @@ export class DefaultInspectionPort implements InspectionPort {
           : { comparatorReasoningEffort: this.options.comparatorReasoningEffort }),
       }).inspect(context);
     } finally {
-      await client.close();
+      try {
+        await client?.close();
+      } finally {
+        await rm(runtimeRoot, { recursive: true, force: true });
+      }
     }
   }
 }

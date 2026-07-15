@@ -1,15 +1,12 @@
 # Architecture and protocols
 
-Status: Implementation baseline; App Server 0.144.4 probes and terminal comparison slice verified
+Status: P0 implementation baseline; unified App Server probes, comparison, and execution verified
 
-Date: 2026-07-14
+Date: 2026-07-15
 
 ## 1. Architecture decision
 
-Use a local TypeScript controller with two OpenAI integration paths:
-
-1. **Codex App Server over local stdio** for repository-grounded probes, execution, streamed items, approvals, diffs, and interruption.
-2. **OpenAI Responses API with GPT-5.6 Structured Outputs** for schema-constrained comparison of validated plan artifacts.
+Use a local TypeScript controller with one OpenAI integration path: **Codex App Server over local stdio** for repository-grounded probes, schema-constrained GPT-5.6 comparison, execution, streamed items, approvals, token usage, diffs, and interruption. App Server uses the user's existing Codex CLI login, so PromptTripwire does not add an API-key setup step or extract Codex authentication material.
 
 Codex App Server is preferable to scraping terminal output. Its normal generated schema exposes threads, turns, plan and file-change items, approval requests, diffs, and `turn/interrupt`. Stdio is the documented default and avoids the unsupported experimental WebSocket transport.
 
@@ -20,6 +17,8 @@ The Codex SDK remains a possible fallback for automation, but it is not the prim
 Official references:
 
 - [Codex App Server](https://learn.chatgpt.com/docs/app-server)
+- [Codex authentication](https://learn.chatgpt.com/docs/auth#openai-authentication)
+- [OpenAI API authentication](https://developers.openai.com/api/reference/overview#authentication)
 - [Codex SDK](https://learn.chatgpt.com/docs/codex-sdk)
 - [Structured model outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
 
@@ -32,7 +31,7 @@ These choices describe the installed implementation baseline; browser UI depende
 | Runtime | Node.js 24.15+ LTS and TypeScript | Supported LTS baseline with release-candidate `node:sqlite` available across CLI, controller, schemas, and UI. |
 | CLI | Thin TypeScript executable | Primary local entry point and terminal fallback. |
 | Codex integration | Spawn `codex app-server` over stdio | Documented JSON-RPC transport with rich events and approvals. |
-| Comparator | Official OpenAI JavaScript SDK, Responses API, GPT-5.6 | Required Build Week model and reliable structured output. |
+| Comparator | Fresh tool-free Codex App Server thread, GPT-5.6 | Reuses Codex authentication and normal-schema structured output without a second credential path. |
 | Validation | Zod-derived JSON Schema | Prevent schema/type divergence. |
 | Persistence | Built-in `node:sqlite` with migrations | Atomic state transitions, idempotent events, crash recovery, and no native addon. |
 | Local API | Loopback-only HTTP + Server-Sent Events | Simple request/response plus one-way progress streaming. |
@@ -53,7 +52,7 @@ flowchart TB
     Planner --> AppAdapter["Codex App Server adapter"]
     AppAdapter <-->|"JSON-RPC over stdio"| Codex["codex app-server"]
     Controller --> Comparator["GPT-5.6 comparator"]
-    Comparator --> Responses["OpenAI Responses API"]
+    Comparator --> AppAdapter
     Controller --> Policy["Deterministic policy engine"]
     Controller --> Contracts["Contract service"]
     Controller --> Gate["Execution gate"]
@@ -79,9 +78,9 @@ Starts three independent threads with identical inputs and read-only policies, c
 
 ### GPT-5.6 comparator
 
-Sends only task metadata and validated plan artifacts to the Responses API, requests strict Structured Outputs, handles refusals and retries, and returns an untrusted `ComparisonCandidate`.
+Sends only task metadata and validated plan artifacts to a fresh ephemeral App Server thread, requests schema-constrained output, handles invalid output and retries, and returns an untrusted `ComparisonCandidate`.
 
-The current adapter uses the official JavaScript SDK `responses.parse`, Zod-derived output formatting, `store: false`, no tools, and an abort signal. It validates every evidence and probe reference, rejects secret-like output before binding a content-addressed comparison identity, and records sanitized attempt/usage metadata. After two refusal/schema/timeout failures it creates an explicit unknown candidate for deterministic manual review; it never treats comparator unavailability as consensus.
+The App Server process starts outside the target repository. Each comparison gets another empty user-only temporary directory, `ephemeral: true`, read-only sandboxing, network disabled, `untrusted` approval, no MCP/apps/subagents, and instructions prohibiting tools. Every approval request, tool item, or non-empty diff fails the comparison. The adapter uses a Zod-derived JSON Schema, validates every evidence and probe reference, rejects secret-like output before binding a content-addressed comparison identity, and records sanitized thread/turn/usage metadata. After two schema/reference/timeout failures it creates an explicit unknown candidate for deterministic manual review; it never treats comparator unavailability as consensus.
 
 ### Deterministic policy engine
 
@@ -104,7 +103,7 @@ Exposes only review/run data needed by the UI. It binds to `127.0.0.1` or `::1`,
 ### 4.1 Startup
 
 1. Resolve and version-check the `codex` executable.
-2. Spawn `codex app-server` with stdio pipes and a minimal environment.
+2. Spawn `codex app-server` from an empty disposable runtime directory with stdio pipes and a minimal environment; rely only on the existing Codex CLI login.
 3. Send `initialize` with `clientInfo.name = "prompt_tripwire"`.
 4. Send `initialized`.
 5. Use only methods and fields present in the normal 0.144.4 schema; never opt into `experimentalApi` for P0.
@@ -128,7 +127,11 @@ Probe turns use `approvalPolicy: "untrusted"`. The client declines command, file
 
 The adapter treats the final completed plan item or final structured agent output as authoritative. Deltas are for UI progress only.
 
-### 4.3 Execution thread
+### 4.3 Comparison thread
+
+Each comparison uses a separate `thread/start`, never a probe thread or `thread/fork`. Its CWD is a fresh empty disposable directory rather than the target repository. `turn/start` includes the exact model/effort, read-only sandbox with network disabled, no summary, and the `ComparisonCandidate` content schema. Command, file, permission, unknown server requests, tool items, and diffs are denied and fail closed. Only the final completed schema-constrained agent message is accepted. Stable `thread/tokenUsage/updated` notifications supply audit usage; thread and turn IDs are persisted with each attempt.
+
+### 4.4 Execution thread
 
 Execution starts in a new thread against a new disposable worktree. It receives the approved contract as instructions plus machine-readable policy context. Human decisions are never inferred from an earlier probe conversation.
 
@@ -138,6 +141,7 @@ The adapter consumes at least:
 - plan, command-execution, file-change, MCP/app, and permission items;
 - command and file-change approval requests;
 - `turn/diff/updated`;
+- `thread/tokenUsage/updated`;
 - `turn/completed`;
 - error and disconnect signals.
 

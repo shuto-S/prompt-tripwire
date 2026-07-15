@@ -47,6 +47,12 @@ const PLAN_CONTENT = {
   ],
 };
 
+const COMPARISON_CONTENT = {
+  consensus: [],
+  divergences: [],
+  unknowns: [],
+};
+
 function snapshot(repositoryPath) {
   return createRepositorySnapshot({
     repositoryPath,
@@ -79,6 +85,23 @@ function probeInput(repositoryPath, probeId = "probe_1") {
     snapshot: snapshot(repositoryPath),
     model: "gpt-5.4",
     reasoningEffort: "high",
+    timeoutMs: 200,
+  };
+}
+
+function comparisonInput(repositoryPath) {
+  return {
+    cwd: repositoryPath,
+    task: snapshot(repositoryPath).task,
+    plans: ["probe_1", "probe_2"].map((probeId) => ({
+      probeId,
+      threadId: `thread_${probeId}`,
+      snapshotHash: snapshot(repositoryPath).snapshotHash,
+      taskHash: snapshot(repositoryPath).taskHash,
+      ...PLAN_CONTENT,
+    })),
+    model: "gpt-5.6-terra",
+    reasoningEffort: "low",
     timeoutMs: 200,
   };
 }
@@ -128,6 +151,66 @@ test("AC-001: three probes use fresh threads and byte-equivalent planning inputs
           request.params.sandboxPolicy.type === "readOnly" &&
           request.params.sandboxPolicy.networkAccess === false,
       ),
+    );
+  } finally {
+    await client.close();
+    await rm(repository, { recursive: true, force: true });
+  }
+});
+
+test("AC-008/AC-018: comparator uses a fresh tool-free structured-output thread", async () => {
+  const repository = await mkdtemp(join(tmpdir(), "prompt-tripwire-comparison-fixture-"));
+  const { client, harness } = await fakeClient(repository, [
+    { outcome: "valid", content: COMPARISON_CONTENT },
+  ]);
+  try {
+    const result = await client.runComparison(comparisonInput(repository));
+    assert.match(result.threadId, /^thread_fake_/u);
+    assert.match(result.turnId, /^turn_fake_/u);
+    assert.equal(result.model, "gpt-5.6-terra");
+    assert.deepEqual(result.output, COMPARISON_CONTENT);
+    assert.deepEqual(result.usage, {
+      inputTokens: 100,
+      outputTokens: 40,
+      totalTokens: 140,
+      reasoningTokens: 20,
+    });
+
+    const threadStart = harness.requests.find((request) => request.method === "thread/start");
+    const turnStart = harness.requests.find((request) => request.method === "turn/start");
+    assert.equal(threadStart.params.cwd, repository);
+    assert.equal(threadStart.params.ephemeral, true);
+    assert.equal(threadStart.params.sandbox, "read-only");
+    assert.equal(threadStart.params.approvalPolicy, "untrusted");
+    assert.equal(threadStart.params.serviceName, "prompt_tripwire_comparator");
+    assert.deepEqual(turnStart.params.sandboxPolicy, {
+      type: "readOnly",
+      networkAccess: false,
+    });
+    assert.equal(turnStart.params.effort, "low");
+    assert.equal(turnStart.params.summary, "none");
+    assert.ok(turnStart.params.outputSchema);
+  } finally {
+    await client.close();
+    await rm(repository, { recursive: true, force: true });
+  }
+});
+
+test("AC-008/AC-018: comparator tool requests and invalid output fail closed", async () => {
+  const repository = await mkdtemp(join(tmpdir(), "prompt-tripwire-comparison-denial-"));
+  const { client, harness } = await fakeClient(repository, [
+    { outcome: "static_read_approval", content: COMPARISON_CONTENT },
+    { outcome: "invalid_output" },
+  ]);
+  try {
+    await assert.rejects(
+      client.runComparison(comparisonInput(repository)),
+      (error) => error instanceof AppServerError && error.code === "COMPARISON_TOOL_VIOLATION",
+    );
+    assert.deepEqual(harness.clientResponses[0].result, { decision: "decline" });
+    await assert.rejects(
+      client.runComparison(comparisonInput(repository)),
+      (error) => error instanceof AppServerError && error.code === "INVALID_COMPARISON_ARTIFACT",
     );
   } finally {
     await client.close();

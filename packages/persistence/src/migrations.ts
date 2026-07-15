@@ -225,6 +225,13 @@ const MIGRATIONS = [
 
   CREATE INDEX idempotency_keys_run_idx ON idempotency_keys(run_id);
   `,
+  `
+  ALTER TABLE comparator_attempts
+    ADD COLUMN thread_id TEXT;
+
+  ALTER TABLE comparator_attempts
+    ADD COLUMN turn_id TEXT;
+  `,
 ] as const;
 
 export function migrate(database: DatabaseSync, appliedAt: string): void {

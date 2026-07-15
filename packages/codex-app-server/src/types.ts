@@ -1,4 +1,8 @@
-import type { PlanArtifact, RepositorySnapshot } from "@prompt-tripwire/domain";
+import type {
+  ComparisonCandidateContent,
+  PlanArtifact,
+  RepositorySnapshot,
+} from "@prompt-tripwire/domain";
 import type {
   CleanupResult,
   DisposableWorktree,
@@ -63,6 +67,31 @@ export interface PlanProbeResult {
   readonly artifact: PlanArtifact;
   readonly approvals: readonly ApprovalObservation[];
   readonly events: readonly NormalizedAppServerEvent[];
+}
+
+export interface AppServerTokenUsage {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly totalTokens: number;
+  readonly reasoningTokens: number;
+}
+
+export interface ComparisonTurnInput {
+  readonly cwd: string;
+  readonly task: string;
+  readonly plans: readonly PlanArtifact[];
+  readonly model: string;
+  readonly reasoningEffort: string;
+  readonly timeoutMs?: number;
+  readonly signal?: AbortSignal;
+}
+
+export interface ComparisonTurnResult {
+  readonly threadId: string;
+  readonly turnId: string;
+  readonly model: string;
+  readonly output: ComparisonCandidateContent;
+  readonly usage: AppServerTokenUsage | null;
 }
 
 export interface ExecutionGateDecision {

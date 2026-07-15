@@ -24,6 +24,8 @@ export interface ComparatorTransportRequest {
 
 export interface ComparatorTransportResult {
   readonly responseId: string | null;
+  readonly threadId: string | null;
+  readonly turnId: string | null;
   readonly model: string;
   readonly output: ComparisonCandidateContent | null;
   readonly refused: boolean;
@@ -51,6 +53,8 @@ export interface ComparatorAttempt {
   readonly attempt: number;
   readonly state: "completed" | "failed" | "refused" | "timed_out" | "cancelled";
   readonly responseId: string | null;
+  readonly threadId: string | null;
+  readonly turnId: string | null;
   readonly model: string;
   readonly errorCode: string | null;
   readonly usage: ComparatorUsage;

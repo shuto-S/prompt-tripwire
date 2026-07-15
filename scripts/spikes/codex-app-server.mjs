@@ -38,6 +38,7 @@ const REQUIRED_STABLE_METHODS = {
     "turn/started",
     "item/started",
     "item/completed",
+    "thread/tokenUsage/updated",
     "turn/diff/updated",
     "serverRequest/resolved",
     "turn/completed",

@@ -1,7 +1,15 @@
 #!/usr/bin/env node
 
+import { chmod, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import {
-  OpenAiResponsesTransport,
+  CodexAppServerClient,
+  ProcessJsonRpcTransport,
+} from "../packages/codex-app-server/dist/index.js";
+import {
+  AppServerComparatorTransport,
   PlanComparator,
 } from "../packages/openai-comparator/dist/index.js";
 import { createRepositorySnapshot } from "../packages/domain/dist/index.js";
@@ -89,65 +97,105 @@ const FIXTURES = [
 ];
 
 async function main() {
-  if (!process.env.OPENAI_API_KEY) {
-    process.stderr.write("OPENAI_API_KEY_REQUIRED: comparator eval was not run.\n");
-    process.exitCode = 2;
-    return;
-  }
-  const comparator = new PlanComparator(new OpenAiResponsesTransport());
-  const results = [];
-  for (const model of MODELS) {
-    for (const item of FIXTURES) {
-      const startedAt = performance.now();
-      try {
-        const result = await comparator.compare({
-          snapshot: item.snapshot,
-          plans: item.plans,
-          model,
-          reasoningEffort: "low",
-          timeoutMs: 120_000,
-          maxAttempts: 1,
-        });
-        const hasDivergence = result.candidate.divergences.length > 0;
-        results.push({
-          model,
-          fixture: item.id,
-          passed: hasDivergence === item.expectDivergence,
-          divergenceCount: result.candidate.divergences.length,
-          unknownCount: result.candidate.unknowns.length,
-          durationMs: Math.round(performance.now() - startedAt),
-          usage: result.usage,
-        });
-      } catch (error) {
-        results.push({
-          model,
-          fixture: item.id,
-          passed: false,
-          errorCode:
-            error !== null && typeof error === "object" && "code" in error
-              ? String(error.code)
-              : "COMPARATOR_EVAL_FAILED",
-          durationMs: Math.round(performance.now() - startedAt),
+  const runtimeRoot = await mkdtemp(join(tmpdir(), "prompt-tripwire-eval-app-server-"));
+  let client;
+  try {
+    await chmod(runtimeRoot, 0o700);
+    client = new CodexAppServerClient(ProcessJsonRpcTransport.start({ cwd: runtimeRoot }));
+    await client.initialize();
+    const available = new Map((await client.listModels()).map((model) => [model.id, model]));
+    for (const model of MODELS) {
+      const descriptor = available.get(model);
+      if (!descriptor || !descriptor.supportedReasoningEfforts.includes("low")) {
+        throw Object.assign(new Error(`required comparator model unavailable: ${model}`), {
+          code: "COMPARATOR_MODEL_UNAVAILABLE",
         });
       }
     }
+    const comparator = new PlanComparator(
+      new AppServerComparatorTransport(client, { temporaryParent: runtimeRoot }),
+    );
+    const results = [];
+    for (const model of MODELS) {
+      for (const item of FIXTURES) {
+        const startedAt = performance.now();
+        try {
+          const result = await comparator.compare({
+            snapshot: item.snapshot,
+            plans: item.plans,
+            model,
+            reasoningEffort: "low",
+            timeoutMs: 120_000,
+            maxAttempts: 1,
+          });
+          const hasDivergence = result.candidate.divergences.length > 0;
+          results.push({
+            model,
+            fixture: item.id,
+            passed: hasDivergence === item.expectDivergence,
+            divergenceCount: result.candidate.divergences.length,
+            unknownCount: result.candidate.unknowns.length,
+            durationMs: Math.round(performance.now() - startedAt),
+            threadId: result.attempts[0]?.threadId ?? null,
+            turnId: result.attempts[0]?.turnId ?? null,
+            usage: result.usage,
+          });
+        } catch (error) {
+          const attempt =
+            error !== null && typeof error === "object" && "attempts" in error
+              ? error.attempts?.[0]
+              : undefined;
+          results.push({
+            model,
+            fixture: item.id,
+            passed: false,
+            errorCode:
+              error !== null && typeof error === "object" && "code" in error
+                ? String(error.code)
+                : "COMPARATOR_EVAL_FAILED",
+            durationMs: Math.round(performance.now() - startedAt),
+            threadId: attempt?.threadId ?? null,
+            turnId: attempt?.turnId ?? null,
+          });
+        }
+      }
+    }
+    const summary = MODELS.map((model) => {
+      const modelResults = results.filter((result) => result.model === model);
+      return {
+        model,
+        passed: modelResults.filter((result) => result.passed).length,
+        total: modelResults.length,
+        totalTokens: modelResults.reduce(
+          (sum, result) => sum + ("usage" in result ? (result.usage.totalTokens ?? 0) : 0),
+          0,
+        ),
+      };
+    });
+    process.stdout.write(
+      `${JSON.stringify(
+        { authMode: "codex-cli-login", reasoningEffort: "low", summary, results },
+        null,
+        2,
+      )}\n`,
+    );
+    if (results.some((result) => !result.passed)) process.exitCode = 1;
+  } finally {
+    try {
+      await client?.close();
+    } finally {
+      await rm(runtimeRoot, { recursive: true, force: true });
+    }
   }
-  const summary = MODELS.map((model) => {
-    const modelResults = results.filter((result) => result.model === model);
-    return {
-      model,
-      passed: modelResults.filter((result) => result.passed).length,
-      total: modelResults.length,
-      totalTokens: modelResults.reduce(
-        (sum, result) => sum + ("usage" in result ? (result.usage.totalTokens ?? 0) : 0),
-        0,
-      ),
-    };
-  });
-  process.stdout.write(
-    `${JSON.stringify({ reasoningEffort: "low", summary, results }, null, 2)}\n`,
-  );
-  if (results.some((result) => !result.passed)) process.exitCode = 1;
 }
 
-await main();
+try {
+  await main();
+} catch (error) {
+  const code =
+    error !== null && typeof error === "object" && "code" in error
+      ? String(error.code)
+      : "COMPARATOR_EVAL_FAILED";
+  process.stderr.write(`${code}: comparator eval was not run.\n`);
+  process.exitCode = 2;
+}

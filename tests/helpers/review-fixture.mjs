@@ -130,6 +130,8 @@ export async function createReviewFixture({ decisionCount = 1, runId = "run_ui" 
         attempt: 1,
         state: "completed",
         responseId: `response_${runId}`,
+        threadId: `thread_comparator_${runId}`,
+        turnId: `turn_comparator_${runId}`,
         model: "gpt-5.6-terra",
         errorCode: null,
         usage: { inputTokens: 20, outputTokens: 10, totalTokens: 30, reasoningTokens: 5 },

@@ -78,7 +78,7 @@ The target is an installable macOS artifact or published CLI package that does n
 
 - supported OS/architecture and minimum versions;
 - Codex authentication prerequisites;
-- `OPENAI_API_KEY` setup without logging or storing the value;
+- authenticated Codex CLI setup, with no separate API-key requirement;
 - one-command install and uninstall;
 - a bundled safe fixture repository and demo task;
 - an offline replay mode for UI exploration if live model limits occur, clearly labeled as recorded data;

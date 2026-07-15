@@ -1,10 +1,10 @@
 # PromptTripwire product specification
 
-Status: Implementation in progress; App Server feasibility verified
+Status: P0 implementation baseline verified
 
-Version: 0.1.1
+Version: 0.1.2
 
-Date: 2026-07-14
+Date: 2026-07-15
 
 Owner: shuto-S
 
@@ -201,7 +201,7 @@ repository_evidence[]
 
 ### 8.1 GPT-5.6 responsibilities
 
-GPT-5.6 receives the task plus validated plan artifacts, not unrestricted tool access. Structured Outputs must return:
+GPT-5.6 receives the task plus validated plan artifacts in a fresh ephemeral Codex App Server thread rooted at an empty disposable directory, not unrestricted tool access. The thread is read-only, has network disabled, declines every tool or permission request, and uses a schema-constrained final response. Structured Outputs must return:
 
 - normalized consensus items;
 - materially different alternatives;
@@ -419,7 +419,7 @@ State transitions are persisted atomically. Restarting the local controller must
 - Run directories and files use user-only permissions where supported.
 - Default retention is seven days after completion; active, paused, and explicitly pinned runs are retained.
 - No telemetry or cloud synchronization is enabled in the MVP.
-- API keys and Codex credentials are read from existing approved providers and never copied into run artifacts.
+- The App Server uses the user's existing Codex CLI login. PromptTripwire neither requires a separate OpenAI API key nor reads, copies, or exports Codex credentials.
 - Raw model reasoning, environment dumps, and full shell environments are not persisted.
 - Export is explicit and warns if task text or evidence may be sensitive.
 
@@ -458,7 +458,7 @@ See `SECURITY.md` for the threat model and known limits.
 - **Reliability:** persisted states and approvals must be recoverable after controller restart.
 - **Latency:** probes run concurrently; the UI streams each phase instead of showing an indefinite spinner. No hard latency claim is made until measured on representative repositories.
 - **Cost visibility:** show probe count, selected models, token usage when available, retry count, and a pre-run estimate if the provider exposes one.
-- **Portability:** the Build Week MVP supports verified macOS builds with Git, Node.js, Codex CLI, and an OpenAI API credential. Linux is the next target but is not advertised as supported until the same containment and end-to-end suite passes. Windows is out of MVP scope.
+- **Portability:** the Build Week MVP supports verified macOS builds with Git, Node.js, and an authenticated Codex CLI. No separate OpenAI API credential is required. Linux is the next target but is not advertised as supported until the same containment and end-to-end suite passes. Windows is out of MVP scope.
 - **Runtime:** Node.js 24.15+ LTS and Codex CLI 0.144.4 are the pinned implementation baseline. Node 24.15 is the minimum because the built-in SQLite module reached release-candidate status there. A different Codex version or canonical normal-schema hash fails before probing.
 - **Accessibility:** complete decision review and approval with keyboard only; WCAG 2.2 AA contrast target.
 - **Observability:** structured local events with stable IDs; no secret values or raw chain-of-thought.
@@ -503,7 +503,7 @@ See `SECURITY.md` for the threat model and known limits.
 ### Integration
 
 - fake App Server JSON-RPC streams for approvals, file changes, command execution, interruption, disconnect, and duplicate events;
-- Responses API structured-output fixtures, refusal, invalid schema, retry, and timeout;
+- fake App Server schema-constrained comparison fixtures, prohibited-tool requests, invalid schema/reference, retry, timeout, and token-usage notifications;
 - Git repositories with clean, dirty, submodule, detached HEAD, renamed file, and snapshot drift cases;
 - worktree creation, containment, clean restart, and final diff verification.
 

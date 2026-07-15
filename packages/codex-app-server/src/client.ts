@@ -1,5 +1,6 @@
 import {
   canonicalJson,
+  ComparisonCandidateContentSchema,
   PlanArtifactContentSchema,
   PlanArtifactSchema,
 } from "@prompt-tripwire/domain";
@@ -12,13 +13,21 @@ import {
   InitializeResponseSchema,
   JsonRpcEnvelopeSchema,
   ModelListResponseSchema,
+  ThreadTokenUsageUpdatedParamsSchema,
   ThreadStartResponseSchema,
   TurnStartResponseSchema,
   type ParsedThreadItem,
 } from "./protocol.js";
-import { decideProbeApproval, probeItemViolation } from "./probe-policy.js";
+import {
+  comparisonItemViolation,
+  decideComparatorApproval,
+  decideProbeApproval,
+  probeItemViolation,
+} from "./probe-policy.js";
 import type {
   ApprovalObservation,
+  ComparisonTurnInput,
+  ComparisonTurnResult,
   ContractExecutionInput,
   ContractExecutionResult,
   ExecutionPolicyHooks,
@@ -33,6 +42,7 @@ import type {
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 const DEFAULT_PROBE_TIMEOUT_MS = 180_000;
+const DEFAULT_COMPARISON_TIMEOUT_MS = 5 * 60_000;
 const DEFAULT_EXECUTION_TIMEOUT_MS = 30 * 60_000;
 const SANDBOXED_COMMAND_PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin";
 
@@ -43,6 +53,17 @@ const PROBE_DEVELOPER_INSTRUCTIONS = [
   "The working directory is already the repository root; never run pwd or sed. Issue only one static read command at a time. Use only ls, find, rg, cat, head, tail, or wc. Never use pipes, command chaining, shell control operators, or git commands.",
   "If a needed inspection cannot be represented by structured read, listFiles, or search command actions, record it as an unknown instead of running it.",
   "Do not expose chain-of-thought. Return only the schema-constrained plan content with concise evidence-backed fields.",
+].join("\n");
+
+const COMPARISON_DEVELOPER_INSTRUCTIONS = [
+  "You are the PromptTripwire structured plan comparator.",
+  "Compare only the task and validated plan artifacts supplied in the user message.",
+  "Return consensus, materially different alternatives, and unresolved unknowns only.",
+  "Suppress naming, prose ordering, and equivalent implementation details.",
+  "Use only repository evidence IDs and probe IDs present in the supplied plans.",
+  "Do not claim that deterministic safety triggers are approved or safe.",
+  "Do not inspect the filesystem, execute commands, change files, use network tools, MCP/apps, subagents, or request additional permissions.",
+  "Do not expose chain-of-thought. Return only the requested JSON object.",
 ].join("\n");
 
 interface PendingRequest {
@@ -64,6 +85,7 @@ interface TurnState {
   readonly events: NormalizedAppServerEvent[];
   readonly agentMessages: string[];
   readonly waiters: TurnWaiter[];
+  usage: ComparisonTurnResult["usage"];
   status: "completed" | "interrupted" | "failed" | "inProgress" | null;
   error: AppServerError | null;
 }
@@ -107,6 +129,22 @@ function planContentJsonSchema(): unknown {
   });
 }
 
+function comparisonPrompt(input: ComparisonTurnInput): string {
+  return [
+    "Compare the supplied independent engineering plans.",
+    "Use no information outside this JSON input:",
+    JSON.stringify({ task: input.task, plans: input.plans }),
+    "Return only the requested JSON object.",
+  ].join("\n\n");
+}
+
+function comparisonContentJsonSchema(): unknown {
+  return z.toJSONSchema(ComparisonCandidateContentSchema, {
+    target: "draft-7",
+    unrepresentable: "throw",
+  });
+}
+
 export class CodexAppServerClient {
   private readonly transport: JsonRpcTransport;
   private readonly ledger = new ProtocolEventLedger();
@@ -115,6 +153,7 @@ export class CodexAppServerClient {
   private readonly serverRequests = new Map<string, CachedServerRequest>();
   private readonly threadRoots = new Map<string, string>();
   private readonly threadApprovals = new Map<string, ApprovalObservation[]>();
+  private readonly comparisonThreads = new Set<string>();
   private readonly executionThreads = new Map<string, ExecutionThreadContext>();
   private readonly turns = new Map<string, TurnState>();
   private readonly interruptingTurns = new Set<string>();
@@ -286,6 +325,102 @@ export class CodexAppServerClient {
       }
       if (error instanceof AppServerError && error.code === "PROBE_TIMEOUT") throw error;
       throw appServerError(error, "probe failed protocol validation");
+    }
+  }
+
+  async runComparison(input: ComparisonTurnInput): Promise<ComparisonTurnResult> {
+    this.assertInitialized();
+    const thread = ThreadStartResponseSchema.parse(
+      await this.request("thread/start", {
+        cwd: input.cwd,
+        approvalPolicy: "untrusted",
+        approvalsReviewer: "user",
+        developerInstructions: COMPARISON_DEVELOPER_INSTRUCTIONS,
+        sandbox: "read-only",
+        ephemeral: true,
+        serviceName: "prompt_tripwire_comparator",
+        model: input.model,
+      }),
+    );
+    if (thread.model !== input.model) {
+      throw new AppServerError("PROTOCOL_VALIDATION_FAILED", "App Server changed comparator model");
+    }
+    const threadId = thread.thread.id;
+    this.threadRoots.set(threadId, input.cwd);
+    this.threadApprovals.set(threadId, []);
+    this.comparisonThreads.add(threadId);
+
+    let turnId: string | null = null;
+    try {
+      const turn = TurnStartResponseSchema.parse(
+        await this.request("turn/start", {
+          threadId,
+          input: [{ type: "text", text: comparisonPrompt(input) }],
+          cwd: input.cwd,
+          approvalPolicy: "untrusted",
+          approvalsReviewer: "user",
+          sandboxPolicy: { type: "readOnly", networkAccess: false },
+          model: input.model,
+          effort: input.reasoningEffort,
+          summary: "none",
+          personality: "none",
+          outputSchema: comparisonContentJsonSchema(),
+        }),
+      );
+      turnId = turn.turn.id;
+      const state = await this.waitForComparisonTurn(
+        threadId,
+        turnId,
+        input.timeoutMs ?? DEFAULT_COMPARISON_TIMEOUT_MS,
+        input.signal,
+      );
+      if (state.status !== "completed") {
+        throw new AppServerError(
+          "INVALID_COMPARISON_ARTIFACT",
+          `comparison turn ended with status ${state.status ?? "unknown"}`,
+        );
+      }
+      const finalMessage = state.agentMessages.at(-1);
+      if (finalMessage === undefined) {
+        throw new AppServerError(
+          "INVALID_COMPARISON_ARTIFACT",
+          "comparison produced no final agent message",
+        );
+      }
+      let output: unknown;
+      try {
+        output = JSON.parse(finalMessage) as unknown;
+      } catch (error) {
+        throw new AppServerError("INVALID_COMPARISON_ARTIFACT", "comparison output was not JSON", {
+          cause: error,
+        });
+      }
+      const parsed = ComparisonCandidateContentSchema.safeParse(output);
+      if (!parsed.success) {
+        throw new AppServerError(
+          "INVALID_COMPARISON_ARTIFACT",
+          "comparison output did not match the comparison schema",
+          { cause: parsed.error },
+        );
+      }
+      return {
+        threadId,
+        turnId,
+        model: thread.model,
+        output: parsed.data,
+        usage: state.usage,
+      };
+    } catch (error) {
+      if (turnId !== null) {
+        try {
+          await this.request("turn/interrupt", { threadId, turnId }, 10_000);
+        } catch {
+          // The original comparison failure remains authoritative.
+        }
+      }
+      throw appServerError(error, "comparison failed protocol validation");
+    } finally {
+      this.comparisonThreads.delete(threadId);
     }
   }
 
@@ -536,6 +671,25 @@ export class CodexAppServerClient {
     if (root === undefined) {
       throw new AppServerError("PROTOCOL_CORRUPTION", "approval request had no known thread");
     }
+    if (threadId !== null && this.comparisonThreads.has(threadId)) {
+      const decision = decideComparatorApproval(id, method, params);
+      this.threadApprovals.get(threadId)?.push(decision.observation);
+      const turnId = typeof record.turnId === "string" ? record.turnId : null;
+      if (turnId === null) {
+        throw new AppServerError(
+          "PROTOCOL_CORRUPTION",
+          "comparison server request omitted turn id",
+        );
+      }
+      this.failTurn(
+        this.turnState(threadId, turnId),
+        new AppServerError(
+          "COMPARISON_TOOL_VIOLATION",
+          "comparison requested a prohibited tool or permission",
+        ),
+      );
+      return decision.response;
+    }
     const execution = threadId === null ? undefined : this.executionThreads.get(threadId);
     if (execution !== undefined) {
       if (threadId === null) {
@@ -564,6 +718,21 @@ export class CodexAppServerClient {
   }
 
   private receiveNotification(method: string, params: unknown): void {
+    if (method === "thread/tokenUsage/updated") {
+      try {
+        const parsed = ThreadTokenUsageUpdatedParamsSchema.parse(params);
+        const state = this.turnState(parsed.threadId, parsed.turnId);
+        state.usage = {
+          inputTokens: parsed.tokenUsage.last.inputTokens,
+          outputTokens: parsed.tokenUsage.last.outputTokens,
+          totalTokens: parsed.tokenUsage.last.totalTokens,
+          reasoningTokens: parsed.tokenUsage.last.reasoningOutputTokens,
+        };
+      } catch (error) {
+        this.failProtocol(appServerError(error, "token usage notification validation failed"));
+      }
+      return;
+    }
     if (
       !new Set([
         "thread/started",
@@ -596,6 +765,17 @@ export class CodexAppServerClient {
           pause = execution.policy.observeDiff(accepted.diff).pause || pause;
         }
         if (pause) this.requestExecutionPause(event.threadId, event.turnId);
+      } else if (this.comparisonThreads.has(event.threadId)) {
+        if (accepted.item !== null) this.observeComparisonItem(state, accepted.item, method);
+        if (accepted.diff !== null && accepted.diff.trim().length > 0) {
+          this.failTurn(
+            state,
+            new AppServerError(
+              "COMPARISON_TOOL_VIOLATION",
+              "comparison produced a repository diff",
+            ),
+          );
+        }
       } else {
         if (accepted.item !== null) this.observeProbeItem(state, accepted.item, method);
         if (accepted.diff !== null && accepted.diff.trim().length > 0) {
@@ -626,6 +806,22 @@ export class CodexAppServerClient {
     const violation = probeItemViolation(item, root);
     if (violation !== null) {
       this.failTurn(state, new AppServerError("PROBE_CONTAINMENT_VIOLATION", violation));
+      return;
+    }
+    if (
+      method === "item/completed" &&
+      item.type === "agentMessage" &&
+      "text" in item &&
+      typeof item.text === "string"
+    ) {
+      state.agentMessages.push(item.text);
+    }
+  }
+
+  private observeComparisonItem(state: TurnState, item: ParsedThreadItem, method: string): void {
+    const violation = comparisonItemViolation(item);
+    if (violation !== null) {
+      this.failTurn(state, new AppServerError("COMPARISON_TOOL_VIOLATION", violation));
       return;
     }
     if (
@@ -695,6 +891,48 @@ export class CodexAppServerClient {
     }
   }
 
+  private async waitForComparisonTurn(
+    threadId: string,
+    turnId: string,
+    timeoutMs: number,
+    signal: AbortSignal | undefined,
+  ): Promise<TurnState> {
+    if (signal === undefined) {
+      try {
+        return await this.waitForTurn(threadId, turnId, timeoutMs);
+      } catch (error) {
+        if (error instanceof AppServerError && error.code === "PROBE_TIMEOUT") {
+          throw new AppServerError("COMPARISON_TIMEOUT", "comparison turn timed out");
+        }
+        throw error;
+      }
+    }
+    if (signal.aborted) {
+      throw new AppServerError("COMPARISON_CANCELLED", "comparison was cancelled");
+    }
+    const wait = this.waitForTurn(threadId, turnId, timeoutMs);
+    let rejectAbort: ((error: Error) => void) | null = null;
+    const listener = (): void => {
+      rejectAbort?.(new AppServerError("COMPARISON_CANCELLED", "comparison was cancelled"));
+    };
+    try {
+      return await Promise.race([
+        wait,
+        new Promise<never>((_resolve, reject) => {
+          rejectAbort = reject;
+          signal.addEventListener("abort", listener, { once: true });
+        }),
+      ]);
+    } catch (error) {
+      if (error instanceof AppServerError && error.code === "PROBE_TIMEOUT") {
+        throw new AppServerError("COMPARISON_TIMEOUT", "comparison turn timed out");
+      }
+      throw error;
+    } finally {
+      signal.removeEventListener("abort", listener);
+    }
+  }
+
   private requestExecutionPause(threadId: string, turnId: string): void {
     const key = `${threadId}:${turnId}`;
     if (this.interruptingTurns.has(key)) return;
@@ -722,6 +960,7 @@ export class CodexAppServerClient {
       events: [],
       agentMessages: [],
       waiters: [],
+      usage: null,
       status: null,
       error: null,
     };

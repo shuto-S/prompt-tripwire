@@ -4,7 +4,7 @@
 
 PromptTripwire is a local-first preflight and execution gate for Codex. It runs the same engineering task through multiple independent, read-only Codex planning threads, turns material disagreements into a small number of human decisions, and binds the approved choices into an execution contract.
 
-The local-first P0 engine is implemented and tested: Codex App Server 0.144.4 planning/execution adapters, three independent real planning probes, GPT-5.6 Structured Outputs comparison, deterministic policy normalization, terminal and browser review/approval, immutable contracts, Git worktree containment, contract-bound execution/deviation handling, sanitized audit reports, crash recovery, retention, and security/traceability gates. Judge distribution and submission work remain separate.
+The local-first P0 engine is implemented and tested: a unified Codex App Server 0.144.4 planning/comparison/execution adapter, three independent real planning probes, tool-free GPT-5.6 structured comparison, deterministic policy normalization, terminal and browser review/approval, immutable contracts, Git worktree containment, contract-bound execution/deviation handling, sanitized audit reports, crash recovery, retention, and security/traceability gates. Judge distribution and submission work remain separate.
 
 ## Why this exists
 
@@ -58,7 +58,9 @@ Supported Build Week development baseline:
 - macOS on arm64;
 - Node.js 24.15 or newer in the Node 24 LTS line (`.nvmrc` and `.node-version`);
 - npm 11 or newer, with npm 11.17.0 recorded in `packageManager`;
-- `codex-cli 0.144.4` with the pinned normal-schema hash.
+- `codex-cli 0.144.4` with the pinned normal-schema hash, already authenticated through the normal Codex login flow.
+
+PromptTripwire uses that existing Codex CLI login for probes, comparison, and execution. It does not require `OPENAI_API_KEY` or another API credential.
 
 Install a clean checkout with one command:
 
@@ -82,13 +84,13 @@ npm run smoke:real-probes
 
 The 2026-07-14 fixture run used `codex-cli 0.144.4`, `gpt-5.6-sol`, and low reasoning. It produced three schema-valid plans on distinct fresh thread IDs with the same snapshot/task hashes, cleaned all disposable worktrees, and left the source checkout unchanged. The sanitized metadata evidence is in [`fixtures/app-server/real-probes-2026-07-14.json`](fixtures/app-server/real-probes-2026-07-14.json); plan text, raw reasoning, command output, and process environments are intentionally not retained.
 
-Run the bounded comparator model evaluation (two fixtures × two models, one attempt each) only with an existing OpenAI API credential:
+Run the bounded comparator model evaluation (two fixtures × two models, one attempt each) with the authenticated Codex CLI:
 
 ```sh
 npm run eval:comparator
 ```
 
-The evaluator records only pass/fail, candidate counts, timing, and token usage. It never prints prompts, plans, model output, or credentials. `gpt-5.6-terra` with low reasoning is the provisional comparator default because the current official model guidance positions Terra as the cost/intelligence balance; the Sol/Terra Responses API evaluation has not been run in this checkout because no API credential was available, so this is not an empirical model-selection claim.
+The evaluator records only pass/fail, candidate counts, timing, App Server thread/turn IDs, and token usage. It never prints prompts, plans, model output, raw reasoning, process environments, or credentials. On 2026-07-15, both `gpt-5.6-sol` and `gpt-5.6-terra` passed 2/2 at low reasoning. Terra used 48,910 total tokens versus Sol's 49,131, completed in 21,619 ms versus 29,657 ms, and returned no unnecessary unknown on the divergence fixture, so `gpt-5.6-terra`/low remains the bounded empirical default. Sanitized metadata is in [`fixtures/app-server/comparator-eval-2026-07-15.json`](fixtures/app-server/comparator-eval-2026-07-15.json).
 
 `tripwire review RUN_ID` starts a random-port loopback Decision Inbox and keeps it available until Ctrl-C. The capability token appears only in the one-time URL fragment, is removed from the address bar after bootstrap, and is required as an authorization header for the aggregate review API and authenticated fetch-based SSE stream. The UI shows at most three decision cards plus the remaining count, never preselects a high-impact option, supports selection, free-form resolution, defer, pre-approval edit, explicit approval, cancellation, deviation display, keyboard operation, visible focus, and assistive-technology state announcements. It loads only its bundled React/Vite assets and renders model content as escaped text.
 
@@ -100,7 +102,7 @@ Use `tripwire review RUN_ID --terminal` for the terminal fallback. Both interfac
 
 ## Verified evidence and residual risks
 
-On macOS/arm64 with `codex-cli 0.144.4`, the bounded live execution fixture completed with one contract-scoped file, `npm test` exit 0, no deviation, an unchanged source checkout, and a removed execution worktree. The full local check passes 23 unit, 59 integration, and 13 E2E tests, including App Server disconnect, comparator refusal/schema failure, snapshot drift, duplicate/reordered events, idempotent approval, controller restart, cleanup failure, retention/deletion, UI capability/origin controls, secret redaction, seven specification fixtures, and FR-001–018 / AC-001–019 traceability. CI runs the same gates on macOS.
+On macOS/arm64 with `codex-cli 0.144.4`, the bounded live execution fixture completed with one contract-scoped file, `npm test` exit 0, no deviation, an unchanged source checkout, and a removed execution worktree. The full local check passes 23 unit, 62 integration, and 13 E2E tests, including App Server disconnect, comparator tool denial/schema failure, snapshot drift, duplicate/reordered events, idempotent approval, controller restart, cleanup failure, retention/deletion, UI capability/origin controls, secret redaction, seven specification fixtures, and FR-001–018 / AC-001–019 traceability. CI runs the same gates on macOS.
 
 Known residual risks are explicit:
 
@@ -109,7 +111,7 @@ Known residual risks are explicit:
 - A tracked secret inside an otherwise approved source path can still be read; secret pattern matching is a backstop, not proof.
 - Required-check executable lookup is limited to the fixed macOS system/Homebrew `PATH` used by the P0 build.
 - App Server/schema CLI surfaces remain labeled experimental even though runtime uses only the pinned normal schema.
-- The bounded live Sol/Terra Responses API comparison remains unrun without an existing API credential; no empirical comparator winner is claimed.
+- The Sol/Terra selection is based on only two synthetic fixtures and can drift as models or App Server behavior change; rerun the bounded evaluation before making broader quality or cost claims.
 
 ## Build Week positioning
 
@@ -122,7 +124,7 @@ The project is being created during the OpenAI Build Week submission period. The
 
 ## Codex collaboration record
 
-Codex was used to research the current OpenAI integration surfaces, challenge the UI-first concept, define the local-first product boundary, draft the requirements and threat model, verify the App Server boundary, establish the TypeScript/npm test foundation, implement and test the domain/policy/snapshot layers, build the SQLite-backed controller and CLI foundation, implement the version-pinned App Server adapter with three real independent probes, complete the Responses API comparator and terminal decision/contract flow, implement the loopback-only browser Decision Inbox with keyboard and security E2E coverage, and complete the contract-bound execution, audit, recovery, retention, security, and traceability layers. Live verification changed the implementation rather than merely confirming it: Codex 0.144.4 reported `pwd` and `sed` as unknown, so the human-approved safety response was to retain denial and narrow execution instructions; pathless file approvals were first rejected, then modified to accept only when live ordering exposed a same-ID, contract-valid file item; empty and rename paths remain fail-closed. User environment inheritance was rejected, while a fixed non-secret macOS executable `PATH` was accepted so sandboxed checks could run. Codex found no OpenAI API credential, so it added a bounded secret-safe Sol/Terra evaluator and explicitly left the live comparison unclaimed. The human set Codex CLI 0.144.4 as the compatibility baseline, retained the local-first/single-user scope, and authorized autonomous implementation through the pre-submission milestone; implementation choices are recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
+Codex was used to research the current OpenAI integration surfaces, challenge the UI-first concept, define the local-first product boundary, draft the requirements and threat model, verify the App Server boundary, establish the TypeScript/npm test foundation, implement and test the domain/policy/snapshot layers, build the SQLite-backed controller and CLI foundation, implement the version-pinned App Server adapter with three real independent probes, complete the comparator and terminal decision/contract flow, implement the loopback-only browser Decision Inbox with keyboard and security E2E coverage, and complete the contract-bound execution, audit, recovery, retention, security, and traceability layers. Live verification changed the implementation rather than merely confirming it: Codex 0.144.4 reported `pwd` and `sed` as unknown, so the human-approved safety response was to retain denial and narrow execution instructions; pathless file approvals were first rejected, then modified to accept only when live ordering exposed a same-ID, contract-valid file item; empty and rename paths remain fail-closed. User environment inheritance was rejected, while a fixed non-secret macOS executable `PATH` was accepted so sandboxed checks could run. When the human clarified that Codex users should need no extra credential setup, the direct Responses API comparator was replaced with an isolated tool-free App Server comparison thread. The bounded authenticated Sol/Terra run then selected Terra/low empirically. The human set Codex CLI 0.144.4 as the compatibility baseline, retained the local-first/single-user scope, and authorized autonomous implementation through the pre-submission milestone; implementation choices are recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
 
 Before submission, this section must be expanded with:
 
@@ -133,4 +135,4 @@ Before submission, this section must be expanded with:
 
 ## Status
 
-Specification baseline: 2026-07-14. App Server hard gate, three-real-probe smoke, live compliant execution, full P0 test traceability, macOS secret scan, and seven specification fixtures passed with documented constraints on 2026-07-14. The live Sol/Terra API evaluation remains blocked by missing credentials. Packaging, license selection, judge-ready installation, demo, and submission are Issue #12 work and have not started.
+Specification baseline: 2026-07-15. App Server hard gate, three-real-probe smoke, tool-free App Server Sol/Terra comparison, live compliant execution, full P0 test traceability, macOS secret scan, and seven specification fixtures passed with documented constraints. No separate OpenAI API credential is required. Packaging, license selection, judge-ready installation, demo, and submission are Issue #12 work and have not started.

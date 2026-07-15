@@ -509,6 +509,7 @@ export class LocalController {
     const run = this.store.getRun(input.runId).run;
     const contract =
       run.activeContractId === null ? null : this.store.getContract(run.activeContractId);
+    const inspection = this.inspectionIdentifiers(run.runId);
     const report = RunReportSchema.parse({
       reportVersion: 1,
       runId: run.runId,
@@ -517,9 +518,17 @@ export class LocalController {
       taskHash: run.taskHash,
       contractId: contract?.contractId ?? null,
       contractHash: contract?.contentHash ?? null,
-      threadIds: [],
+      threadIds: inspection.threadIds,
       modelIds:
-        contract === null ? [] : [contract.modelVersions.codex, contract.modelVersions.comparator],
+        contract === null
+          ? inspection.modelIds
+          : [
+              ...new Set([
+                ...inspection.modelIds,
+                contract.modelVersions.codex,
+                contract.modelVersions.comparator,
+              ]),
+            ],
       decisions: contract?.humanDecisions ?? [],
       observedActions: [],
       diffSummary: { changedPaths: [], withinContract: null, evidenceRefs: [] },
@@ -575,6 +584,7 @@ export class LocalController {
     evidence: ExecutionEvidence | undefined,
   ): RunRecord {
     if (evidence === undefined) return run;
+    const inspection = this.inspectionIdentifiers(run.runId);
     const report = RunReportSchema.parse({
       reportVersion: 1,
       runId: run.runId,
@@ -583,8 +593,8 @@ export class LocalController {
       taskHash: run.taskHash,
       contractId: contract.contractId,
       contractHash: contract.contentHash,
-      threadIds: evidence.threadIds,
-      modelIds: evidence.modelIds,
+      threadIds: [...new Set([...inspection.threadIds, ...evidence.threadIds])],
+      modelIds: [...new Set([...inspection.modelIds, ...evidence.modelIds])],
       decisions: contract.humanDecisions,
       observedActions: evidence.observedActions,
       diffSummary: {
@@ -599,6 +609,29 @@ export class LocalController {
     });
     this.store.saveReport(report);
     return run;
+  }
+
+  private inspectionIdentifiers(runId: string): {
+    readonly threadIds: readonly string[];
+    readonly modelIds: readonly string[];
+  } {
+    const threadIds = this.store
+      .listProbeRuns(runId)
+      .flatMap((attempt) => (attempt.threadId === null ? [] : [attempt.threadId]));
+    const modelIds: string[] = [];
+    try {
+      const comparison = this.store.getComparison(runId);
+      modelIds.push(comparison.model);
+      for (const attempt of comparison.attempts) {
+        if (attempt.threadId !== null) threadIds.push(attempt.threadId);
+      }
+    } catch (error) {
+      if (!(error instanceof PersistenceError) || error.code !== "NOT_FOUND") throw error;
+    }
+    return {
+      threadIds: [...new Set(threadIds)],
+      modelIds: [...new Set(modelIds)],
+    };
   }
 
   private failActiveRun(runId: string, code: string): void {

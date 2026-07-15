@@ -1,7 +1,8 @@
-import OpenAI from "openai";
-import { zodTextFormat } from "openai/helpers/zod";
+import { chmod, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
-import { ComparisonCandidateContentSchema } from "@prompt-tripwire/domain";
+import type { ComparisonCandidateContent, PlanArtifact } from "@prompt-tripwire/domain";
 
 import type {
   ComparatorTransport,
@@ -10,102 +11,77 @@ import type {
   ComparatorUsage,
 } from "./types.js";
 
-const SYSTEM_INSTRUCTIONS = [
-  "Compare independent engineering plans for material implementation differences.",
-  "Return consensus, materially different alternatives, and unresolved unknowns only.",
-  "Suppress naming, prose ordering, and equivalent implementation details.",
-  "Use only repository evidence IDs already present in the supplied plans.",
-  "Use only supplied probe IDs in supportedByProbeIds.",
-  "Do not claim that deterministic safety triggers are approved or safe.",
-  "Do not expose chain-of-thought. Provide concise structured conclusions only.",
-].join("\n");
+const EMPTY_USAGE: ComparatorUsage = {
+  inputTokens: null,
+  outputTokens: null,
+  totalTokens: null,
+  reasoningTokens: null,
+};
 
-function usageOf(
-  value:
-    | {
-        input_tokens?: number;
-        output_tokens?: number;
-        total_tokens?: number;
-        output_tokens_details?: { reasoning_tokens?: number };
-      }
-    | null
-    | undefined,
-): ComparatorUsage {
-  return {
-    inputTokens: value?.input_tokens ?? null,
-    outputTokens: value?.output_tokens ?? null,
-    totalTokens: value?.total_tokens ?? null,
-    reasoningTokens: value?.output_tokens_details?.reasoning_tokens ?? null,
-  };
+export interface AppServerComparisonRunnerInput {
+  readonly cwd: string;
+  readonly task: string;
+  readonly plans: readonly PlanArtifact[];
+  readonly model: string;
+  readonly reasoningEffort: string;
+  readonly signal?: AbortSignal;
 }
 
-function refused(output: readonly unknown[]): boolean {
-  for (const item of output) {
-    if (item === null || typeof item !== "object" || !("content" in item)) continue;
-    const rawContent = (item as { content?: unknown }).content;
-    if (!Array.isArray(rawContent)) continue;
-    const content: readonly unknown[] = rawContent;
-    if (
-      content.some(
-        (part) =>
-          part !== null &&
-          typeof part === "object" &&
-          "type" in part &&
-          (part as { type?: unknown }).type === "refusal",
-      )
-    ) {
-      return true;
-    }
-  }
-  return false;
+export interface AppServerComparisonRunnerResult {
+  readonly threadId: string;
+  readonly turnId: string;
+  readonly model: string;
+  readonly output: ComparisonCandidateContent;
+  readonly usage: {
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly totalTokens: number;
+    readonly reasoningTokens: number;
+  } | null;
 }
 
-export interface OpenAiResponsesTransportOptions {
-  readonly apiKey?: string;
-  readonly client?: OpenAI;
+export interface AppServerComparisonRunner {
+  runComparison(input: AppServerComparisonRunnerInput): Promise<AppServerComparisonRunnerResult>;
 }
 
-export class OpenAiResponsesTransport implements ComparatorTransport {
-  private readonly client: OpenAI;
+export interface AppServerComparatorTransportOptions {
+  readonly temporaryParent?: string;
+}
 
-  constructor(options: OpenAiResponsesTransportOptions = {}) {
-    this.client =
-      options.client ??
-      new OpenAI({
-        maxRetries: 0,
-        ...(options.apiKey === undefined ? {} : { apiKey: options.apiKey }),
-      });
-  }
+export class AppServerComparatorTransport implements ComparatorTransport {
+  constructor(
+    private readonly runner: AppServerComparisonRunner,
+    private readonly options: AppServerComparatorTransportOptions = {},
+  ) {}
 
   async compare(
     request: ComparatorTransportRequest,
     options: { readonly signal: AbortSignal },
   ): Promise<ComparatorTransportResult> {
-    const response = await this.client.responses.parse(
-      {
-        model: request.model,
-        reasoning: { effort: request.reasoningEffort as "low" | "medium" | "high" },
-        instructions: SYSTEM_INSTRUCTIONS,
-        input: [
-          {
-            role: "user",
-            content: JSON.stringify({ task: request.task, plans: request.plans }),
-          },
-        ],
-        text: {
-          format: zodTextFormat(ComparisonCandidateContentSchema, "prompt_tripwire_comparison"),
-        },
-        store: false,
-        max_output_tokens: 5_000,
-      },
-      { signal: options.signal },
+    const root = await mkdtemp(
+      join(this.options.temporaryParent ?? tmpdir(), "prompt-tripwire-comparator-"),
     );
-    return {
-      responseId: response.id,
-      model: response.model,
-      output: response.output_parsed,
-      refused: refused(response.output),
-      usage: usageOf(response.usage),
-    };
+    try {
+      await chmod(root, 0o700);
+      const result = await this.runner.runComparison({
+        cwd: root,
+        task: request.task,
+        plans: request.plans,
+        model: request.model,
+        reasoningEffort: request.reasoningEffort,
+        signal: options.signal,
+      });
+      return {
+        responseId: null,
+        threadId: result.threadId,
+        turnId: result.turnId,
+        model: result.model,
+        output: result.output,
+        refused: false,
+        usage: result.usage ?? EMPTY_USAGE,
+      };
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   }
 }

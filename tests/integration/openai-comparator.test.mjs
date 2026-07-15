@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { access, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
 import {
+  AppServerComparatorTransport,
   PlanComparator,
   createContractPreview,
   createReviewRound,
@@ -146,6 +147,8 @@ function safeContent(overrides = {}) {
 function response(output, overrides = {}) {
   return {
     responseId: "response_fixture",
+    threadId: "thread_comparator_fixture",
+    turnId: "turn_comparator_fixture",
     model: "gpt-5.6-terra",
     output,
     refused: false,
@@ -253,7 +256,7 @@ function divergenceContent(plans) {
   });
 }
 
-test("AC-003/AC-008: validated Responses output is bound to the approved inputs", async () => {
+test("AC-003/AC-008: validated App Server output is bound to the approved inputs", async () => {
   const plans = [plan("probe_1"), plan("probe_2"), plan("probe_3")];
   const transport = new QueueTransport([response(divergenceContent(plans))]);
   const result = await new PlanComparator(transport).compare(compareInput(plans));
@@ -269,6 +272,45 @@ test("AC-003/AC-008: validated Responses output is bound to the approved inputs"
     "reasoningEffort",
     "task",
   ]);
+});
+
+test("AC-008/AC-018: comparator transport uses an empty disposable directory", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "prompt-tripwire-comparator-parent-"));
+  let observedRoot;
+  const abort = new AbortController();
+  const runner = {
+    async runComparison(input) {
+      observedRoot = input.cwd;
+      assert.deepEqual(await readdir(input.cwd), []);
+      assert.equal(input.signal, abort.signal);
+      return {
+        threadId: "thread_comparator_transport",
+        turnId: "turn_comparator_transport",
+        model: input.model,
+        output: safeContent(),
+        usage: USAGE,
+      };
+    },
+  };
+  try {
+    const result = await new AppServerComparatorTransport(runner, {
+      temporaryParent: parent,
+    }).compare(
+      {
+        task: snapshot().task,
+        plans: [plan("probe_1"), plan("probe_2")],
+        model: "gpt-5.6-terra",
+        reasoningEffort: "low",
+      },
+      { signal: abort.signal },
+    );
+    assert.equal(result.threadId, "thread_comparator_transport");
+    assert.equal(result.turnId, "turn_comparator_transport");
+    assert.deepEqual(result.usage, USAGE);
+    await assert.rejects(access(observedRoot));
+  } finally {
+    await rm(parent, { recursive: true, force: true });
+  }
 });
 
 test("AC-008/AC-019: refusal and invalid references retry once without auto-approval", async () => {
@@ -687,6 +729,15 @@ test("M1: controller pipeline reaches approval or fail-closed review states", as
     const safe = await controller.inspect({ ...input, runId: "run_pipeline_safe" });
     assert.equal(safe.state, "ready_for_approval");
     assert.notEqual(safe.activeContractId, null);
+    const safeReport = controller.report({ runId: safe.runId });
+    assert.deepEqual(safeReport.threadIds, [
+      "thread_probe_1",
+      "thread_probe_2",
+      "thread_probe_3",
+      "thread_comparator_fixture",
+    ]);
+    assert.ok(safeReport.modelIds.includes("gpt-5.6-terra"));
+    assert.ok(safeReport.modelIds.includes("gpt-5.6-sol"));
 
     const fallback = await controller.inspect({ ...input, runId: "run_pipeline_fallback" });
     assert.equal(fallback.state, "needs_review");

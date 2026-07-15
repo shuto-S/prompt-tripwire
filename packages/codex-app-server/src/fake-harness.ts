@@ -20,7 +20,7 @@ export type FakeProbeOutcome =
 
 export interface FakeProbeScenario {
   readonly outcome: FakeProbeOutcome;
-  readonly content?: PlanArtifactContent;
+  readonly content?: unknown;
 }
 
 export interface FakeAppServerRequest {
@@ -282,6 +282,27 @@ export class FakeAppServerHarness {
     if (scenario.outcome === "duplicate_events") {
       this.notify("item/completed", { threadId, turnId, item: agentItem });
     }
+    this.notify("thread/tokenUsage/updated", {
+      threadId,
+      turnId,
+      tokenUsage: {
+        last: {
+          cachedInputTokens: 5,
+          inputTokens: 100,
+          outputTokens: 40,
+          reasoningOutputTokens: 20,
+          totalTokens: 140,
+        },
+        total: {
+          cachedInputTokens: 5,
+          inputTokens: 100,
+          outputTokens: 40,
+          reasoningOutputTokens: 20,
+          totalTokens: 140,
+        },
+        modelContextWindow: 128000,
+      },
+    });
     const completion = { threadId, turn: { id: turnId, status: "completed" } };
     this.notify("turn/completed", completion);
     if (scenario.outcome === "duplicate_events") this.notify("turn/completed", completion);

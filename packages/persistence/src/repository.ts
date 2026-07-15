@@ -131,6 +131,8 @@ interface ComparatorAttemptRow {
   readonly attempt: number;
   readonly state: ComparatorAttemptRecordInput["state"];
   readonly response_id: string | null;
+  readonly thread_id: string | null;
+  readonly turn_id: string | null;
   readonly model: string;
   readonly error_code: string | null;
   readonly usage_json: string;
@@ -187,6 +189,8 @@ function validateComparatorAttempt(
     throw new TypeError("invalid comparator attempt state");
   }
   if (value.model.length === 0) throw new TypeError("comparator model is required");
+  if (value.threadId !== null) validateIdentifier(value.threadId, "comparator threadId");
+  if (value.turnId !== null) validateIdentifier(value.turnId, "comparator turnId");
   for (const count of Object.values(value.usage)) {
     if (count !== null && (!Number.isInteger(count) || count < 0)) {
       throw new TypeError("comparator usage counts must be non-negative integers or null");
@@ -196,6 +200,8 @@ function validateComparatorAttempt(
     attempt: value.attempt,
     state: value.state,
     responseId: value.responseId,
+    threadId: value.threadId,
+    turnId: value.turnId,
     model: value.model,
     errorCode: value.errorCode,
     usage: { ...value.usage },
@@ -561,9 +567,9 @@ export class SqlitePersistence {
         );
       const statement = this.database.prepare(
         `INSERT INTO comparator_attempts(
-          run_id, attempt, comparison_id, state, response_id, model, error_code,
-          usage_json, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          run_id, attempt, comparison_id, state, response_id, thread_id, turn_id,
+          model, error_code, usage_json, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       for (const attempt of attempts) {
         statement.run(
@@ -572,6 +578,8 @@ export class SqlitePersistence {
           candidate.comparisonId,
           attempt.state,
           attempt.responseId,
+          attempt.threadId,
+          attempt.turnId,
           attempt.model,
           attempt.errorCode,
           JSON.stringify(attempt.usage),
@@ -599,7 +607,7 @@ export class SqlitePersistence {
     if (!row) throw new PersistenceError("NOT_FOUND", `comparison for run ${runId} was not found`);
     const attempts = this.database
       .prepare(
-        `SELECT attempt, state, response_id, model, error_code, usage_json
+        `SELECT attempt, state, response_id, thread_id, turn_id, model, error_code, usage_json
          FROM comparator_attempts WHERE run_id = ? ORDER BY attempt`,
       )
       .all(runId) as unknown as ComparatorAttemptRow[];
@@ -612,6 +620,8 @@ export class SqlitePersistence {
           attempt: attempt.attempt,
           state: attempt.state,
           responseId: attempt.response_id,
+          threadId: attempt.thread_id,
+          turnId: attempt.turn_id,
           model: attempt.model,
           errorCode: attempt.error_code,
           usage: parseJson(

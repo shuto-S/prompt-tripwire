@@ -57,6 +57,30 @@ export const ModelListResponseSchema = z
   })
   .loose();
 
+export const TokenUsageBreakdownSchema = z
+  .object({
+    cachedInputTokens: z.number().int().nonnegative(),
+    inputTokens: z.number().int().nonnegative(),
+    outputTokens: z.number().int().nonnegative(),
+    reasoningOutputTokens: z.number().int().nonnegative(),
+    totalTokens: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export const ThreadTokenUsageUpdatedParamsSchema = z
+  .object({
+    threadId: z.string().min(1),
+    turnId: z.string().min(1),
+    tokenUsage: z
+      .object({
+        last: TokenUsageBreakdownSchema,
+        total: TokenUsageBreakdownSchema,
+        modelContextWindow: z.number().int().nonnegative().nullable().optional(),
+      })
+      .strict(),
+  })
+  .strict();
+
 export const CommandActionSchema = z.discriminatedUnion("type", [
   z
     .object({ type: z.literal("read"), command: z.string(), path: z.string(), name: z.string() })

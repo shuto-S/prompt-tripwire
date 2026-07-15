@@ -1,8 +1,8 @@
 # Security and privacy specification
 
-Status: Required MVP controls; Decision Inbox and execution enforcement boundaries verified
+Status: Required P0 controls verified, including tool-free App Server comparison
 
-Date: 2026-07-14
+Date: 2026-07-15
 
 ## 1. Security objective
 
@@ -28,7 +28,6 @@ flowchart LR
     Repo["Trusted repository content"] --> Snapshot["Isolated snapshot"]
     CLI --> Controller["Local controller"]
     Controller --> Codex["Codex App Server / service"]
-    Controller --> API["OpenAI Responses API"]
     Controller --> Worktree["Disposable execution worktree"]
     Controller --> Store["Private local store"]
     Worktree -. "blocked by default" .-> External["Network / external systems"]
@@ -93,9 +92,9 @@ Default protected patterns include environment files, key/certificate formats, c
 
 Pattern matching is a backstop, not proof that a file is safe. Before export and log persistence, text passes through value-based and pattern-based redaction. Redaction failures are security bugs and block export.
 
-Credentials are read from the user's existing Codex/OpenAI setup at runtime. PromptTripwire does not provide a settings screen that stores API keys in the MVP.
+The App Server uses the user's existing Codex CLI login. PromptTripwire does not require an `OPENAI_API_KEY`, expose a credential setting, read Codex auth files, extract tokens, or copy authentication material into another client.
 
-The Responses comparator uses the official SDK with `store: false` and receives no tools. Only task text and already validated/sanitized plan artifacts are sent. Structured comparison output is rejected if deterministic sanitization would alter it, so secret-like model output cannot be persisted under a content hash. Model refusal, invalid references, timeout, or missing API credentials never infer approval and never fall back to extracting credentials from Codex configuration.
+The comparator uses a fresh ephemeral App Server thread in an empty user-only temporary directory. It receives only task text and already validated/sanitized plan artifacts. Its sandbox is read-only with network disabled; MCP, apps, subagents, and other remote surfaces are disabled at process startup; every tool/permission request, tool item, or diff is denied and treated as failure. Structured comparison output is rejected if deterministic sanitization would alter it, so secret-like model output cannot be persisted under a content hash. Invalid output, invalid references, timeout, disconnect, or unavailable authentication never infer approval and never trigger credential extraction from Codex configuration.
 
 ## 7. Network and external tools
 

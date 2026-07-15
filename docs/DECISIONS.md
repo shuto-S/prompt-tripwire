@@ -1,6 +1,6 @@
 # Decision log
 
-Date: 2026-07-14
+Date: 2026-07-15
 
 This log separates confirmed product decisions from assumptions that still require implementation validation.
 
@@ -110,6 +110,8 @@ This log separates confirmed product decisions from assumptions that still requi
 
 ### D-018 — Bind comparison identity locally and keep model failure in manual review
 
+**Status:** The identity binding and fail-closed fallback remain active. The direct Responses API transport was superseded by D-022 on 2026-07-15.
+
 **Decision:** Use the official OpenAI JavaScript SDK `responses.parse` with a Zod-derived Structured Output schema, `store: false`, no tools, and only the normalized task plus validated plan artifacts. The adapter binds comparison, snapshot, task, and plan identities after semantic evidence/probe validation. Refusal, invalid schema/reference, secret-like output, and timeout retry once; a second failure creates a deterministic unknown candidate and cannot produce an auto-approved contract. `gpt-5.6-terra` with low reasoning is provisional until the bounded Sol/Terra Responses API evaluation is run.
 
 **Reason:** Model-created identity and evidence references are untrusted. Persisting attempts and token usage supports auditability, while a deterministic manual-review fallback preserves useful plan/policy evidence without treating an unavailable comparator as consensus. The current runtime has no OpenAI API credential, so model quality/cost selection must remain explicitly unverified rather than inferred from Codex authentication or documentation alone.
@@ -132,6 +134,12 @@ This log separates confirmed product decisions from assumptions that still requi
 
 **Reason:** A retention timestamp without a purge path does not satisfy deletion semantics, and deleting only the main run row could leave sensitive result JSON or content-addressed files behind. Conversely, deleting active state or shared artifacts would damage recovery and audit integrity. Run ownership plus reference checks makes the privacy behavior executable and testable.
 
+### D-022 — Reuse Codex App Server authentication for comparison
+
+**Decision:** Replace the direct Responses API comparator transport with a fresh schema-constrained Codex App Server thread. Start App Server outside the target repository, give every comparison a separate empty `0700` temporary CWD, use `ephemeral: true`, read-only sandboxing, network disabled, `untrusted` approval, and no MCP/apps/subagents. Deny every tool or permission request and fail on every tool item or diff. Persist stable App Server thread/turn IDs and token-usage notifications with the comparison attempt. Use the authenticated Codex CLI session without requiring `OPENAI_API_KEY`, reading Codex auth files, or copying its tokens into another client.
+
+**Reason:** PromptTripwire is a Codex-user tool, so a second credential path adds setup and secret-handling risk without product value. Codex App Server already supports authenticated model turns and JSON Schema output, while arbitrary direct API calls cannot safely reuse the CLI's ChatGPT session. An isolated tool-free thread preserves comparator boundaries and keeps one version-pinned protocol surface. The bounded 2026-07-15 App Server evaluation passed both fixtures on Sol and Terra; Terra used 48,910 total tokens versus Sol's 49,131, completed in 21,619 ms versus 29,657 ms, and did not add an unnecessary unknown on the divergence fixture.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage
@@ -152,7 +160,7 @@ Choose between a published npm CLI, signed standalone macOS binary/app, or both 
 
 ### A-005 — Exact model identifiers
 
-**Resolution:** Real planning probes currently use the discovered `gpt-5.6-sol` identifier with low reasoning. The comparator records the exact Responses API model returned by the SDK. `gpt-5.6-terra`/low is a provisional default based on current official positioning; `npm run eval:comparator` performs a bounded Sol/Terra fixture comparison, but it was not run on 2026-07-14 because no OpenAI API credential was available. Do not present the provisional default as an empirical winner.
+**Resolution:** Real planning probes currently use the discovered `gpt-5.6-sol` identifier with low reasoning. Comparison attempts record the exact model and App Server thread/turn IDs. On 2026-07-15, `npm run eval:comparator` used the existing Codex CLI login and ran two fixtures once on each model at low reasoning. Both models passed 2/2. Terra used 48,910 total tokens versus Sol's 49,131, completed in 21,619 ms versus 29,657 ms, and returned no unnecessary unknown on the divergence fixture; `gpt-5.6-terra`/low is therefore the empirical P0 default for this bounded suite. Re-evaluate if fixtures, models, or App Server behavior change.
 
 ## Deferred scope
 
@@ -168,4 +176,4 @@ Choose between a published npm CLI, signed standalone macOS binary/app, or both 
 
 ## Decision-change rule
 
-Changing D-003, D-006, D-007, D-008, D-009, or D-010 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.
+Changing D-003, D-006, D-007, D-008, D-009, D-010, or D-022 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.

@@ -153,6 +153,8 @@ function attemptFailure(
             ? "refused"
             : "failed",
     responseId: response?.responseId ?? null,
+    threadId: response?.threadId ?? null,
+    turnId: response?.turnId ?? null,
     model: response?.model ?? model,
     errorCode: code,
     usage: response?.usage ?? EMPTY_USAGE,
@@ -211,6 +213,8 @@ export class PlanComparator {
           attempt,
           state: "completed",
           responseId: response.responseId,
+          threadId: response.threadId,
+          turnId: response.turnId,
           model: response.model,
           errorCode: null,
           usage: response.usage,

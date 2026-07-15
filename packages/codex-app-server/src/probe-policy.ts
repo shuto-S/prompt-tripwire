@@ -15,6 +15,62 @@ export interface ProbeApprovalDecision {
   readonly observation: ApprovalObservation;
 }
 
+export function decideComparatorApproval(
+  requestId: JsonRpcId,
+  method: string,
+  params: unknown,
+): ProbeApprovalDecision {
+  if (method === "item/commandExecution/requestApproval") {
+    const parsed = CommandApprovalParamsSchema.parse(params);
+    return {
+      response: { decision: "decline" },
+      observation: {
+        requestId,
+        method,
+        itemId: parsed.itemId,
+        decision: "decline",
+        reasonCode: "comparison_tools_denied",
+      },
+    };
+  }
+  if (method === "item/fileChange/requestApproval") {
+    const parsed = FileApprovalParamsSchema.parse(params);
+    return {
+      response: { decision: "decline" },
+      observation: {
+        requestId,
+        method,
+        itemId: parsed.itemId,
+        decision: "decline",
+        reasonCode: "comparison_tools_denied",
+      },
+    };
+  }
+  if (method === "item/permissions/requestApproval") {
+    const parsed = PermissionApprovalParamsSchema.parse(params);
+    return {
+      response: { permissions: {}, scope: "turn", strictAutoReview: true },
+      observation: {
+        requestId,
+        method,
+        itemId: parsed.itemId,
+        decision: "deny_permissions",
+        reasonCode: "comparison_tools_denied",
+      },
+    };
+  }
+  return {
+    response: { action: "decline", content: null },
+    observation: {
+      requestId,
+      method,
+      itemId: null,
+      decision: "decline",
+      reasonCode: "comparison_tools_denied",
+    },
+  };
+}
+
 function unknownCommandShape(command: string): string {
   if (/[|;&<>`]|\$\(/u.test(command)) return "compound_or_redirected";
   const first = command.trim().split(/\s+/u)[0] ?? "";
@@ -150,4 +206,9 @@ export function probeItemViolation(item: ParsedThreadItem, probeRoot: string): s
   }
   if (new Set(["agentMessage", "plan", "reasoning", "userMessage"]).has(item.type)) return null;
   return `unexpected_tool_item:${item.type}`;
+}
+
+export function comparisonItemViolation(item: ParsedThreadItem): string | null {
+  if (new Set(["agentMessage", "plan", "reasoning", "userMessage"]).has(item.type)) return null;
+  return `comparison_tool_item:${item.type}`;
 }

@@ -9,8 +9,6 @@
   ],
   "dependencies": {
     "@prompt-tripwire/domain": "0.1.0",
-    "@prompt-tripwire/policy": "0.1.0",
-    "openai": "6.46.0",
-    "zod": "4.4.3"
+    "@prompt-tripwire/policy": "0.1.0"
   }
 }
