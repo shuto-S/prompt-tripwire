@@ -1,10 +1,10 @@
 # PromptTripwire product specification
 
-Status: Draft for implementation
+Status: P0 implementation baseline verified
 
-Version: 0.1.0
+Version: 0.1.4
 
-Date: 2026-07-14
+Date: 2026-07-15
 
 Owner: shuto-S
 
@@ -94,10 +94,14 @@ flowchart LR
 The intended command surface is:
 
 ```text
-tripwire inspect --task "..." [--repo PATH]
-tripwire inspect --task-file issue.md [--repo PATH]
+tripwire inspect --task "..." [--repo PATH] [--terminal]
+tripwire inspect --task-file issue.md [--repo PATH] [--terminal]
+tripwire replay [--terminal]
 tripwire review RUN_ID [--terminal]
-tripwire run --contract CONTRACT_ID
+tripwire review RUN_ID --decision DECISION_ID (--option OPTION_ID | --freeform TEXT | --defer)
+tripwire review RUN_ID (--approve [--contract CONTRACT_ID] | --cancel)
+tripwire approve RUN_ID [--contract CONTRACT_ID]
+tripwire run --contract CONTRACT_ID [--terminal]
 tripwire status RUN_ID
 tripwire report RUN_ID [--format json|markdown]
 tripwire cancel RUN_ID
@@ -115,6 +119,12 @@ The CLI is the primary surface. A local web UI opens only when review is useful:
 - an execution deviation pauses the run.
 
 Headless and terminal-only environments use the same decision schema through a terminal renderer. The UI is not a permanent project-management dashboard.
+
+### 5.3 Recorded judge replay
+
+`tripwire replay` opens one bundled, sanitized Decision Inbox example for UI exploration when a live Codex account is unavailable or rate-limited. It is always labeled `recorded` and `read-only`, accepts no mutations, calls no model, executes no command, and touches no target repository. `--terminal` renders the same recorded decision without opening a listener.
+
+Replay is supporting judge evidence only. It cannot satisfy or replace a live probe, comparison, execution, containment, or acceptance-criterion claim.
 
 ## 6. Repository snapshot
 
@@ -162,6 +172,9 @@ PromptTripwire must not use “security expert,” “minimalist,” or similar 
 - Network access is disabled.
 - Project scripts, interpreters, package managers, build tools, and test commands are denied during planning.
 - Only bounded static inspection operations are allowed.
+- Probe turns use normal-schema `approvalPolicy: "untrusted"`; PromptTripwire declines command, file-change, and permission requests outside the static-inspection policy.
+- Probe execution never uses App Server `command/exec`, because standalone command execution bypasses turn-level approval handling and read-only sandboxing alone does not classify interpreter, build, test, or package-manager intent.
+- Completed command/file items and aggregate diffs are still inspected. If an unexpected local action was not presented for approval, it is treated as a deviation detected inside the disposable worktree, not described as prevented.
 - Probe timeout defaults to five minutes and is configurable downward or upward.
 - Probe concurrency defaults to three and is capped at three for the MVP.
 
@@ -195,7 +208,7 @@ repository_evidence[]
 
 ### 8.1 GPT-5.6 responsibilities
 
-GPT-5.6 receives the task plus validated plan artifacts, not unrestricted tool access. Structured Outputs must return:
+GPT-5.6 receives the task plus validated plan artifacts in a fresh ephemeral Codex App Server thread rooted at an empty disposable directory, not unrestricted tool access. The thread is read-only, has network disabled, declines every tool or permission request, and uses a schema-constrained final response. Structured Outputs must return:
 
 - normalized consensus items;
 - materially different alternatives;
@@ -239,6 +252,8 @@ The following always require explicit human confirmation, even under unanimous p
 
 Unknown classification is fail-closed and becomes a decision.
 
+For P0, confirming one of these effects can authorize only the local code changes that prepare it. It does not authorize PromptTripwire to perform a network, remote-write, deploy, release, migration-application, production-data, billing, credential, or permission-expansion operation. Those runtime effects remain denied and require a separate, explicitly authorized workflow outside the P0 executor.
+
 ### 8.4 Question budget
 
 The Decision Inbox shows at most three unresolved decisions per review round. It must never hide additional blocking decisions:
@@ -246,6 +261,7 @@ The Decision Inbox shows at most three unresolved decisions per review round. It
 - remaining count is displayed;
 - execution remains disabled until all blocking decisions are resolved;
 - closely coupled decisions may be grouped only when one answer necessarily determines all grouped outcomes;
+- deterministic compatibility findings may use one all-or-none card only when every underlying effect and evidence reference remains visible and the allow option accepts the entire disclosed set;
 - low-impact informational differences are available under “Evidence,” not promoted to blocking questions.
 
 No aggregate numeric “risk score” is used in the MVP. Category, impact, reversibility, and evidence are more inspectable than an invented number.
@@ -264,6 +280,10 @@ Each decision card contains:
 - deterministic policy triggers, if any;
 - an optional recommendation with its rationale;
 - “defer/cancel” when no safe decision can be made.
+
+The terminal renderer includes the stable decision and option IDs plus complete `tripwire review` commands. A visible option must be actionable without querying the private database or opening the browser UI.
+
+For a high-impact operational effect, the implementation-only option must state that the local code change may be prepared while the actual operation remains denied by the P0 runtime.
 
 High-impact decisions have no preselected default. Keyboard operation, visible focus, semantic headings, labels, and screen-reader status updates are P0 requirements.
 
@@ -308,7 +328,7 @@ approved_at
 content_hash
 ```
 
-Approval records the local user identity available from the OS, timestamp, and contract content hash. This is an audit signature, not a cryptographic proof of legal identity.
+Approval records the timestamp and contract content hash. In the local single-user P0, the private database and OS account boundary identify the approving context; the account name is not copied into the contract or export. This is an audit record, not a cryptographic proof of legal identity.
 
 Contracts and run artifacts are private local data by default. Export to the repository or another path requires an explicit command.
 
@@ -329,9 +349,10 @@ Execution can start only when:
 
 - Execution occurs in a disposable Git worktree on a generated local branch.
 - Workspace writes are confined to that worktree and configured writable roots.
-- Network is disabled unless a contract decision allows a specific need.
+- Network and remote tool surfaces remain disabled for all P0 execution turns. Contract policy fields are reserved for a future executor that can safely enforce a narrower capability.
 - Command, file-change, permission, MCP/app, and diff events are observed through Codex App Server.
 - Approval requests are accepted only when the event is permitted by the current contract.
+- P0 never opts into `experimentalApi`, permission profiles, granular approvals, or dynamic tools. Permission expansion is deny-only; if the normal-schema permission request is emitted, the client grants no additional permission.
 - The aggregated diff is checked after each completed change item and at turn completion.
 
 The MVP must be explicit about a platform limitation: a permitted command may produce a local file change before the aggregate diff monitor reacts. This is contained in the disposable worktree with network disabled. On detection, PromptTripwire interrupts the turn, declines pending approvals, preserves evidence, and requires a new contract or cancellation. It must not claim the local write was prevented.
@@ -412,7 +433,7 @@ State transitions are persisted atomically. Restarting the local controller must
 - Run directories and files use user-only permissions where supported.
 - Default retention is seven days after completion; active, paused, and explicitly pinned runs are retained.
 - No telemetry or cloud synchronization is enabled in the MVP.
-- API keys and Codex credentials are read from existing approved providers and never copied into run artifacts.
+- The App Server uses the user's existing Codex CLI login. PromptTripwire neither requires a separate OpenAI API key nor reads, copies, or exports Codex credentials.
 - Raw model reasoning, environment dumps, and full shell environments are not persisted.
 - Export is explicit and warns if task text or evidence may be sensitive.
 
@@ -451,10 +472,12 @@ See `SECURITY.md` for the threat model and known limits.
 - **Reliability:** persisted states and approvals must be recoverable after controller restart.
 - **Latency:** probes run concurrently; the UI streams each phase instead of showing an indefinite spinner. No hard latency claim is made until measured on representative repositories.
 - **Cost visibility:** show probe count, selected models, token usage when available, retry count, and a pre-run estimate if the provider exposes one.
-- **Portability:** the Build Week MVP supports verified macOS builds with Git, Node.js, Codex CLI, and an OpenAI API credential. Linux is the next target but is not advertised as supported until the same containment and end-to-end suite passes. Windows is out of MVP scope.
+- **Portability:** the Build Week MVP supports verified macOS builds with Git, Node.js, and an authenticated Codex CLI. No separate OpenAI API credential is required. Linux is the next target but is not advertised as supported until the same containment and end-to-end suite passes. Windows is out of MVP scope.
+- **Distribution:** the macOS arm64 release is a compiled JavaScript/runtime archive with checksum, direct launcher, user-local installer/uninstaller, recorded read-only replay, and a dependency-free safe fixture. Judges do not rebuild the TypeScript source.
+- **Runtime:** Node.js 24.15+ LTS and Codex CLI 0.144.4 are the pinned implementation baseline. Node 24.15 is the minimum because the built-in SQLite module reached release-candidate status there. A different Codex version or canonical normal-schema hash fails before probing.
 - **Accessibility:** complete decision review and approval with keyboard only; WCAG 2.2 AA contrast target.
 - **Observability:** structured local events with stable IDs; no secret values or raw chain-of-thought.
-- **Compatibility:** use stable App Server methods over stdio; experimental fields are not required for P0.
+- **Compatibility:** use only methods and fields present in the normal App Server schema over stdio. The schema generator and umbrella CLI command are labeled experimental, so exact CLI version and canonical schema drift checks are mandatory; runtime `experimentalApi` is not allowed for P0.
 
 ## 17. Acceptance criteria
 
@@ -495,7 +518,7 @@ See `SECURITY.md` for the threat model and known limits.
 ### Integration
 
 - fake App Server JSON-RPC streams for approvals, file changes, command execution, interruption, disconnect, and duplicate events;
-- Responses API structured-output fixtures, refusal, invalid schema, retry, and timeout;
+- fake App Server schema-constrained comparison fixtures, prohibited-tool requests, invalid schema/reference, retry, timeout, and token-usage notifications;
 - Git repositories with clean, dirty, submodule, detached HEAD, renamed file, and snapshot drift cases;
 - worktree creation, containment, clean restart, and final diff verification.
 

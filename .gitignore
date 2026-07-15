@@ -4,6 +4,17 @@
 !.env.example
 node_modules/
 dist/
+web-dist/
+.playwright-cli/
 coverage/
+generated/
+artifacts/
+playwright-report/
+test-results/
+.cache/
+.tmp/
+*.tsbuildinfo
+*.sqlite
+*.sqlite-*
 .prompt-tripwire/
 *.log

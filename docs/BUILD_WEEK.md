@@ -1,6 +1,6 @@
 # OpenAI Build Week plan and compliance
 
-Status date: 2026-07-14
+Status date: 2026-07-15
 
 Official source: [OpenAI Build Week Official Rules](https://openai.devpost.com/rules)
 
@@ -16,7 +16,7 @@ The official rules remain the source of truth. This document is an implementatio
 
 ## 2. Current official requirements
 
-As of 2026-07-14, the rules state:
+As of 2026-07-15, the rules state:
 
 - Submission period: July 13, 2026 at 9:00 PT through July 21, 2026 at 17:00 PT.
 - Deadline in Japan: July 22, 2026 at 09:00 JST.
@@ -74,14 +74,14 @@ If the schedule slips, retain the differentiated vertical slice. Cut P1 features
 
 ## 6. Judge-ready distribution
 
-The target is an installable macOS artifact or published CLI package that does not require a source build. It must include:
+The selected target is a relocatable compiled/runtime macOS arm64 archive that does not require a TypeScript source build. It includes:
 
 - supported OS/architecture and minimum versions;
 - Codex authentication prerequisites;
-- `OPENAI_API_KEY` setup without logging or storing the value;
+- authenticated Codex CLI setup, with no separate API-key requirement;
 - one-command install and uninstall;
-- a bundled safe fixture repository and demo task;
-- an offline replay mode for UI exploration if live model limits occur, clearly labeled as recorded data;
+- a bundled dependency-free safe fixture repository and demo task;
+- an offline replay mode for UI exploration if live model limits occur, clearly labeled recorded and enforced read-only;
 - a live mode for judges to verify the real Codex/GPT-5.6 integration;
 - troubleshooting for permissions, API limits, and unsupported Codex versions.
 
@@ -103,35 +103,35 @@ Keep full-plan comparisons, setup narration, and secondary features out of the v
 
 ### Product
 
-- [ ] All P0 functional requirements implemented.
-- [ ] AC-001 through AC-019 passing on the supported macOS build.
-- [ ] Real Codex App Server integration; no mocked core demo.
-- [ ] Real GPT-5.6 Structured Outputs integration.
-- [ ] Judge-ready install that does not require rebuilding.
-- [ ] Fixture/replay data contains no private code or credentials.
-- [ ] Known limitations visible in README and submission.
+- [x] All P0 functional requirements implemented.
+- [x] AC-001 through AC-019 passing on the supported macOS build.
+- [x] Real Codex App Server integration; no mocked core demo.
+- [x] Real GPT-5.6 Structured Outputs integration.
+- [x] Judge-ready install that does not require rebuilding.
+- [x] Fixture/replay data contains no private code or credentials.
+- [x] Known limitations visible in README and submission.
 
 ### Repository
 
 - [ ] Relevant open-source license selected if repository is public.
-- [ ] README includes installation, supported platforms, test instructions, architecture summary, and Codex collaboration.
+- [x] README includes installation, supported platforms, test instructions, architecture summary, and Codex collaboration.
 - [ ] Private repository shared with both required judging addresses, or public repository verified.
-- [ ] Dated commits distinguish specification, implementation, and submission work.
-- [ ] Dependency licenses and third-party assets reviewed.
-- [ ] No secrets in Git history.
+- [x] Dated commits distinguish specification, implementation, and submission work.
+- [x] Dependency licenses and third-party assets reviewed.
+- [x] No secrets in Git history.
 
 ### Evidence
 
 - [ ] Primary Codex task used for most core functionality retained.
 - [ ] `/feedback` Session ID captured and stored outside code until submission.
-- [ ] Exact Codex CLI, Codex model, GPT-5.6, Node, and package versions recorded.
-- [ ] Accepted, modified, and rejected Codex suggestions documented.
-- [ ] Human product, engineering, safety, and design decisions documented.
-- [ ] Actual verification commands and results recorded.
+- [x] Exact Codex CLI, Codex model, GPT-5.6, Node, and package versions recorded.
+- [x] Accepted, modified, and rejected Codex suggestions documented.
+- [x] Human product, engineering, safety, and design decisions documented.
+- [x] Actual verification commands and results recorded.
 
 ### Submission
 
-- [ ] English project description.
+- [x] English project description.
 - [ ] Public YouTube video with audio under three minutes.
 - [ ] Video contains only owned or permitted assets and trademarks.
 - [ ] Repository URL and judge instructions verified from a clean machine/account.
@@ -142,9 +142,8 @@ Keep full-plan comparisons, setup narration, and secondary features out of the v
 
 - Public versus private repository at final submission.
 - License if public.
-- Exact packaging route and supported macOS architectures.
-- Live judge API-credit experience versus judge-provided credentials.
-- Final example repository/task with permission to publish.
-- Final English name capitalization and visual identity.
+- Formal `/feedback` Session ID from the retained primary Codex task.
+- Public YouTube demo and owned submission media.
+- GitHub Release publication and final Devpost save/submit.
 
-These do not block the product specification, but they must be closed before the package and submission are finalized.
+These do not block the product specification or local release candidate, but they must be closed before external publication and final submission.

@@ -1,0 +1,13 @@
+{"meta":{"name":"golden-handshake","expected":{"corrupt":false,"duplicateEvents":0,"uniqueApprovalRequests":0,"uniqueApprovalResponses":0,"completedItems":1,"turnStatus":"completed"}}}
+{"direction":"client","message":{"id":1,"method":"initialize","params":{"clientInfo":{"name":"prompt_tripwire_fixture","version":"0.1.0"}}}}
+{"direction":"server","message":{"id":1,"result":{"userAgent":"prompt-tripwire-fixture"}}}
+{"direction":"client","message":{"method":"initialized","params":{}}}
+{"direction":"client","message":{"id":2,"method":"thread/start","params":{"cwd":"/fixture","approvalPolicy":"never","sandbox":"read-only"}}}
+{"direction":"server","message":{"id":2,"result":{"thread":{"id":"thread-1"}}}}
+{"direction":"server","message":{"method":"thread/started","params":{"thread":{"id":"thread-1"}}}}
+{"direction":"client","message":{"id":3,"method":"turn/start","params":{"threadId":"thread-1","input":[{"type":"text","text":"fixture"}],"sandboxPolicy":{"type":"readOnly","networkAccess":false},"outputSchema":{"type":"object"}}}}
+{"direction":"server","message":{"id":3,"result":{"turn":{"id":"turn-1","status":"inProgress"}}}}
+{"direction":"server","message":{"method":"turn/started","params":{"turn":{"id":"turn-1","status":"inProgress"}}}}
+{"direction":"server","message":{"method":"item/started","params":{"threadId":"thread-1","turnId":"turn-1","item":{"id":"item-1","type":"agentMessage","status":"inProgress"}}}}
+{"direction":"server","message":{"method":"item/completed","params":{"threadId":"thread-1","turnId":"turn-1","item":{"id":"item-1","type":"agentMessage","status":"completed","text":"{\"status\":\"ok\"}"}}}}
+{"direction":"server","message":{"method":"turn/completed","params":{"threadId":"thread-1","turn":{"id":"turn-1","status":"completed"}}}}

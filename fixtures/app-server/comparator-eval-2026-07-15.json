@@ -1,0 +1,89 @@
+{
+  "codexVersion": "0.144.4",
+  "authMode": "codex-cli-login",
+  "reasoningEffort": "low",
+  "selectedDefault": "gpt-5.6-terra",
+  "summary": [
+    {
+      "model": "gpt-5.6-sol",
+      "passed": 2,
+      "total": 2,
+      "durationMs": 29657,
+      "totalTokens": 49131
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "passed": 2,
+      "total": 2,
+      "durationMs": 21619,
+      "totalTokens": 48910
+    }
+  ],
+  "results": [
+    {
+      "model": "gpt-5.6-sol",
+      "fixture": "equivalent_safe",
+      "passed": true,
+      "divergenceCount": 0,
+      "unknownCount": 0,
+      "durationMs": 8489,
+      "threadId": "019f6335-b3bf-7092-b3ec-61fd7189ac64",
+      "turnId": "019f6335-bde6-7c10-9395-1ebb0eac70f0",
+      "usage": {
+        "inputTokens": 24177,
+        "outputTokens": 112,
+        "totalTokens": 24289,
+        "reasoningTokens": 0
+      }
+    },
+    {
+      "model": "gpt-5.6-sol",
+      "fixture": "retention_divergence",
+      "passed": true,
+      "divergenceCount": 1,
+      "unknownCount": 1,
+      "durationMs": 21168,
+      "threadId": "019f6335-d4df-7451-ae95-23f103bf479e",
+      "turnId": "019f6335-dc70-79a1-8300-d9c2193aa275",
+      "usage": {
+        "inputTokens": 24177,
+        "outputTokens": 665,
+        "totalTokens": 24842,
+        "reasoningTokens": 79
+      }
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "fixture": "equivalent_safe",
+      "passed": true,
+      "divergenceCount": 0,
+      "unknownCount": 0,
+      "durationMs": 8908,
+      "threadId": "019f6336-2791-7550-9299-b7aaa8181a39",
+      "turnId": "019f6336-30bc-76a2-a0c7-650706b6035b",
+      "usage": {
+        "inputTokens": 24179,
+        "outputTokens": 162,
+        "totalTokens": 24341,
+        "reasoningTokens": 45
+      }
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "fixture": "retention_divergence",
+      "passed": true,
+      "divergenceCount": 1,
+      "unknownCount": 0,
+      "durationMs": 12711,
+      "threadId": "019f6336-4a5d-7280-88c2-98d712fc8d9d",
+      "turnId": "019f6336-524e-7de3-b2af-23e89b539197",
+      "usage": {
+        "inputTokens": 24179,
+        "outputTokens": 390,
+        "totalTokens": 24569,
+        "reasoningTokens": 0
+      }
+    }
+  ],
+  "note": "Prompt text, plan artifacts, model output, raw reasoning, command output, process environments, and credentials are intentionally omitted."
+}

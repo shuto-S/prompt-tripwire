@@ -1,8 +1,8 @@
 # Security and privacy specification
 
-Status: Required MVP controls; implementation unverified
+Status: Required P0 controls verified, including tool-free App Server comparison
 
-Date: 2026-07-14
+Date: 2026-07-15
 
 ## 1. Security objective
 
@@ -28,7 +28,6 @@ flowchart LR
     Repo["Trusted repository content"] --> Snapshot["Isolated snapshot"]
     CLI --> Controller["Local controller"]
     Controller --> Codex["Codex App Server / service"]
-    Controller --> API["OpenAI Responses API"]
     Controller --> Worktree["Disposable execution worktree"]
     Controller --> Store["Private local store"]
     Worktree -. "blocked by default" .-> External["Network / external systems"]
@@ -48,7 +47,7 @@ Repository text, model output, tool requests, App Server events, local HTTP requ
 | Local UI hijack | Loopback bind, random port, per-run capability token, same-origin/CORS/CSP, no remote bind | Other processes under the same OS user may still access local resources |
 | Contract tampering | Canonical hash, immutable versions, recompute before use, transactional state | Same-user local attacker can alter both program and data |
 | Stale approval | Bind to task/snapshot/config/model hashes; invalidate on drift | Undetected external state drift is possible |
-| External or production side effect | Network and remote tools disabled; deterministic decision and explicit allowlist | User can explicitly authorize a dangerous action |
+| External or production side effect | Network and remote tools disabled; deterministic decision separates implementation intent from operation authority | User can perform a separately authorized action outside the P0 executor |
 | Approval confusion | Concrete effects, no high-impact default, expected version/idempotency checks | Human review can still be mistaken |
 | Malicious model output | Strict schemas plus deterministic policy; model cannot approve | Policy omissions or semantic misclassification |
 | Denial of service/cost runaway | Probe/time/token limits, capped concurrency/retry, usage display, cancel | Provider-side cost estimates may be unavailable |
@@ -65,12 +64,16 @@ The probe process:
 
 - has no network access;
 - cannot write the snapshot;
+- uses normal-schema `approvalPolicy: "untrusted"` and declines non-inspection command, file-change, and permission requests;
+- never uses standalone App Server `command/exec`, because it bypasses turn approvals and read-only sandboxing alone is not a command-class allowlist;
 - receives a minimal environment;
 - has CPU/time/output limits;
 - cannot access arbitrary home-directory paths;
 - persists sanitized summaries, not full shell output by default.
 
 If the platform cannot enforce these properties, probing must stop with an actionable error.
+
+The client also inspects completed command/file items and aggregate diffs. A trusted command can start without a server approval request, so an unexpected action can be detected only after it begins inside the disposable worktree. Reports must preserve that distinction.
 
 ## 6. Secrets
 
@@ -89,11 +92,13 @@ Default protected patterns include environment files, key/certificate formats, c
 
 Pattern matching is a backstop, not proof that a file is safe. Before export and log persistence, text passes through value-based and pattern-based redaction. Redaction failures are security bugs and block export.
 
-Credentials are read from the user's existing Codex/OpenAI setup at runtime. PromptTripwire does not provide a settings screen that stores API keys in the MVP.
+The App Server uses the user's existing Codex CLI login. PromptTripwire does not require an `OPENAI_API_KEY`, expose a credential setting, read Codex auth files, extract tokens, or copy authentication material into another client.
+
+The comparator uses a fresh ephemeral App Server thread in an empty user-only temporary directory. It receives only task text and already validated/sanitized plan artifacts. Its sandbox is read-only with network disabled; MCP, apps, subagents, and other remote surfaces are disabled at process startup; every tool/permission request, tool item, or diff is denied and treated as failure. Structured comparison output is rejected if deterministic sanitization would alter it, so secret-like model output cannot be persisted under a content hash. Invalid output, invalid references, timeout, disconnect, or unavailable authentication never infer approval and never trigger credential extraction from Codex configuration.
 
 ## 7. Network and external tools
 
-Network is denied by default in both planning and execution. A request to enable it is a blocking decision that must state:
+Network is denied throughout P0 planning and execution. A request to prepare code that would later need it is a blocking decision that must state:
 
 - exact purpose;
 - destination host or service;
@@ -102,20 +107,24 @@ Network is denied by default in both planning and execution. A request to enable
 - expected cost or production impact;
 - rollback or compensating action.
 
-The P0 contract supports explicit hosts/actions, not unrestricted internet access. MCP/app tools are disabled unless named by the contract. Remote writes, deploy, release, publish, migration application, billing, and production operations require both contract approval and separate user authorization at the point of action.
+The contract schema reserves explicit hosts/actions rather than unrestricted internet access, but the P0 executor is deny-only and never turns those fields into runtime authority. It rejects a contract containing an allowlist policy or high-impact allowed command class before creating a worktree. A review choice may authorize local code changes that prepare a disclosed network or external effect; it cannot perform that effect. MCP/app tools remain disabled. Remote writes, deploy, release, publish, migration application, billing, production operations, and permission expansion require a separate explicitly authorized workflow outside the P0 executor.
+
+P0 does not enable runtime experimental APIs, granular approval, or permission profiles. Any normal-schema permission-expansion request that arrives receives an empty grant and pauses the run. Proactive `request_permissions` support is deferred because Codex 0.144.4 requires the experimental capability for the granular route.
 
 ## 8. Local UI
 
 - Bind only to loopback.
 - Generate a high-entropy capability token for each run.
 - Prefer the token in a short-lived URL fragment or secure bootstrap flow rather than persistent query logs.
-- Require token and same-origin checks for mutations.
+- Require the token for all API and SSE requests, and same-origin checks for mutations.
 - Set restrictive Content Security Policy and frame protection.
 - Disable wildcard CORS.
 - Escape all task, repository, command, path, and model-provided text.
 - Do not render model-provided HTML.
 - Do not load third-party scripts, fonts, analytics, or images.
 - Expire access when the controller exits or the run is archived.
+
+The implemented CLI starts one server on `127.0.0.1` with an OS-assigned port and a 256-bit random capability. The capability is displayed once in the local URL fragment, never persisted or written to structured logs, removed from the browser address after bootstrap, hashed before server comparison, and sent thereafter only in the authorization header. Native `EventSource` is intentionally not used because it cannot attach that header. The server scopes the capability to one run, validates the exact Host and Origin, requires idempotency and expected-version headers on writes, caps JSON bodies, and serves only the bundled static root. Browser E2E verifies missing/invalid-token rejection, cross-origin mutation rejection, same-origin-only assets, no high-impact default, keyboard-only review/approval/cancel, bounded cards, and assistive-technology state text.
 
 ## 9. Contract and approval integrity
 
@@ -139,6 +148,10 @@ Default retention:
 - temporary worktrees: removed after terminal state, with cleanup failure reported.
 
 Deletion removes database references and artifacts. Secure erasure on SSDs is not claimed.
+
+The implemented CLI exposes archive/unarchive as the pinned-retention control, explicit deletion, and expiry purge. Deletion is refused while execution is active or any disposable worktree still has pending cleanup. Idempotency records are run-scoped and cascade with the run; orphaned snapshots and private artifact files are removed only when no remaining run references them.
+
+Recorded judge replay is generated in a private OS temporary directory, contains sanitized synthetic evidence, and is deleted when the replay closes. It calls no model, reads no target repository, and rejects all HTTP mutations. The UI states that replay is recorded and cannot substitute for live integration evidence.
 
 ## 11. Incident behavior
 

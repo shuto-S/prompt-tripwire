@@ -1,0 +1,418 @@
+:root {
+  color: #18211c;
+  background: #edf1ea;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: radial-gradient(circle at 90% 0%, rgb(218 232 212 / 80%), transparent 34rem), #edf1ea;
+}
+
+button,
+textarea,
+input {
+  font: inherit;
+}
+
+button {
+  min-height: 2.75rem;
+  padding: 0.65rem 1rem;
+  color: #183127;
+  background: #f8faf6;
+  border: 1px solid #839187;
+  border-radius: 0.6rem;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: #e5ece2;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+button.primary {
+  color: white;
+  background: #176747;
+  border-color: #176747;
+}
+
+button.primary:hover:not(:disabled) {
+  background: #0e5036;
+}
+
+:focus-visible {
+  outline: 3px solid #a94f12;
+  outline-offset: 3px;
+}
+
+.shell {
+  width: min(76rem, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 3.5rem 0 5rem;
+}
+
+.shell:focus {
+  outline: none;
+}
+
+.eyebrow,
+.section-label {
+  margin: 0 0 0.4rem;
+  color: #416052;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.title-row,
+.section-heading,
+.cancel-zone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+h1,
+h2,
+h3,
+p {
+  overflow-wrap: anywhere;
+}
+
+h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.5rem, 7vw, 5rem);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+}
+
+h2 {
+  margin: 0;
+  font-size: clamp(1.45rem, 3vw, 2.1rem);
+  letter-spacing: -0.025em;
+}
+
+h3 {
+  margin: 0;
+  font-size: 1.12rem;
+}
+
+section {
+  margin-top: 3rem;
+}
+
+.state-pill,
+.impact,
+.card-meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0.2rem 0.55rem;
+  color: #294b3c;
+  background: #dce7dc;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.summary,
+.contract,
+.cancel-zone {
+  padding: clamp(1.25rem, 3vw, 2rem);
+  background: rgb(250 252 248 / 92%);
+  border: 1px solid #ccd6ca;
+  border-radius: 1rem;
+  box-shadow: 0 1.2rem 3rem rgb(27 46 36 / 7%);
+}
+
+.recorded-banner {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 1.25rem;
+  padding: 0.9rem 1rem;
+  color: #5d310a;
+  background: #fff1d2;
+  border: 1px solid #d49d3b;
+  border-radius: 0.75rem;
+}
+
+.summary dl,
+.evidence,
+.contract-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+dt {
+  color: #5b695f;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+dd {
+  margin: 0.25rem 0 0;
+}
+
+.decision-grid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.decision-card {
+  padding: clamp(1.25rem, 3vw, 2rem);
+  background: #fff;
+  border: 1px solid #c8d2c7;
+  border-radius: 1rem;
+}
+
+.card-meta,
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.card-meta {
+  margin-bottom: 0.8rem;
+}
+
+.card-meta .impact-high {
+  color: #7a260e;
+  background: #fae2d6;
+}
+
+.reason {
+  max-width: 70ch;
+  color: #4e5d54;
+}
+
+fieldset {
+  min-width: 0;
+  margin: 1.25rem 0;
+  padding: 0;
+  border: 0;
+}
+
+legend {
+  margin-bottom: 0.65rem;
+  font-weight: 750;
+}
+
+.options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.75rem;
+}
+
+.option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+  color: #29372f;
+  background: #f5f8f3;
+  border: 1px solid #c7d1c5;
+  border-radius: 0.75rem;
+  cursor: pointer;
+}
+
+.option:has(input:checked) {
+  background: #e0efe6;
+  border-color: #176747;
+  box-shadow: inset 0 0 0 1px #176747;
+}
+
+.option-heading {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.option ul,
+.contract ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.support,
+.contract-hash {
+  color: #617067;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+}
+
+.freeform {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 1rem;
+  font-weight: 700;
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 0.75rem;
+  color: #18211c;
+  background: white;
+  border: 1px solid #839187;
+  border-radius: 0.6rem;
+  font-weight: 400;
+}
+
+.validation,
+.error {
+  color: #842e16;
+  font-weight: 700;
+}
+
+.error {
+  padding: 0.8rem 1rem;
+  background: #fbe4dd;
+  border: 1px solid #cf8068;
+  border-radius: 0.6rem;
+}
+
+details {
+  border-top: 1px solid #dde4dc;
+  padding-top: 1rem;
+}
+
+.plan-evidence {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #c8d2c7;
+  border-radius: 0.75rem;
+}
+
+.plan-evidence button,
+.plan-list {
+  margin-top: 1rem;
+}
+
+.plan-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.plan-list article {
+  min-width: 0;
+  padding: 1rem;
+  background: #f5f8f3;
+  border-radius: 0.6rem;
+}
+
+pre {
+  max-height: 28rem;
+  overflow: auto;
+  padding: 0.8rem;
+  color: #e9f0e9;
+  background: #17251e;
+  border-radius: 0.5rem;
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+}
+
+summary {
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.evidence {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.contract-columns {
+  margin: 1.5rem 0;
+}
+
+.contract-columns > div {
+  padding: 1rem;
+  background: #f3f7f1;
+  border-radius: 0.7rem;
+}
+
+.success {
+  color: #176747;
+  font-weight: 750;
+}
+
+.deviation {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  background: #fff2d8;
+  border: 1px solid #d49d3b;
+  border-radius: 0.75rem;
+}
+
+.cancel-zone {
+  box-shadow: none;
+}
+
+.cancel-zone h2,
+.cancel-zone p {
+  margin: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 46rem) {
+  .shell {
+    padding-top: 2rem;
+  }
+
+  .title-row,
+  .section-heading,
+  .cancel-zone {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .summary dl,
+  .evidence,
+  .contract-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}

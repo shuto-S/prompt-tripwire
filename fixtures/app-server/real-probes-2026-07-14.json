@@ -1,0 +1,20 @@
+{
+  "codexVersion": "0.144.4",
+  "model": "gpt-5.6-sol",
+  "reasoningEffort": "low",
+  "snapshotHash": "ba3a5ae4c8211319f518966700ca5e67c8d9e080f202935378ee86460fe0cb55",
+  "taskHash": "4a6b3b6dc04c434b745b446906080daa6db3c9f36eeba908325bbf5e8f60becd",
+  "validPlanCount": 3,
+  "distinctThreadIds": [
+    "019f6047-de5a-7412-994c-3c69cd905fbd",
+    "019f6047-df17-77e2-99bd-dd70d53c990c",
+    "019f6047-dfd8-7221-8117-954469710457"
+  ],
+  "attemptStates": ["completed", "completed", "completed"],
+  "approvalCount": 0,
+  "allWorktreesCleaned": true,
+  "originalCheckoutClean": true,
+  "degraded": false,
+  "blocked": false,
+  "note": "Plan text, raw reasoning, command output, and process environments are intentionally omitted."
+}

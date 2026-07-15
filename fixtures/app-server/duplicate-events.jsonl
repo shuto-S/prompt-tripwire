@@ -1,0 +1,10 @@
+{"meta":{"name":"duplicate-events","expected":{"corrupt":false,"duplicateEvents":2,"uniqueApprovalRequests":1,"uniqueApprovalResponses":1,"completedItems":1,"turnStatus":"completed"}}}
+{"direction":"server","message":{"method":"turn/started","params":{"turn":{"id":"turn-1","status":"inProgress"}}}}
+{"direction":"server","message":{"method":"item/started","params":{"item":{"id":"item-1","type":"commandExecution","status":"inProgress"}}}}
+{"direction":"server","message":{"id":"approval-1","method":"item/commandExecution/requestApproval","params":{"threadId":"thread-1","turnId":"turn-1","itemId":"item-1"}}}
+{"direction":"server","message":{"id":"approval-1","method":"item/commandExecution/requestApproval","params":{"threadId":"thread-1","turnId":"turn-1","itemId":"item-1"}}}
+{"direction":"client","message":{"id":"approval-1","result":{"decision":"decline"}}}
+{"direction":"server","message":{"method":"serverRequest/resolved","params":{"threadId":"thread-1","requestId":"approval-1"}}}
+{"direction":"server","message":{"method":"item/completed","params":{"item":{"id":"item-1","type":"commandExecution","status":"declined"}}}}
+{"direction":"server","message":{"method":"item/completed","params":{"item":{"id":"item-1","type":"commandExecution","status":"declined"}}}}
+{"direction":"server","message":{"method":"turn/completed","params":{"turn":{"id":"turn-1","status":"completed"}}}}

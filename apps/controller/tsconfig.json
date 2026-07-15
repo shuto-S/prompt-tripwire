@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    {
+      "path": "../../packages/codex-app-server"
+    },
+    {
+      "path": "../../packages/domain"
+    },
+    {
+      "path": "../../packages/git-snapshot"
+    },
+    {
+      "path": "../../packages/persistence"
+    },
+    {
+      "path": "../../packages/openai-comparator"
+    }
+  ]
+}

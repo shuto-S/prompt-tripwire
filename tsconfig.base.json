@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "lib": ["ES2024"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "paths": {
+      "@prompt-tripwire/codex-app-server": ["./packages/codex-app-server/src/index.ts"],
+      "@prompt-tripwire/contract-runtime": ["./packages/contract-runtime/src/index.ts"],
+      "@prompt-tripwire/controller": ["./apps/controller/src/index.ts"],
+      "@prompt-tripwire/domain": ["./packages/domain/src/index.ts"],
+      "@prompt-tripwire/git-snapshot": ["./packages/git-snapshot/src/index.ts"],
+      "@prompt-tripwire/openai-comparator": ["./packages/openai-comparator/src/index.ts"],
+      "@prompt-tripwire/persistence": ["./packages/persistence/src/index.ts"],
+      "@prompt-tripwire/policy": ["./packages/policy/src/index.ts"],
+      "@prompt-tripwire/ui": ["./apps/ui/src/index.ts"]
+    },
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "useUnknownInCatchVariables": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "skipLibCheck": true
+  }
+}

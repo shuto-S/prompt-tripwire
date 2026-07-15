@@ -1,0 +1,82 @@
+{
+  "recordedAt": "2026-07-14T17:20:00+09:00",
+  "environment": {
+    "codexCli": "0.144.4",
+    "node": "26.5.0",
+    "macOS": "26.5.2 (25F84)",
+    "architecture": "arm64",
+    "baselineCommit": "bbe36261e33d18b10edccb94af791c0c14ff0889"
+  },
+  "commandBoundaries": {
+    "readOnlyWrite": "prevented",
+    "network": "prevented",
+    "canaryInherited": false,
+    "interpreterCommandExec": "notPreventedBySandbox",
+    "packageManagerCommandExec": "prevented",
+    "buildCommandExec": "prevented",
+    "testCommandExec": "prevented"
+  },
+  "goldenHandshake": {
+    "threadId": "019f5fb7-f377-7191-aa4d-959b4e77d58d",
+    "turnId": "019f5fb7-fe4c-7a13-ab72-2084419b6e2e",
+    "status": "completed",
+    "outputSchemaValidated": true
+  },
+  "interrupt": {
+    "threadId": "019f5fb8-0b8b-7970-8f89-2ef2385cabc1",
+    "turnId": "019f5fb8-148a-7362-8348-4cbaa54c04f3",
+    "status": "interrupted"
+  },
+  "declinedProbe": {
+    "threadId": "019f5fb8-33d7-7152-baf9-a6abfb7dc875",
+    "turnId": "019f5fb8-3c58-7d22-953d-6e08e06b3c61",
+    "status": "completed",
+    "fileChanged": false,
+    "commandApprovalRequests": 4,
+    "commandStatuses": [
+      "declined",
+      "declined",
+      "declined",
+      "declined"
+    ]
+  },
+  "declinedFileChange": {
+    "threadId": "019f5fb8-9cce-7252-b290-c64ee06af5e2",
+    "turnId": "019f5fb8-a301-7f82-99ae-4535f82289bf",
+    "status": "completed",
+    "fileChanged": false,
+    "fileApprovalRequests": 1,
+    "fileChangeStatuses": [
+      "declined"
+    ],
+    "diffNotifications": 0,
+    "classification": "declinedBeforeExecution"
+  },
+  "acceptedContainedWrite": {
+    "threadId": "019f5fb8-d1e3-71b3-a554-84ca9b397669",
+    "turnId": "019f5fb8-d7a3-73f2-bfa2-1e366fc3c39c",
+    "status": "completed",
+    "fileChanged": true,
+    "fileApprovalRequests": 0,
+    "fileChangeStatuses": [
+      "completed"
+    ],
+    "diffNotifications": 3,
+    "classification": "detectedAfterContainedWrite"
+  },
+  "granularApprovalBoundary": {
+    "rejectedWithoutExperimentalCapability": true
+  },
+  "permissionRequest": {
+    "threadId": "019f5fb8-f42e-7113-a656-41fb145f9d6e",
+    "turnId": "019f5fb8-fb48-7742-95b4-155bbfdf06af",
+    "status": "completed",
+    "permissionRequests": 0,
+    "classification": "notObserved"
+  },
+  "privacy": {
+    "rawReasoningPersisted": false,
+    "fullEnvironmentPersisted": false,
+    "commandOutputPersisted": false
+  }
+}

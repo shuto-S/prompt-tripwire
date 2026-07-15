@@ -1,0 +1,30 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    {
+      "path": "../controller"
+    },
+    {
+      "path": "../ui"
+    },
+    {
+      "path": "../../packages/domain"
+    },
+    {
+      "path": "../../packages/contract-runtime"
+    },
+    {
+      "path": "../../packages/git-snapshot"
+    },
+    {
+      "path": "../../packages/persistence"
+    }
+  ]
+}

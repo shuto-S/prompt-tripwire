@@ -1,0 +1,38 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "packages/domain"
+    },
+    {
+      "path": "packages/schemas"
+    },
+    {
+      "path": "packages/policy"
+    },
+    {
+      "path": "packages/git-snapshot"
+    },
+    {
+      "path": "packages/codex-app-server"
+    },
+    {
+      "path": "packages/openai-comparator"
+    },
+    {
+      "path": "packages/contract-runtime"
+    },
+    {
+      "path": "packages/persistence"
+    },
+    {
+      "path": "apps/controller"
+    },
+    {
+      "path": "apps/ui"
+    },
+    {
+      "path": "apps/cli"
+    }
+  ]
+}
