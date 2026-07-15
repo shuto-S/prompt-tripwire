@@ -8,9 +8,9 @@ This file prepares the English submission fields. It is not a saved or final Dev
 - **Category:** Developer Tools
 - **Tagline:** See where Codex disagrees before it writes code.
 - **Repository URL:** `https://github.com/shuto-S/prompt-tripwire`
-- **Repository access:** `<PENDING: public + Apache-2.0, or private + both judge addresses>`
+- **Repository access:** Public, Apache-2.0
 - **Supported platform:** macOS arm64
-- **Release artifact:** `<PENDING: GitHub Release URL after explicit publication approval>`
+- **Release artifact:** `https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.0`
 - **Demo video:** `<PENDING: public YouTube URL, audio, under 3 minutes>`
 - **Codex /feedback Session ID:** `<PENDING: run /feedback in the primary Codex task, attach the existing session, and copy the returned Session ID here>`
 
@@ -108,7 +108,7 @@ Known limitations are visible in the README, Judge Guide, and security document.
 
 ## Final external-action checklist
 
-- [ ] Confirm public + Apache-2.0, or private + share with `testing@devpost.com` and `build-week-event@openai.com`.
+- [x] Select public + Apache-2.0 as the repository route.
 - [ ] Verify the final GitHub Release artifact/checksum from a clean environment.
 - [ ] Obtain the formal `/feedback` Session ID from the primary Codex task.
 - [ ] Record and upload the public YouTube demo with audio under three minutes.

@@ -15,11 +15,11 @@ The official rules take precedence if they change. This matrix records the requi
 | Build a project with Codex and GPT-5.6 in an eligible track. | Developer Tools; Codex App Server runs planning/execution and GPT-5.6 performs schema-constrained comparison. | Ready |
 | The project installs and runs consistently on the declared platform. | macOS arm64 archive, checksum, installer/uninstaller, pinned Node/Codex requirements, artifact smoke script. | Ready |
 | New work must be created during the submission period, or pre-existing work must be clearly separated. | Repository starts during the event; dated specification and implementation commits are listed in `docs/CODEX_COLLABORATION.md`. | Ready |
-| Third-party SDKs, APIs, data, and open-source software must be used with authorization and license compliance. | `docs/DEPENDENCIES.md`, lockfile license gate, no third-party data/assets in the judge fixture. | Ready; project license awaits route decision |
+| Third-party SDKs, APIs, data, and open-source software must be used with authorization and license compliance. | Apache-2.0 project license, `docs/DEPENDENCIES.md`, lockfile license gate, and no third-party data/assets in the judge fixture. | Ready |
 | Include an English text description of features and functionality. | `docs/DEVPOST_SUBMISSION.md` contains the English submission draft. | Ready |
 | Include a public YouTube demo with audio, less than three minutes, explaining the build and Codex/GPT-5.6 use. | Video field and shot placeholders exist in `docs/DEVPOST_SUBMISSION.md`. | Intentionally excluded from this work request |
 | Demo media must not use third-party trademarks, copyrighted music, or other material without permission. | Rights checklist specifies screen capture, system fonts, original copy, no music/logos/stock assets. | Ready for later recording |
-| Provide a repository URL; public with relevant licensing, or private and shared with both judge addresses. | Repository is currently private and has no project license. | Blocked on public/Apache-2.0 vs private/share decision |
+| Provide a repository URL; public with relevant licensing, or private and shared with both judge addresses. | Public repository route selected; Apache-2.0 is recorded in `LICENSE`, package metadata, and README. | Publication and anonymous verification pending |
 | README must explain Codex collaboration, acceleration, human decisions, and GPT-5.6/Codex contributions. | README summary plus the detailed accepted/changed/rejected and dated record in `docs/CODEX_COLLABORATION.md`. | Ready |
 | Provide the `/feedback` Codex Session ID for the task where most core functionality was built. | `docs/DEVPOST_SUBMISSION.md` has a non-source placeholder and the exact manual retrieval step. A local task UUID is not treated as the Session ID. | Manual action required |
 | Developer tools need installation instructions, supported platforms, and a way to test without rebuilding. | `docs/JUDGE_GUIDE.md`; compiled JavaScript/runtime archive; safe local fixture; recorded read-only replay. | Ready |
@@ -32,7 +32,7 @@ The official rules take precedence if they change. This matrix records the requi
 
 ## Remaining rule-owned actions
 
-1. Choose public + Apache-2.0 + GitHub Release, or private + judge access.
+1. Publish and anonymously verify the selected public Apache-2.0 repository and `v0.1.0` GitHub Release.
 2. Run `/feedback` in the primary Codex task and copy the returned Session ID into Devpost only.
 3. Record/upload the public YouTube demo and replace media placeholders.
 4. Save and finally submit on Devpost; neither action is performed by repository preparation.
