@@ -10,11 +10,15 @@ const manifestPath = resolve(pluginRoot, ".codex-plugin/plugin.json");
 const marketplacePath = resolve(".agents/plugins/marketplace.json");
 const skillPath = resolve(pluginRoot, "skills/preflight/SKILL.md");
 const scriptPath = resolve(pluginRoot, "skills/preflight/scripts/run_preflight.mjs");
+const installTemplatePath = resolve("scripts/distribution/install.sh");
+const uninstallTemplatePath = resolve("scripts/distribution/uninstall.sh");
 
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 const marketplace = JSON.parse(readFileSync(marketplacePath, "utf8"));
 const skill = readFileSync(skillPath, "utf8");
 const script = readFileSync(scriptPath, "utf8");
+const installTemplate = readFileSync(installTemplatePath, "utf8");
+const uninstallTemplate = readFileSync(uninstallTemplatePath, "utf8");
 
 assert.equal(manifest.name, "prompt-tripwire");
 assert.match(manifest.version, /^\d+\.\d+\.\d+(?:[-+].*)?$/u);
@@ -46,7 +50,23 @@ assert.match(skill, /review-url/u);
 assert.ok(statSync(scriptPath).isFile());
 assert.match(script, /PROMPT_TRIPWIRE_PLUGIN_REENTRY/u);
 assert.match(script, /REENTRY_BLOCKED/u);
-for (const file of [manifestPath, marketplacePath, skillPath, scriptPath]) {
+assert.match(script, /CODEX_LOGIN_REQUIRED/u);
+assert.match(script, /runtime\.json/u);
+assert.match(installTemplate, /--with-codex-plugin/u);
+assert.match(installTemplate, /plugin marketplace add/u);
+assert.match(installTemplate, /plugin add "\$PLUGIN_SELECTOR"/u);
+assert.match(installTemplate, /plugin list --json/u);
+assert.doesNotMatch(installTemplate, /\b(?:inspect|approve|run)\b/u);
+assert.match(uninstallTemplate, /plugin remove "\$PLUGIN_SELECTOR"/u);
+assert.match(uninstallTemplate, /marketplace remove "\$MARKETPLACE_NAME"/u);
+for (const file of [
+  manifestPath,
+  marketplacePath,
+  skillPath,
+  scriptPath,
+  installTemplatePath,
+  uninstallTemplatePath,
+]) {
   const content = readFileSync(file, "utf8");
   assert.ok(!content.includes(root), `${file} must not contain a local absolute path`);
   assert.ok(

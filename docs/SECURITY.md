@@ -130,9 +130,9 @@ The implemented CLI starts one server on `127.0.0.1` with an OS-assigned port an
 
 The repo-scoped Plugin is an untrusted caller of the existing local CLI. Its
 Skill is explicit-only and does not expose an approval tool, select a decision,
-or implement a second policy engine. It passes the task through a mode-0600
-the existing CLI argument when requested over standard input, invokes the runtime
-without a shell, redacts secret-like output, and returns only the CLI's compact status or
+or implement a second policy engine. It passes the task through the existing CLI
+argument when requested over standard input, invokes the runtime without a
+shell, redacts secret-like output, and returns only the CLI's compact status or
 sanitized report. The target checkout is inspected by the existing
 `tripwire inspect` path and is never modified by the adapter.
 
@@ -143,6 +143,18 @@ PromptTripwire child process; any Plugin invocation under that flag fails with
 `REENTRY_BLOCKED`. Missing runtime/login, unsupported platform, stale/dirty
 choices, and other CLI failures remain fail-closed. V1 adds no hook, MCP server,
 hosted backend, or remote write authority.
+
+The release installer can co-install the same adapter with the existing runtime
+under a versioned user-local root. It validates the bundled files, platform,
+Node, Git, exact Codex version, and login before changing Codex Plugin state.
+It invokes only Codex marketplace/plugin add, list, and targeted remove
+operations; it never invokes inspect, decision mutation, approval, or execution.
+The installed adapter receives a mode-0600 launcher-path record so a custom
+user-local prefix does not require another credential or `PATH` setting. That
+local path is never printed or included in the release artifact. Uninstall
+removes only `prompt-tripwire@prompt-tripwire-local` and removes the
+`prompt-tripwire-local` marketplace only when it still points to the owned
+versioned install root.
 
 ## 9. Contract and approval integrity
 

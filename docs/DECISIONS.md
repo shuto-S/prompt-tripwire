@@ -179,9 +179,11 @@ truth and makes the human approval boundary visible.
 
 ### D-028 — Reuse the existing release runtime instead of bundling or publishing
 
-**Decision:** The Plugin requires the existing macOS arm64 `tripwire` launcher
-on `PATH`, with `PROMPT_TRIPWIRE_BIN` as an explicit local override. It checks
-for the pinned runtime and logged-in Codex CLI 0.144.4, propagates
+**Decision:** The Plugin requires the existing macOS arm64 `tripwire` launcher.
+The unified installer records that launcher in private installed metadata;
+repo/Git installs resolve it from `PATH`, with `PROMPT_TRIPWIRE_BIN` as an
+explicit local override. The adapter checks for the pinned runtime and
+logged-in Codex CLI 0.144.4, propagates
 `PROMPT_TRIPWIRE_PLUGIN_REENTRY=1` to child PromptTripwire processes, and fails
 closed when the guard is present. V1 does not bundle a second compiled runtime,
 publish npm packages, add credentials, or create a new GitHub Release.
@@ -190,6 +192,25 @@ publish npm packages, add credentials, or create a new GitHub Release.
 authentication surface. Bundling its generated tree into a Plugin would create
 large duplicated artifacts and a second release path without improving the
 Codex-user credential experience.
+
+### D-029 — Co-install the thin Plugin from the existing release archive
+
+**Decision:** Include the repo marketplace, manifest, Skill, and adapter script
+in the macOS arm64 runtime archive. Preserve plain `install.sh` as runtime-only
+and add `install.sh --with-codex-plugin` for one-command, user-local runtime plus
+Plugin installation. The versioned runtime root is also the stable local
+marketplace root, so its existing relative `./plugins/prompt-tripwire` source
+remains valid. The installer uses only Codex marketplace/plugin lifecycle
+commands and records a private pointer to the one installed runtime; it never
+runs inspect, decisions, approval, or execution. Targeted uninstall removes the
+PromptTripwire selector and removes the marketplace only while it still points
+to the owned install root.
+
+**Reason:** Requiring users to install the runtime and then repeat marketplace
+and Plugin commands is unnecessary friction for the primary Codex-user flow.
+Co-distribution does not create a second runtime or safety implementation, and
+the stable relative marketplace layout remains compatible with direct Git
+installation for development and fallback use.
 
 ## Validated implementation assumptions
 

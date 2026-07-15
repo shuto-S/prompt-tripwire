@@ -10,7 +10,7 @@ Build Week judge release candidate for macOS arm64.
 - Immutable snapshot-bound execution contracts.
 - Disposable-worktree execution, approval correlation, deviation interruption, real required checks, and sanitized reports.
 - Existing Codex CLI login; no separate `OPENAI_API_KEY`.
-- Compiled JavaScript/runtime archive, one-command user-local install/uninstall, dependency-free judge fixture, and recorded read-only replay.
+- Compiled JavaScript/runtime archive with runtime-only and one-command runtime-plus-Plugin install/uninstall, dependency-free judge fixture, and recorded read-only replay.
 
 ## Requirements
 

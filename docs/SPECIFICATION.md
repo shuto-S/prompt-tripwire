@@ -2,7 +2,7 @@
 
 Status: P0 implementation baseline verified
 
-Version: 0.1.4
+Version: 0.1.5
 
 Date: 2026-07-15
 
@@ -142,6 +142,12 @@ and `tripwire report`. A deterministic `PROMPT_TRIPWIRE_PLUGIN_REENTRY` flag is
 propagated to the PromptTripwire child process and blocks recursive Plugin
 invocation. The adapter requires the supported macOS arm64 runtime and the
 existing logged-in Codex CLI; it introduces no API-key or hosted-backend path.
+The macOS arm64 release archive co-distributes that thin adapter with the one
+existing runtime. `install.sh --with-codex-plugin` installs the runtime in the
+user-local prefix, registers the archive's stable local marketplace root, and
+enables `prompt-tripwire@prompt-tripwire-local`. Plain `install.sh` remains
+runtime-only. Installation never performs inspection, decision mutation,
+approval, or execution.
 
 ## 6. Repository snapshot
 
@@ -486,6 +492,7 @@ See `SECURITY.md` for the threat model and known limits.
 | PLUG-FR-002 | P1 | Stop for human review and never select a decision or approve a contract automatically. |
 | PLUG-FR-003 | P1 | Fail closed for unsupported platform, missing runtime/login, dirty-choice ambiguity, and deterministic re-entry. |
 | PLUG-FR-004 | P1 | Validate Plugin metadata and Skill packaging with executable manifest, marketplace, smoke, and package-content checks. |
+| PLUG-FR-005 | P1 | Co-distribute the thin Plugin adapter in the macOS arm64 archive and provide idempotent, user-local, one-command Plugin install and targeted uninstall without changing other marketplaces or Plugins. |
 
 ## 16. Non-functional requirements
 
@@ -494,7 +501,7 @@ See `SECURITY.md` for the threat model and known limits.
 - **Latency:** probes run concurrently; the UI streams each phase instead of showing an indefinite spinner. No hard latency claim is made until measured on representative repositories.
 - **Cost visibility:** show probe count, selected models, token usage when available, retry count, and a pre-run estimate if the provider exposes one.
 - **Portability:** the Build Week MVP supports verified macOS builds with Git, Node.js, and an authenticated Codex CLI. No separate OpenAI API credential is required. Linux is the next target but is not advertised as supported until the same containment and end-to-end suite passes. Windows is out of MVP scope.
-- **Distribution:** the macOS arm64 release is a compiled JavaScript/runtime archive with checksum, direct launcher, user-local installer/uninstaller, recorded read-only replay, and a dependency-free safe fixture. Judges do not rebuild the TypeScript source.
+- **Distribution:** the macOS arm64 release is a compiled JavaScript/runtime archive with checksum, direct launcher, user-local runtime-only and runtime-plus-Plugin installer/uninstaller modes, the repo marketplace and Skill adapter, recorded read-only replay, and a dependency-free safe fixture. Judges do not rebuild the TypeScript source.
 - **Runtime:** Node.js 24.15+ LTS and Codex CLI 0.144.4 are the pinned implementation baseline. Node 24.15 is the minimum because the built-in SQLite module reached release-candidate status there. A different Codex version or canonical normal-schema hash fails before probing.
 - **Accessibility:** complete decision review and approval with keyboard only; WCAG 2.2 AA contrast target.
 - **Observability:** structured local events with stable IDs; no secret values or raw chain-of-thought.
@@ -528,6 +535,7 @@ See `SECURITY.md` for the threat model and known limits.
 | AC-PLUG-003 | No Skill or caller Codex path auto-approves a contract; approval remains an explicit human action. |
 | AC-PLUG-004 | The adapter propagates a deterministic re-entry guard and blocks recursive invocation. |
 | AC-PLUG-005 | API-key-free macOS arm64 runtime/login checks, unsupported-platform errors, manifest/marketplace/frontmatter validation, and package-content scans pass. |
+| AC-PLUG-006 | The release installer installs and verifies the runtime plus enabled `prompt-tripwire@prompt-tripwire-local` Plugin idempotently; targeted uninstall removes only that Plugin, its owned marketplace registration, and its user-local files. |
 
 ## 18. Test strategy
 
@@ -588,6 +596,7 @@ No end-to-end test may use production credentials or a shared environment.
 | PLUG-FR-002 | AC-PLUG-003 |
 | PLUG-FR-003 | AC-PLUG-004, AC-PLUG-005 |
 | PLUG-FR-004 | AC-PLUG-001, AC-PLUG-005 |
+| PLUG-FR-005 | AC-PLUG-001, AC-PLUG-005, AC-PLUG-006 |
 
 P1/P2 requirements do not gate the MVP and require acceptance criteria when promoted.
 
