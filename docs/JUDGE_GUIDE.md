@@ -88,7 +88,7 @@ npm --prefix "$FIXTURE" test
    ./bin/tripwire review RUN_ID --terminal
    ```
 
-   The fixture is intentionally specific, so it normally reaches `ready_for_approval` without a blocking decision. If a model introduces a blocking unknown, keep it visible and resolve only a bounded option shown by the review command; do not broaden paths or capabilities.
+   The fixture explicitly requests two compatibility changes, so the deterministic policy normally presents one all-or-none compatibility card. The terminal output includes a complete command for each option. Run the printed command for **Allow local implementation**, then rerun the review command if needed. If a model introduces a separate blocking unknown, keep it visible and resolve only a bounded option shown by the review command; do not broaden paths or capabilities. Non-string inputs are explicitly outside this fixture's scope and should not become an unknown.
 
 3. Approve the current contract and copy the printed contract ID:
 

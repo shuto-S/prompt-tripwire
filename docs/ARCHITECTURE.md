@@ -160,7 +160,7 @@ There are two separate schemas:
 
 Both schemas are derived from the same TypeScript definitions used by domain code. Strict mode rejects extra fields. A syntactically valid model response is still untrusted content until deterministic normalization and policy evaluation complete.
 
-The comparator receives stable evidence IDs rather than raw chain-of-thought. It returns those IDs so every decision can be traced to plan fields.
+The comparator receives stable evidence IDs rather than raw chain-of-thought. Its prompt includes the exact allowlists of probe IDs and `repositoryEvidence[].id` values; field names, array indexes, paths, descriptions, and invented IDs are invalid references. The adapter still validates every returned reference rather than trusting prompt compliance, so every accepted decision can be traced to plan evidence.
 
 ## 6. Decision ordering
 
@@ -173,6 +173,8 @@ The policy engine orders blocking decisions without a numeric risk score:
 5. verification and rollback.
 
 Within a category, decisions with more affected components appear first. Stable tie-breaking uses the canonical decision ID so repeat analysis does not shuffle the UI.
+
+Compatibility findings from independent probes are retained as one deterministic all-or-none blocker. Explicit statements that compatibility is preserved are not impacts. The grouped blocker keeps every remaining description, component, probe, and evidence reference visible; selecting it accepts the whole disclosed set and never removes the normal P0 runtime boundaries. This avoids paraphrase-amplified question counts without using model similarity to suppress a deterministic finding.
 
 ## 7. Enforcement model
 
@@ -227,6 +229,8 @@ GET  /api/runs/:id/report
 ```
 
 The browser currently uses the aggregate `GET /api/runs/:id` response rather than fetching the decision and contract resources serially. Every API request, including the fetch-based SSE stream, requires the per-run bearer capability. Mutations additionally require the exact loopback Origin, JSON content type, expected run version, and an idempotency key. The server rejects a mismatched Host or run ID, returns no wildcard CORS headers, and never places the capability in a query string. The CLI supplies it once in a URL fragment; the client removes that fragment immediately after bootstrap.
+
+The terminal renderer prints stable decision/option IDs and complete select, free-form, defer, and cancel commands for each visible card. It does not require a database query to translate a rendered option into a mutation.
 
 Recorded judge replay uses the same loopback/capability controls but marks every aggregate response with `mode: "recorded"` and rejects every POST with `RECORDED_REPLAY_READ_ONLY`. Its controller state is generated in a disposable private directory from sanitized bundled values, never from a target repository. The UI shows a persistent recorded/read-only banner and disables decision, approval, and cancellation controls.
 

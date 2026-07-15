@@ -150,7 +150,7 @@ const TRIGGER_RULES: Readonly<Record<DeterministicTrigger, TriggerRule>> = {
     category: "compatibility",
     impact: "medium",
     orderGroup: "data_compatibility",
-    question: "Allow the stated compatibility impact?",
+    question: "Allow all disclosed compatibility impacts?",
     pattern: /\bcompatibility\b|互換性/iu,
   },
   irreversible: {
@@ -216,19 +216,22 @@ export interface PolicyBlocker {
   readonly orderGroup: DecisionOrderGroup;
   readonly question: string;
   readonly description: string;
+  readonly details: readonly string[];
   readonly affectedComponents: readonly string[];
   readonly evidenceRefs: readonly string[];
 }
 
 interface MutableBlocker {
   readonly trigger: DeterministicTrigger;
-  readonly description: string;
+  readonly descriptions: Set<string>;
   readonly affectedComponents: Set<string>;
   readonly evidenceRefs: Set<string>;
 }
 
-function blockerId(trigger: DeterministicTrigger, description: string): string {
-  const digest = createHash("sha256").update(`${trigger}\0${description}`, "utf8").digest("hex");
+function blockerId(trigger: DeterministicTrigger, descriptions: readonly string[]): string {
+  const digest = createHash("sha256")
+    .update(`${trigger}\0${descriptions.join("\0")}`, "utf8")
+    .digest("hex");
   return `blocker_${digest.slice(0, 24)}`;
 }
 
@@ -253,6 +256,25 @@ function isKnownSafePlannedCommand(command: string): boolean {
   );
 }
 
+function statesNoCompatibilityImpact(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  if (/(?:\bbut\b|\bexcept\b|\bwhile\b|だが|しかし|一方|ただし|、|,|;)/u.test(normalized)) {
+    return false;
+  }
+  return (
+    /^(?:none|n\/a|not applicable|no (?:known )?(?:compatibility )?impact)[.!]?$/u.test(
+      normalized,
+    ) ||
+    /^(?:backward )?compatibility (?:is )?(?:preserved|maintained|unchanged)[.!]?$/u.test(
+      normalized,
+    ) ||
+    /^(?:該当なし|なし|互換性(?:へ|に)?の?影響(?:は|が)?(?:ない|なし))[。.]?$/u.test(normalized) ||
+    /^.{0,80}互換性を(?:維持(?:する|される|できる)?|保持(?:する|される)?|保つ)[。.]?$/u.test(
+      normalized,
+    )
+  );
+}
+
 export function evaluateDeterministicPolicy(
   input: DeterministicPolicyInput,
 ): readonly PolicyBlocker[] {
@@ -263,20 +285,22 @@ export function evaluateDeterministicPolicy(
     value: string,
     plan: PlanArtifactLike,
     evidenceRef: string,
+    groupKey?: string,
   ): void {
     const redacted =
       redactText(value, { knownSecrets: input.knownSecrets ?? [] }).text.trim() ||
       "[empty model value]";
-    const key = `${trigger}\0${redacted}`;
+    const key = groupKey ?? `${trigger}\0${redacted}`;
     const existing = blockers.get(key);
     if (existing !== undefined) {
+      existing.descriptions.add(redacted);
       for (const component of plan.components) existing.affectedComponents.add(component);
       existing.evidenceRefs.add(evidenceRef);
       return;
     }
     blockers.set(key, {
       trigger,
-      description: redacted,
+      descriptions: new Set([redacted]),
       affectedComponents: new Set(plan.components),
       evidenceRefs: new Set([evidenceRef]),
     });
@@ -353,8 +377,11 @@ export function evaluateDeterministicPolicy(
       scan(value, plan, `${plan.probeId}:publicApiChanges:${String(index)}`);
     });
     plan.compatibilityImpacts.forEach((value, index) => {
+      if (statesNoCompatibilityImpact(value)) return;
       const evidenceRef = `${plan.probeId}:compatibilityImpacts:${String(index)}`;
-      add("compatibility", value, plan, evidenceRef);
+      // Compatibility effects are presented as one explicit all-or-none choice.
+      // Every underlying description and evidence reference remains visible.
+      add("compatibility", value, plan, evidenceRef, "compatibility\0all");
     });
     plan.commands.forEach((value, index) => {
       const evidenceRef = `${plan.probeId}:commands:${String(index)}`;
@@ -381,14 +408,19 @@ export function evaluateDeterministicPolicy(
   return [...blockers.values()]
     .map((blocker): PolicyBlocker => {
       const rule = TRIGGER_RULES[blocker.trigger];
+      const details = [...blocker.descriptions].sort();
       return {
-        blockerId: blockerId(blocker.trigger, blocker.description),
+        blockerId: blockerId(blocker.trigger, details),
         trigger: blocker.trigger,
         category: rule.category,
         impact: rule.impact,
         orderGroup: rule.orderGroup,
         question: rule.question,
-        description: blocker.description,
+        description:
+          details.length === 1
+            ? (details[0] ?? "[empty model value]")
+            : `${String(details.length)} disclosed compatibility impacts require one explicit all-or-none choice.`,
+        details,
         affectedComponents: [...blocker.affectedComponents].sort(),
         evidenceRefs: [...blocker.evidenceRefs].sort(),
       };

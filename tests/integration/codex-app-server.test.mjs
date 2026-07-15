@@ -191,6 +191,12 @@ test("AC-008/AC-018: comparator uses a fresh tool-free structured-output thread"
     assert.equal(turnStart.params.effort, "low");
     assert.equal(turnStart.params.summary, "none");
     assert.ok(turnStart.params.outputSchema);
+    assert.match(
+      threadStart.params.developerInstructions,
+      /Every evidenceRefs value must be copied verbatim/u,
+    );
+    assert.match(turnStart.params.input[0].text, /"probeIds":\["probe_1","probe_2"\]/u);
+    assert.match(turnStart.params.input[0].text, /"repositoryEvidenceIds":\["evidence_readme"\]/u);
   } finally {
     await client.close();
     await rm(repository, { recursive: true, force: true });

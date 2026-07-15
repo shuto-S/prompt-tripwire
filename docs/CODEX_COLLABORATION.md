@@ -59,7 +59,7 @@ The Sol/Terra result is a bounded engineering choice, not a general model-qualit
 | 2026-07-14 | `3b8ca38` | Live execution and security completion |
 | 2026-07-15 | `dc77c15` | App Server authentication reuse for comparison |
 
-Sanitized live evidence is retained in `fixtures/app-server/real-probes-2026-07-14.json` and `fixtures/app-server/comparator-eval-2026-07-15.json`. Raw reasoning, credentials, full environments, plan text from private work, and command output are intentionally not retained.
+Sanitized live evidence is retained in `fixtures/app-server/real-probes-2026-07-14.json`, `fixtures/app-server/comparator-eval-2026-07-15.json`, and `fixtures/app-server/judge-live-2026-07-15.json`. The last record covers the compiled archive's API-key-free inspect → decision → approval → contained execution → report flow. Raw reasoning, credentials, full environments, plan text from private work, and command output are intentionally not retained.
 
 ## Primary Codex task and `/feedback`
 

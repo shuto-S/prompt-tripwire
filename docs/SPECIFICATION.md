@@ -2,7 +2,7 @@
 
 Status: P0 implementation baseline verified
 
-Version: 0.1.3
+Version: 0.1.4
 
 Date: 2026-07-15
 
@@ -261,6 +261,7 @@ The Decision Inbox shows at most three unresolved decisions per review round. It
 - remaining count is displayed;
 - execution remains disabled until all blocking decisions are resolved;
 - closely coupled decisions may be grouped only when one answer necessarily determines all grouped outcomes;
+- deterministic compatibility findings may use one all-or-none card only when every underlying effect and evidence reference remains visible and the allow option accepts the entire disclosed set;
 - low-impact informational differences are available under “Evidence,” not promoted to blocking questions.
 
 No aggregate numeric “risk score” is used in the MVP. Category, impact, reversibility, and evidence are more inspectable than an invented number.
@@ -279,6 +280,8 @@ Each decision card contains:
 - deterministic policy triggers, if any;
 - an optional recommendation with its rationale;
 - “defer/cancel” when no safe decision can be made.
+
+The terminal renderer includes the stable decision and option IDs plus complete `tripwire review` commands. A visible option must be actionable without querying the private database or opening the browser UI.
 
 For a high-impact operational effect, the implementation-only option must state that the local code change may be prepared while the actual operation remains denied by the P0 runtime.
 

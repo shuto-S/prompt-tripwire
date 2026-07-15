@@ -33,7 +33,7 @@ export function renderTerminalReview(
   contract: ExecutionContract | null,
 ): string {
   const sections = [renderTerminalStatus(run)];
-  if (decisions.length > 0) sections.push(renderDecisionCards(decisions));
+  if (decisions.length > 0) sections.push(renderDecisionCards(decisions, new Set(), run.runId));
   if (contract !== null) sections.push(renderContractPreview(contract));
   if (decisions.length === 0 && contract === null) {
     sections.push("No persisted review artifacts are available.\n");

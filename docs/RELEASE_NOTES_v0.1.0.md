@@ -36,4 +36,6 @@ Verify the checksum, unpack the archive, and follow `JUDGE_GUIDE.md`. The archiv
 - Network, remote writes, deploy, publish, release, migration application, production data, credentials, and permission expansion remain denied by the P0 executor.
 - Recorded replay demonstrates UI only and never substitutes for live integration evidence.
 
+The compiled archive completed the full safe-fixture flow on 2026-07-15 using the existing Codex CLI ChatGPT login with `OPENAI_API_KEY` and `CODEX_API_KEY` unset. Sanitized evidence is included at `fixtures/app-server/judge-live-2026-07-15.json` in the source repository.
+
 Repository visibility, project license, GitHub Release publication, and judge access are finalized only after explicit user confirmation.

@@ -158,6 +158,12 @@ This log separates confirmed product decisions from assumptions that still requi
 
 **Reason:** Build Week judges need a reproducible way to run a developer tool without rebuilding it, while live Codex availability can still be affected by login or usage limits. A relocatable runtime archive is lower-risk than adding a native compiler/signing dependency during the event and preserves the version-pinned App Server boundary. A clearly non-live replay improves review reliability without falsely claiming the core integration works.
 
+### D-026 — Keep deterministic compatibility evidence complete but actionable
+
+**Decision:** Treat explicit “compatibility preserved/no impact” plan values as non-findings. Group all remaining compatibility findings into one deterministic all-or-none decision while retaining every underlying description, probe, component, and evidence reference. The allow option authorizes the disclosed local implementation and leaves all other P0 runtime boundaries unchanged; it does not falsely describe compatibility behavior itself as a denied runtime operation. Terminal review prints stable decision/option IDs and complete mutation commands. Probe instructions record only material unresolved implementation questions, not a tool limitation after equivalent static evidence was obtained. Comparator prompts enumerate the exact allowed probe and repository-evidence IDs, while adapter-side validation remains authoritative.
+
+**Reason:** The first live judge-artifact run on 2026-07-15 completed real probes and comparison without API-key environment variables, but seven paraphrased compatibility statements, one no-impact statement, and resolved inspection/tool notes expanded into eleven decisions. The terminal renderer then displayed labels without the identifiers required by its own CLI syntax. An all-or-none compatibility choice preserves every deterministic finding and is safer than heuristic semantic suppression, while actionable commands make the terminal fallback genuinely complete.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage

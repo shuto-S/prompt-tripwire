@@ -51,7 +51,8 @@ const PROBE_DEVELOPER_INSTRUCTIONS = [
   "Analyze the requested engineering task against the repository snapshot without changing any file.",
   "Use only static repository inspection. Do not use interpreters, package managers, builds, tests, network access, MCP/apps, subagents, or write tools.",
   "The working directory is already the repository root; never run pwd or sed. Issue only one static read command at a time. Use only ls, find, rg, cat, head, tail, or wc. Never use pipes, command chaining, shell control operators, or git commands.",
-  "If a needed inspection cannot be represented by structured read, listFiles, or search command actions, record it as an unknown instead of running it.",
+  "If a needed inspection cannot be represented by structured read, listFiles, or search command actions and the missing evidence remains material, record that unresolved implementation question as an unknown instead of running it. Do not report a tool limitation as an unknown after the needed evidence was obtained through another allowed static read.",
+  "Use an empty compatibilityImpacts array when compatibility is preserved; do not add a no-impact statement. Use unknowns only for unresolved questions that can change implementation, not for explicitly out-of-scope input domains.",
   "Do not expose chain-of-thought. Return only the schema-constrained plan content with concise evidence-backed fields.",
 ].join("\n");
 
@@ -60,7 +61,8 @@ const COMPARISON_DEVELOPER_INSTRUCTIONS = [
   "Compare only the task and validated plan artifacts supplied in the user message.",
   "Return consensus, materially different alternatives, and unresolved unknowns only.",
   "Suppress naming, prose ordering, and equivalent implementation details.",
-  "Use only repository evidence IDs and probe IDs present in the supplied plans.",
+  "Every evidenceRefs value must be copied verbatim from a supplied repositoryEvidence[].id. Never use a plan field name, array index, file path, description, or invented identifier as an evidence reference.",
+  "Every supportedByProbeIds value must be copied verbatim from a supplied probeId.",
   "Do not claim that deterministic safety triggers are approved or safe.",
   "Do not inspect the filesystem, execute commands, change files, use network tools, MCP/apps, subagents, or request additional permissions.",
   "Do not expose chain-of-thought. Return only the requested JSON object.",
@@ -140,10 +142,19 @@ function planContentJsonSchema(): unknown {
 }
 
 function comparisonPrompt(input: ComparisonTurnInput): string {
+  const allowedProbeIds = input.plans.map((plan) => plan.probeId).sort();
+  const allowedEvidenceIds = [
+    ...new Set(
+      input.plans.flatMap((plan) => plan.repositoryEvidence.map((evidence) => evidence.id)),
+    ),
+  ].sort();
   return [
     "Compare the supplied independent engineering plans.",
     "Use no information outside this JSON input:",
     JSON.stringify({ task: input.task, plans: input.plans }),
+    "Allowed references (copy values exactly; use no other IDs):",
+    JSON.stringify({ probeIds: allowedProbeIds, repositoryEvidenceIds: allowedEvidenceIds }),
+    "If no material divergence or unresolved unknown remains, return consensus backed by at least one allowed repository evidence ID.",
     "Return only the requested JSON object.",
   ].join("\n\n");
 }

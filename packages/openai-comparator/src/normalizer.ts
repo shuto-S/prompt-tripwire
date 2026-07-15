@@ -94,6 +94,30 @@ function policyDecision(blocker: PolicyBlocker, plans: readonly PlanArtifact[]):
   ];
   const probes =
     supportedByProbeIds.length > 0 ? supportedByProbeIds : plans.map((plan) => plan.probeId);
+  const isLocalCompatibilityEffect =
+    blocker.trigger === "compatibility" || blocker.trigger === "breaking_api";
+  const allowOption = isLocalCompatibilityEffect
+    ? {
+        id: `${decisionId}_allow_local`,
+        label: "Allow local implementation",
+        description:
+          "Include every disclosed effect below in the execution contract. All other P0 runtime boundaries remain unchanged.",
+        effects: blocker.details,
+        supportedByProbeIds: probes,
+        evidenceRefs: blocker.evidenceRefs,
+      }
+    : {
+        id: `${decisionId}_implementation_only`,
+        label: "Allow implementation only",
+        description:
+          "Allow local code changes that prepare this disclosed effect. PromptTripwire will not perform the effect in P0; it remains denied and requires separate authorization.",
+        effects: [
+          ...blocker.details,
+          "The runtime operation remains denied by the P0 execution boundary.",
+        ],
+        supportedByProbeIds: probes,
+        evidenceRefs: blocker.evidenceRefs,
+      };
   return DecisionPointSchema.parse({
     decisionId,
     category: blocker.category,
@@ -105,22 +129,15 @@ function policyDecision(blocker: PolicyBlocker, plans: readonly PlanArtifact[]):
         id: `${decisionId}_deny`,
         label: "Do not allow",
         description: "Keep this effect outside the execution contract.",
-        effects: ["Execution remains blocked for this effect."],
-        supportedByProbeIds: probes,
-        evidenceRefs: blocker.evidenceRefs,
-      },
-      {
-        id: `${decisionId}_implementation_only`,
-        label: "Allow implementation only",
-        description:
-          "Allow local code changes that prepare this disclosed effect. PromptTripwire will not perform the effect in P0; it remains denied and requires separate authorization.",
         effects: [
-          blocker.description,
-          "The runtime operation remains denied by the P0 execution boundary.",
+          blocker.details.length === 1
+            ? "Execution remains blocked for this effect."
+            : "Execution remains blocked for all disclosed effects.",
         ],
         supportedByProbeIds: probes,
         evidenceRefs: blocker.evidenceRefs,
       },
+      allowOption,
     ],
     freeformAllowed: true,
     defaultOptionId: null,

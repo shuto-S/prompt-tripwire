@@ -124,6 +124,8 @@ Use `tripwire review RUN_ID --terminal` for the terminal fallback. Both interfac
 
 On macOS/arm64 with `codex-cli 0.144.4`, the bounded live execution fixture completed with one contract-scoped file, `npm test` exit 0, no deviation, an unchanged source checkout, and a removed execution worktree. The full local check passes 23 unit, 71 integration, and 17 E2E tests, including App Server disconnect, comparator tool denial/schema failure and late-request isolation, selected-alternative contract binding, P0 allowlist rejection before worktree creation, snapshot drift, duplicate/reordered events, idempotent approval, controller restart, cleanup failure, retention/deletion, conditional Decision Inbox startup, recorded replay immutability, UI capability/origin controls, secret redaction, seven specification fixtures, and FR-001–018 / AC-001–019 traceability. CI runs the same gates on macOS.
 
+The compiled judge archive was also exercised end to end on 2026-07-15 with `OPENAI_API_KEY` and `CODEX_API_KEY` unset: three fresh Sol probes, one successful Terra comparison attempt, one explicit compatibility decision, contract approval, contained Codex execution, `npm test` pass, two contract-scoped paths, no deviation or external capability, an unchanged source fixture, and all four worktrees removed. Sanitized metadata is in [`fixtures/app-server/judge-live-2026-07-15.json`](fixtures/app-server/judge-live-2026-07-15.json).
+
 Known residual risks are explicit:
 
 - PromptTripwire is not a hardened boundary against a malicious repository or same-user local attacker.

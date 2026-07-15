@@ -72,6 +72,27 @@ test("safe equivalent plans create no deterministic blocker", () => {
     createDecisionRound(evaluateDeterministicPolicy({ plans: [] })).executionAllowed,
     false,
   );
+
+  const explicitNoImpact = evaluateDeterministicPolicy({
+    plans: [
+      plan({ compatibilityImpacts: ["No compatibility impact."] }),
+      plan({
+        probeId: "probe_2",
+        compatibilityImpacts: ["通常の入力では互換性を維持する。"],
+      }),
+    ],
+  });
+  assert.deepEqual(explicitNoImpact, []);
+
+  const compoundImpact = evaluateDeterministicPolicy({
+    plans: [
+      plan({
+        compatibilityImpacts: ["空入力の出力は変わるが、通常入力の互換性を維持する。"],
+      }),
+    ],
+  });
+  assert.equal(compoundImpact.length, 1);
+  assert.equal(compoundImpact[0].trigger, "compatibility");
 });
 
 test("AC-004 spec fixture: dependency addition requires an explicit decision", () => {
@@ -123,6 +144,29 @@ test("AC-006: decision rounds show three blockers, a remaining count, and stay b
       .executionAllowed,
     true,
   );
+
+  const compatibility = evaluateDeterministicPolicy({
+    plans: [
+      plan({
+        compatibilityImpacts: [
+          "Whitespace around a name is removed.",
+          "An empty name now uses the stranger fallback.",
+        ],
+      }),
+      plan({
+        probeId: "probe_2",
+        compatibilityImpacts: [
+          "Existing callers no longer retain surrounding spaces.",
+          "Blank input returns Hello, stranger!.",
+        ],
+      }),
+    ],
+  });
+  assert.equal(compatibility.length, 1);
+  assert.equal(compatibility[0].trigger, "compatibility");
+  assert.equal(compatibility[0].details.length, 4);
+  assert.equal(compatibility[0].evidenceRefs.length, 4);
+  assert.match(compatibility[0].description, /all-or-none choice/u);
 });
 
 test("repository-relative POSIX path matching fails closed", () => {

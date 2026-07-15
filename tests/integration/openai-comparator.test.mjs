@@ -453,18 +453,36 @@ test("AC-003/AC-004 spec fixture: ambiguous account deletion becomes a decision"
   assert.match(policyDecision.options[1].description, /will not perform the effect in P0/u);
   assert.equal(createReviewRound(review.decisions).executionAllowed, false);
 
-  const rendered = renderDecisionCards(review.decisions);
+  const rendered = renderDecisionCards(review.decisions, new Set(), "run_deletion_review");
   assert.match(rendered, /Probe support:/u);
   assert.match(rendered, /Evidence:/u);
   assert.match(rendered, /Required by policy: destructive_data/u);
+  assert.match(rendered, new RegExp(`Decision ID: ${policyDecision.decisionId}`, "u"));
+  assert.match(rendered, new RegExp(`Option ID: ${policyDecision.options[1].id}`, "u"));
+  assert.match(
+    rendered,
+    new RegExp(
+      `tripwire review run_deletion_review --decision ${policyDecision.decisionId} --option ${policyDecision.options[1].id}`,
+      "u",
+    ),
+  );
   assert.doesNotMatch(rendered, /repositoryEvidence/u);
 });
 
 test("AC-003 spec fixture: API compatibility choice becomes a public API decision", async () => {
   const plans = [
-    plan("probe_1", { publicApiChanges: ["Return the legacy response shape."] }),
-    plan("probe_2", { publicApiChanges: ["Return the new response shape."] }),
-    plan("probe_3", { publicApiChanges: ["Return the new response shape."] }),
+    plan("probe_1", {
+      publicApiChanges: ["Return the legacy response shape."],
+      compatibilityImpacts: ["Callers expecting the new response cannot parse the legacy shape."],
+    }),
+    plan("probe_2", {
+      publicApiChanges: ["Return the new response shape."],
+      compatibilityImpacts: ["Legacy response clients cannot parse the new shape."],
+    }),
+    plan("probe_3", {
+      publicApiChanges: ["Return the new response shape."],
+      compatibilityImpacts: ["Existing legacy callers stop parsing the response."],
+    }),
   ];
   const content = divergenceContent(plans);
   const base = content.divergences[0];
@@ -492,6 +510,17 @@ test("AC-003 spec fixture: API compatibility choice becomes a public API decisio
   const decision = review.decisions.find((item) => item.category === "public_api");
   assert.ok(decision);
   assert.match(decision.question, /public response shape/u);
+  const compatibilityDecision = review.decisions.find((item) => item.category === "compatibility");
+  assert.ok(compatibilityDecision);
+  assert.deepEqual(
+    compatibilityDecision.options.map((option) => option.label),
+    ["Do not allow", "Allow local implementation"],
+  );
+  assert.equal(compatibilityDecision.options[1].effects.length, 3);
+  assert.doesNotMatch(
+    compatibilityDecision.options[1].description,
+    /effect in P0; it remains denied/u,
+  );
   assert.equal(createReviewRound(review.decisions).executionAllowed, false);
 });
 
