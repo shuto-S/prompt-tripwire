@@ -164,6 +164,33 @@ This log separates confirmed product decisions from assumptions that still requi
 
 **Reason:** The first live judge-artifact run on 2026-07-15 completed real probes and comparison without API-key environment variables, but seven paraphrased compatibility statements, one no-impact statement, and resolved inspection/tool notes expanded into eleven decisions. The terminal renderer then displayed labels without the identifiers required by its own CLI syntax. An all-or-none compatibility choice preserves every deterministic finding and is safer than heuristic semantic suppression, while actionable commands make the terminal fallback genuinely complete.
 
+### D-027 — Ship a Skill-only, explicit Codex Plugin adapter
+
+**Decision:** Add a repo-scoped `prompt-tripwire` Plugin with the `preflight`
+Skill only. The Skill delegates to the existing CLI and is invoked only when a
+Codex user explicitly requests it. It does not duplicate policy, probes,
+contracts, worktree containment, report handling, or approval mutations. No
+automatic hook or MCP server is included in v1.
+
+**Reason:** Codex users need a discoverable entry point without creating a
+second safety implementation or silently forcing every task through a blocking
+preflight. Keeping the adapter thin preserves the existing tested source of
+truth and makes the human approval boundary visible.
+
+### D-028 — Reuse the existing release runtime instead of bundling or publishing
+
+**Decision:** The Plugin requires the existing macOS arm64 `tripwire` launcher
+on `PATH`, with `PROMPT_TRIPWIRE_BIN` as an explicit local override. It checks
+for the pinned runtime and logged-in Codex CLI 0.144.4, propagates
+`PROMPT_TRIPWIRE_PLUGIN_REENTRY=1` to child PromptTripwire processes, and fails
+closed when the guard is present. V1 does not bundle a second compiled runtime,
+publish npm packages, add credentials, or create a new GitHub Release.
+
+**Reason:** The relocatable archive is already the supported packaging and
+authentication surface. Bundling its generated tree into a Plugin would create
+large duplicated artifacts and a second release path without improving the
+Codex-user credential experience.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage

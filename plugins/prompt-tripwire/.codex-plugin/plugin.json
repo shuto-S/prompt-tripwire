@@ -1,0 +1,23 @@
+{
+  "name": "prompt-tripwire",
+  "version": "0.1.0",
+  "description": "Run PromptTripwire preflight checks from an explicitly invoked Codex Skill.",
+  "author": {
+    "name": "PromptTripwire contributors",
+    "url": "https://github.com/shuto-S/prompt-tripwire"
+  },
+  "homepage": "https://github.com/shuto-S/prompt-tripwire",
+  "repository": "https://github.com/shuto-S/prompt-tripwire",
+  "license": "Apache-2.0",
+  "keywords": ["codex", "developer-tools", "preflight", "safety"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "PromptTripwire",
+    "shortDescription": "Preflight a Codex task before implementation.",
+    "longDescription": "Explicitly run the existing PromptTripwire CLI, wait for human contract decisions, and report isolated execution results.",
+    "developerName": "PromptTripwire contributors",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Interactive"],
+    "defaultPrompt": "Use PromptTripwire preflight for this task before implementing anything."
+  }
+}

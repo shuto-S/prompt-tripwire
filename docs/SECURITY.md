@@ -126,6 +126,24 @@ P0 does not enable runtime experimental APIs, granular approval, or permission p
 
 The implemented CLI starts one server on `127.0.0.1` with an OS-assigned port and a 256-bit random capability. The capability is displayed once in the local URL fragment, never persisted or written to structured logs, removed from the browser address after bootstrap, hashed before server comparison, and sent thereafter only in the authorization header. Native `EventSource` is intentionally not used because it cannot attach that header. The server scopes the capability to one run, validates the exact Host and Origin, requires idempotency and expected-version headers on writes, caps JSON bodies, and serves only the bundled static root. Browser E2E verifies missing/invalid-token rejection, cross-origin mutation rejection, same-origin-only assets, no high-impact default, keyboard-only review/approval/cancel, bounded cards, and assistive-technology state text.
 
+## 8.1 Codex Plugin adapter
+
+The repo-scoped Plugin is an untrusted caller of the existing local CLI. Its
+Skill is explicit-only and does not expose an approval tool, select a decision,
+or implement a second policy engine. It passes the task through a mode-0600
+the existing CLI argument when requested over standard input, invokes the runtime
+without a shell, redacts secret-like output, and returns only the CLI's compact status or
+sanitized report. The target checkout is inspected by the existing
+`tripwire inspect` path and is never modified by the adapter.
+
+The adapter requires macOS arm64, the pinned `tripwire` runtime, and a logged-in
+Codex CLI. It does not read or require `OPENAI_API_KEY`. A deterministic
+`PROMPT_TRIPWIRE_PLUGIN_REENTRY=1` environment flag is propagated into the
+PromptTripwire child process; any Plugin invocation under that flag fails with
+`REENTRY_BLOCKED`. Missing runtime/login, unsupported platform, stale/dirty
+choices, and other CLI failures remain fail-closed. V1 adds no hook, MCP server,
+hosted backend, or remote write authority.
+
 ## 9. Contract and approval integrity
 
 - Every decision has a stable ID and expected run state.

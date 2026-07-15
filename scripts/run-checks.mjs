@@ -16,6 +16,7 @@ const checks = [
   "check:schema",
   "check:licenses",
   "check:security",
+  "check:plugin",
   "check:traceability",
   "check:submission",
 ];
