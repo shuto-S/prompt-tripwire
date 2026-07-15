@@ -115,7 +115,7 @@ Keep full-plan comparisons, setup narration, and secondary features out of the v
 
 - [x] Apache-2.0 selected as the project license for the public repository.
 - [x] README includes installation, supported platforms, test instructions, architecture summary, and Codex collaboration.
-- [ ] Private repository shared with both required judging addresses, or public repository verified.
+- [x] Public repository verified anonymously; `v0.1.0` Release and macOS arm64 artifact are reachable without authentication.
 - [x] Dated commits distinguish specification, implementation, and submission work.
 - [x] Dependency licenses and third-party assets reviewed.
 - [x] No secrets in Git history.
@@ -140,9 +140,10 @@ Keep full-plan comparisons, setup narration, and secondary features out of the v
 
 ## 9. Remaining submission actions
 
-- Publish and anonymously verify the selected public Apache-2.0 repository and `v0.1.0` GitHub Release.
 - Formal `/feedback` Session ID from the retained primary Codex task.
 - Public YouTube demo and owned submission media.
 - Final Devpost save/submit.
+
+Publication evidence (2026-07-15 JST): repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0, release `v0.1.0` is live, and the unauthenticated release asset SHA-256 is `fbff8b060d6309d151f5ffdf66fc2c76abf2ebe39da4122195bba2c801856b98`.
 
 These do not block the product specification or local release candidate, but they must be closed before external publication and final submission.
