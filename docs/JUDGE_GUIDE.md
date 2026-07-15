@@ -32,19 +32,51 @@ cd prompt-tripwire-v0.1.0-macos-arm64
 ./bin/tripwire --help
 ```
 
-The archive runs in place. Optional user-local installation is one command and requires no `sudo`:
+The shortest user-local setup installs the runtime and Codex Plugin together
+and requires no `sudo`:
 
 ```sh
-./install.sh
+./install.sh --with-codex-plugin
+codex plugin list --json
 ```
 
-The default prefix is `~/.local`. Add `~/.local/bin` to `PATH` if it is not already present. To uninstall:
+The installed display name is `PromptTripwire`; its Skill name is
+`prompt-tripwire:preflight`. In a new Codex task, invoke it explicitly:
+
+```text
+Use prompt-tripwire:preflight before implementing this task.
+```
+
+The default runtime and marketplace root is
+`~/.local/lib/prompt-tripwire/0.1.0`. The marketplace retains the relative
+`./plugins/prompt-tripwire` source. The installer verifies macOS arm64, Node.js,
+Git, Codex 0.144.4, and the existing login; it never runs inspect, decisions,
+approval, or implementation. It does not require `OPENAI_API_KEY`.
+
+Plain `./install.sh` remains runtime-only and does not register a Codex Plugin.
+Add `~/.local/bin` to `PATH` if using the runtime directly. To remove the
+Plugin, its owned marketplace registration, and runtime together:
 
 ```sh
-~/.local/lib/prompt-tripwire/0.1.0/uninstall.sh
+~/.local/lib/prompt-tripwire/0.1.0/uninstall.sh --with-codex-plugin
 ```
 
-Set `PROMPT_TRIPWIRE_PREFIX` for both commands to use another user-owned prefix.
+The targeted uninstall leaves every other Plugin and marketplace untouched and
+is safe when PromptTripwire is already absent. Set `PROMPT_TRIPWIRE_PREFIX` for
+both commands to use another user-owned prefix.
+
+For a Git-marketplace fallback, first keep the artifact's `tripwire` launcher
+on `PATH` or set `PROMPT_TRIPWIRE_BIN`, then run:
+
+```sh
+codex plugin marketplace add shuto-S/prompt-tripwire --ref main
+codex plugin add prompt-tripwire@prompt-tripwire-local
+codex plugin list --marketplace prompt-tripwire-local
+```
+
+The Skill always stops for human Decision Inbox choices and explicit contract
+approval. Neither the installer nor the calling Codex task may approve on the
+user's behalf.
 
 ## Thirty-second recorded UI fallback
 
@@ -128,6 +160,8 @@ The report should contain the contract hash, Codex/App Server identifiers, obser
 - Login/usage error: run `codex login status`, sign in with the normal Codex flow if needed, and retry. Do not add an API key specifically for PromptTripwire.
 - Recorded replay works but live inspection fails: replay is only a UI fallback; report the live failure rather than presenting replay as integration evidence.
 - Unsupported OS/CPU: this Build Week artifact is macOS arm64 only.
+- `CODEX_LOGIN_REQUIRED`: sign in through the normal `codex login` flow; do not create an API key for PromptTripwire.
+- `RUNTIME_MISSING`: use the complete release directory; do not copy only `install.sh` away from its payload.
 
 ## Source-repository verification
 

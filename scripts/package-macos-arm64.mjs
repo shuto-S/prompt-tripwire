@@ -102,6 +102,20 @@ for (const [source, destination] of [
 }
 cpSync(join(root, "docs"), join(stagingRoot, "docs"), { recursive: true });
 copyFile(join(root, "LICENSE"), join(stagingRoot, "LICENSE"));
+copyFile(
+  join(root, ".agents", "plugins", "marketplace.json"),
+  join(stagingRoot, ".agents", "plugins", "marketplace.json"),
+);
+for (const relativePath of [
+  ".codex-plugin/plugin.json",
+  "skills/preflight/SKILL.md",
+  "skills/preflight/scripts/run_preflight.mjs",
+]) {
+  copyFile(
+    join(root, "plugins", "prompt-tripwire", relativePath),
+    join(stagingRoot, "plugins", "prompt-tripwire", relativePath),
+  );
+}
 
 const resolveRoot = `SCRIPT="$0"
 while [ -L "$SCRIPT" ]; do
@@ -158,44 +172,12 @@ printf '%s\n' "$DEST"
 `,
 );
 
-writeExecutable(
-  join(stagingRoot, "install.sh"),
-  `#!/bin/sh
-set -eu
-ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-PREFIX=\${PROMPT_TRIPWIRE_PREFIX:-"$HOME/.local"}
-DEST="$PREFIX/lib/prompt-tripwire/${version}"
-BIN="$PREFIX/bin"
-if [ -e "$DEST" ]; then
-  echo "PromptTripwire ${version} is already installed at $DEST" >&2
-  exit 1
-fi
-if [ -e "$BIN/tripwire" ] || [ -L "$BIN/tripwire" ] || [ -e "$BIN/tripwire-create-fixture" ] || [ -L "$BIN/tripwire-create-fixture" ]; then
-  echo "An existing PromptTripwire launcher is present in $BIN" >&2
-  exit 1
-fi
-mkdir -p "$DEST" "$BIN"
-cp -R "$ROOT/bin" "$ROOT/payload" "$ROOT/judge" "$ROOT/docs" "$DEST/"
-cp "$ROOT/README.md" "$ROOT/JUDGE_GUIDE.md" "$ROOT/SECURITY.md" "$ROOT/THIRD_PARTY_NOTICES.md" "$ROOT/RELEASE_NOTES.md" "$ROOT/LICENSE" "$DEST/"
-cp "$ROOT/uninstall.sh" "$DEST/uninstall.sh"
-ln -s "$DEST/bin/tripwire" "$BIN/tripwire"
-ln -s "$DEST/bin/create-judge-fixture" "$BIN/tripwire-create-fixture"
-printf 'Installed PromptTripwire ${version}. Add %s to PATH if needed.\n' "$BIN"
-`,
-);
-writeExecutable(
-  join(stagingRoot, "uninstall.sh"),
-  `#!/bin/sh
-set -eu
-PREFIX=\${PROMPT_TRIPWIRE_PREFIX:-"$HOME/.local"}
-DEST="$PREFIX/lib/prompt-tripwire/${version}"
-BIN="$PREFIX/bin"
-if [ -L "$BIN/tripwire" ] && [ "$(readlink "$BIN/tripwire")" = "$DEST/bin/tripwire" ]; then rm "$BIN/tripwire"; fi
-if [ -L "$BIN/tripwire-create-fixture" ] && [ "$(readlink "$BIN/tripwire-create-fixture")" = "$DEST/bin/create-judge-fixture" ]; then rm "$BIN/tripwire-create-fixture"; fi
-rm -rf "$DEST"
-printf 'Removed PromptTripwire ${version}.\n'
-`,
-);
+for (const name of ["install.sh", "uninstall.sh"]) {
+  const template = readFileSync(join(root, "scripts", "distribution", name), "utf8");
+  const content = template.replaceAll("__PROMPT_TRIPWIRE_VERSION__", version);
+  assert.ok(!content.includes("__PROMPT_TRIPWIRE_VERSION__"), `${name} version was not rendered`);
+  writeExecutable(join(stagingRoot, name), content);
+}
 
 const manifest = {
   name: "PromptTripwire",
@@ -206,6 +188,9 @@ const manifest = {
   minimumNode: "24.15.0",
   requiredCodexCli: "0.144.4",
   authentication: "existing Codex CLI login; no separate OPENAI_API_KEY",
+  codexPlugin: "prompt-tripwire@prompt-tripwire-local",
+  codexSkill: "prompt-tripwire:preflight",
+  unifiedInstaller: "./install.sh --with-codex-plugin",
   planningModel: "gpt-5.6-sol / low",
   comparatorModel: "gpt-5.6-terra / low",
   projectLicense: "Apache-2.0 (see LICENSE)",

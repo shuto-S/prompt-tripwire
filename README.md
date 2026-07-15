@@ -65,7 +65,8 @@ Prerequisites are Node.js 24.15+, npm 11+, Git, and an already authenticated `co
 shasum -a 256 -c SHA256SUMS.txt
 tar -xzf prompt-tripwire-v0.1.0-macos-arm64.tar.gz
 cd prompt-tripwire-v0.1.0-macos-arm64
-./bin/tripwire --help
+./install.sh --with-codex-plugin
+codex plugin list --json
 ./bin/tripwire replay --terminal
 ```
 
@@ -122,29 +123,64 @@ under the `prompt-tripwire` plugin namespace. V1 has no automatic hook and no
 MCP server: the Skill delegates to the existing `tripwire` CLI and never copies
 policy, contract, worktree, or report logic.
 
-Install it from this checkout:
+The shortest supported installation starts from the unpacked macOS arm64
+release artifact and installs both the runtime and Plugin without `sudo`:
 
 ```sh
-codex plugin marketplace add .
+./install.sh --with-codex-plugin
+codex plugin list --json
+```
+
+This requires macOS arm64, Node.js 24.15+, Git, exactly `codex-cli 0.144.4`,
+and an existing `codex login` session. It does not require or read
+`OPENAI_API_KEY`. The default install and marketplace root is
+`~/.local/lib/prompt-tripwire/0.1.0`; the installer keeps the marketplace source
+as `./plugins/prompt-tripwire`, registers `prompt-tripwire-local`, installs and
+enables `prompt-tripwire@prompt-tripwire-local`, and is safe to rerun. It does
+not start inspect, select a decision, approve a contract, or run implementation.
+
+Plain `./install.sh` preserves the runtime-only installation path and makes no
+Codex Plugin changes. For a custom user-local root, set
+`PROMPT_TRIPWIRE_PREFIX` consistently for install and uninstall.
+
+Codex displays the Plugin as `PromptTripwire`; the callable Skill is
+`prompt-tripwire:preflight`. Start a new Codex task and say:
+
+```text
+Use prompt-tripwire:preflight before implementing this task.
+```
+
+The Skill runs a terminal `tripwire inspect`, returns the run summary, and
+stops at the existing Decision Inbox when human choices are needed. It never
+calls `approve` or selects a decision. After the user approves in the Decision
+Inbox, the Skill can delegate `tripwire run` and `tripwire report`; execution
+remains in PromptTripwire's disposable worktree.
+
+Remove the bundled Plugin and runtime together with:
+
+```sh
+~/.local/lib/prompt-tripwire/0.1.0/uninstall.sh --with-codex-plugin
+```
+
+This removes only `prompt-tripwire@prompt-tripwire-local`, removes the
+`prompt-tripwire-local` marketplace only when it still points to this install,
+and leaves every other Plugin and marketplace untouched. It is safe to rerun
+from the unpacked artifact's `./uninstall.sh --with-codex-plugin` if the
+versioned installed script is already gone.
+
+As a Git-marketplace fallback for development or when using the archive in
+place, keep a working `tripwire` launcher on `PATH` (or set
+`PROMPT_TRIPWIRE_BIN`) and run:
+
+```sh
+codex plugin marketplace add shuto-S/prompt-tripwire --ref main
 codex plugin add prompt-tripwire@prompt-tripwire-local
 codex plugin list --marketplace prompt-tripwire-local
 ```
 
-In a new Codex task, explicitly say “Use the PromptTripwire preflight Skill
-before implementing this task.” The Skill runs a terminal `tripwire inspect`,
-returns the run summary, and stops at the existing Decision Inbox when human
-choices are needed. It never calls `approve` or selects a decision. After the
-user approves in the Decision Inbox, the Skill can delegate `tripwire run` and
-`tripwire report`; execution remains in PromptTripwire's disposable worktree.
-
-The Plugin does not bundle a second runtime or credential path. It requires the
-existing macOS arm64 `tripwire` launcher from the release artifact on `PATH`
-(or an explicit `PROMPT_TRIPWIRE_BIN` path), Node 24.15+, Git, and a logged-in
-`codex-cli 0.144.4`. `OPENAI_API_KEY` is not required. Unsupported platforms,
-missing runtime/login, dirty checkouts, and re-entry from an execution thread
-fail closed with an actionable error. Remove it with `codex plugin remove
-prompt-tripwire@prompt-tripwire-local`; removing the marketplace source is
-optional: `codex plugin marketplace remove prompt-tripwire-local`.
+The Plugin does not bundle a second runtime or credential path. Unsupported
+platforms, missing runtime/login, dirty checkouts, and re-entry from an
+execution thread fail closed with an actionable error.
 
 Use `tripwire review RUN_ID --terminal` for the terminal fallback. Both interfaces require expected run versions and idempotency keys for mutations, and execution remains disabled until every blocker is resolved and the content-addressed contract is explicitly approved.
 

@@ -3,7 +3,8 @@
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { closeSync, mkdtempSync, openSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export const REQUIRED_CODEX_VERSION = "0.144.4";
 export const REQUIRED_TRIPWIRE_VERSION = "0.1.0";
@@ -45,7 +46,15 @@ export function assertSupportedPlatform(platform = process.platform, arch = proc
   }
 }
 
-function commandOutput(command, args) {
+function commandOutput(
+  command,
+  args,
+  {
+    notFoundCode = "RUNTIME_NOT_FOUND",
+    failureCode = "RUNTIME_VERSION_CHECK_FAILED",
+    failureMessage = "required executable is unavailable or returned an invalid response",
+  } = {},
+) {
   try {
     return execFileSync(command, args, {
       encoding: "utf8",
@@ -53,8 +62,8 @@ function commandOutput(command, args) {
       windowsHide: true,
     });
   } catch (error) {
-    const code = error?.code === "ENOENT" ? "RUNTIME_NOT_FOUND" : "RUNTIME_VERSION_CHECK_FAILED";
-    throw new PluginError(code, `${command} is unavailable or returned an invalid response`);
+    const code = error?.code === "ENOENT" ? notFoundCode : failureCode;
+    throw new PluginError(code, failureMessage);
   }
 }
 
@@ -66,9 +75,25 @@ function executableOnPath(name) {
   }
 }
 
+function bundledRuntime() {
+  const configPath = fileURLToPath(new URL("../../../runtime.json", import.meta.url));
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync(configPath, "utf8"));
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw new PluginError("RUNTIME_CONFIG_INVALID", "installed runtime metadata is invalid");
+  }
+  const runtime = parsed?.runtime;
+  if (typeof runtime !== "string" || !isAbsolute(runtime) || runtime.includes("\0")) {
+    throw new PluginError("RUNTIME_CONFIG_INVALID", "installed runtime metadata is invalid");
+  }
+  return runtime;
+}
+
 export function resolveRuntime(env = process.env) {
   const configured = env.PROMPT_TRIPWIRE_BIN?.trim();
-  const command = configured || executableOnPath("tripwire");
+  const command = configured || bundledRuntime() || executableOnPath("tripwire");
   if (!command) {
     throw new PluginError(
       "RUNTIME_NOT_FOUND",
@@ -80,7 +105,7 @@ export function resolveRuntime(env = process.env) {
 
 export function assertRuntimeVersions(runtime, env = process.env) {
   const tripwireVersion = commandOutput(runtime, ["--version"]);
-  if (!tripwireVersion.includes(`prompt-tripwire ${REQUIRED_TRIPWIRE_VERSION}`)) {
+  if (text(tripwireVersion) !== `prompt-tripwire ${REQUIRED_TRIPWIRE_VERSION}`) {
     throw new PluginError("RUNTIME_VERSION_MISMATCH", "PromptTripwire runtime 0.1.0 is required");
   }
   const codex = env.PROMPT_TRIPWIRE_CODEX_BIN?.trim() || executableOnPath("codex");
@@ -90,11 +115,27 @@ export function assertRuntimeVersions(runtime, env = process.env) {
       `Codex CLI ${REQUIRED_CODEX_VERSION} is required; sign in with the existing Codex CLI`,
     );
   }
-  const codexVersion = commandOutput(codex, ["--version"]);
-  if (!codexVersion.includes(REQUIRED_CODEX_VERSION)) {
+  const codexVersion = commandOutput(codex, ["--version"], {
+    notFoundCode: "CODEX_NOT_FOUND",
+    failureCode: "CODEX_VERSION_CHECK_FAILED",
+    failureMessage: "Codex CLI is unavailable or returned an invalid version",
+  });
+  if (text(codexVersion) !== `codex-cli ${REQUIRED_CODEX_VERSION}`) {
     throw new PluginError(
       "CODEX_VERSION_MISMATCH",
       `Codex CLI ${REQUIRED_CODEX_VERSION} is required`,
+    );
+  }
+  try {
+    execFileSync(codex, ["login", "status"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    });
+  } catch {
+    throw new PluginError(
+      "CODEX_LOGIN_REQUIRED",
+      "sign in with the normal Codex CLI login flow before running PromptTripwire",
     );
   }
 }

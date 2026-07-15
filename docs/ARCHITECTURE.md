@@ -111,10 +111,13 @@ runtime, and the existing Codex CLI login before delegation, and propagates a
 deterministic re-entry environment flag to child PromptTripwire processes.
 
 V1 deliberately does not add hooks, MCP, a hosted service, npm distribution,
-or a second bundled runtime. The runtime is the existing relocatable release
-launcher on `PATH`, with `PROMPT_TRIPWIRE_BIN` as an explicit local override.
-This keeps the CLI, policy, contract, containment, and report paths as the
-source of truth.
+or a second runtime. The macOS archive co-distributes the adapter beside the
+existing relocatable release runtime. Its optional installer mode places the
+marketplace and Plugin under the versioned user-local runtime root, generates a
+private pointer to that one launcher for the installed Plugin copy, and then
+uses the Codex CLI's normal marketplace/plugin commands. `PATH` and
+`PROMPT_TRIPWIRE_BIN` remain fallbacks for repo/Git installs. This keeps the
+CLI, policy, contract, containment, and report paths as the source of truth.
 
 ## 4. Codex protocol use
 
@@ -318,7 +321,7 @@ docs/
 
 The domain and policy packages must not import UI, process-spawning, filesystem, or network modules.
 
-The macOS arm64 release archive materializes only compiled PromptTripwire JavaScript, bundled UI assets, and the four third-party runtime packages required by those outputs. Workspace symlinks and development dependencies are not required at judge runtime. A shell launcher checks platform and Node version before starting the compiled CLI; the CLI retains the exact Codex/schema compatibility gate.
+The macOS arm64 release archive materializes only compiled PromptTripwire JavaScript, bundled UI assets, the four third-party runtime packages required by those outputs, and the thin Skill/marketplace adapter. Workspace symlinks and development dependencies are not required at judge runtime. A shell launcher checks platform and Node version before starting the compiled CLI; the CLI retains the exact Codex/schema compatibility gate. Plain `install.sh` remains runtime-only. `install.sh --with-codex-plugin` additionally verifies Git, Codex 0.144.4, and its existing login before registering the versioned install root as `prompt-tripwire-local`; it never invokes product workflow commands.
 
 ## 13. Implementation sequence
 
