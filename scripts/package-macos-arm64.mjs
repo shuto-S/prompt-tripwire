@@ -101,8 +101,7 @@ for (const [source, destination] of [
   copyFile(join(root, source), join(stagingRoot, destination));
 }
 cpSync(join(root, "docs"), join(stagingRoot, "docs"), { recursive: true });
-if (existsSync(join(root, "LICENSE")))
-  copyFile(join(root, "LICENSE"), join(stagingRoot, "LICENSE"));
+copyFile(join(root, "LICENSE"), join(stagingRoot, "LICENSE"));
 
 const resolveRoot = `SCRIPT="$0"
 while [ -L "$SCRIPT" ]; do
@@ -177,8 +176,7 @@ if [ -e "$BIN/tripwire" ] || [ -L "$BIN/tripwire" ] || [ -e "$BIN/tripwire-creat
 fi
 mkdir -p "$DEST" "$BIN"
 cp -R "$ROOT/bin" "$ROOT/payload" "$ROOT/judge" "$ROOT/docs" "$DEST/"
-cp "$ROOT/README.md" "$ROOT/JUDGE_GUIDE.md" "$ROOT/SECURITY.md" "$ROOT/THIRD_PARTY_NOTICES.md" "$ROOT/RELEASE_NOTES.md" "$DEST/"
-if [ -f "$ROOT/LICENSE" ]; then cp "$ROOT/LICENSE" "$DEST/LICENSE"; fi
+cp "$ROOT/README.md" "$ROOT/JUDGE_GUIDE.md" "$ROOT/SECURITY.md" "$ROOT/THIRD_PARTY_NOTICES.md" "$ROOT/RELEASE_NOTES.md" "$ROOT/LICENSE" "$DEST/"
 cp "$ROOT/uninstall.sh" "$DEST/uninstall.sh"
 ln -s "$DEST/bin/tripwire" "$BIN/tripwire"
 ln -s "$DEST/bin/create-judge-fixture" "$BIN/tripwire-create-fixture"
@@ -210,9 +208,7 @@ const manifest = {
   authentication: "existing Codex CLI login; no separate OPENAI_API_KEY",
   planningModel: "gpt-5.6-sol / low",
   comparatorModel: "gpt-5.6-terra / low",
-  projectLicense: existsSync(join(root, "LICENSE"))
-    ? "see LICENSE"
-    : "pending repository route decision",
+  projectLicense: "Apache-2.0 (see LICENSE)",
 };
 writeFileSync(join(stagingRoot, "release-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 

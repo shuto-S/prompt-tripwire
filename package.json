@@ -2,6 +2,7 @@
   "name": "prompt-tripwire",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "description": "Local-first preflight and execution gate for Codex",
   "type": "module",
   "workspaces": [

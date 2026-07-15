@@ -38,4 +38,4 @@ Verify the checksum, unpack the archive, and follow `JUDGE_GUIDE.md`. The archiv
 
 The compiled archive completed the full safe-fixture flow on 2026-07-15 using the existing Codex CLI ChatGPT login with `OPENAI_API_KEY` and `CODEX_API_KEY` unset. Sanitized evidence is included at `fixtures/app-server/judge-live-2026-07-15.json` in the source repository.
 
-Repository visibility, project license, GitHub Release publication, and judge access are finalized only after explicit user confirmation.
+PromptTripwire source is licensed under Apache-2.0. The public repository and this `v0.1.0` release provide the judge access route.

@@ -156,6 +156,10 @@ Concrete outcomes include:
 
 The exact baseline is `codex-cli 0.144.4`, `gpt-5.6-sol`/low for planning, and `gpt-5.6-terra`/low for comparison. The full accepted/changed/rejected record, dated commits from `39a32d7` through `dc77c15`, live evidence links, and the formal `/feedback` retrieval rule are in [docs/CODEX_COLLABORATION.md](docs/CODEX_COLLABORATION.md). The `/feedback` Session ID is intentionally not replaced by a local task UUID or committed to source; it must be copied from the primary Codex task into the Devpost field.
 
+## License
+
+PromptTripwire is licensed under the [Apache License 2.0](LICENSE).
+
 ## Status
 
-Specification baseline: 2026-07-15. App Server hard gate, three-real-probe smoke, tool-free App Server Sol/Terra comparison, live compliant execution, full P0 traceability, macOS secret scan, seven specification fixtures, recorded replay, and the judge archive verification are covered by executable gates. No separate OpenAI API credential is required. The repository is currently private and has no project license; public + Apache-2.0 versus private + judge sharing is the remaining distribution decision. Video creation/upload and Devpost save/final submit remain intentionally outside this preparation work.
+Specification baseline: 2026-07-15. App Server hard gate, three-real-probe smoke, tool-free App Server Sol/Terra comparison, live compliant execution, full P0 traceability, macOS secret scan, seven specification fixtures, recorded replay, and the judge archive verification are covered by executable gates. No separate OpenAI API credential is required. The selected Build Week distribution route is a public Apache-2.0 repository with a `v0.1.0` GitHub Release. Video creation/upload and Devpost save/final submit remain intentionally outside this preparation work.

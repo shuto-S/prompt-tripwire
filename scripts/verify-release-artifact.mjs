@@ -36,6 +36,14 @@ try {
   const entries = readdirSync(root);
   assert.equal(entries.length, 1, "archive must contain one top-level directory");
   const distribution = join(root, entries[0]);
+  assert.match(
+    readFileSync(join(distribution, "LICENSE"), "utf8"),
+    /Apache License\s+Version 2\.0, January 2004/u,
+  );
+  assert.equal(
+    JSON.parse(readFileSync(join(distribution, "release-manifest.json"), "utf8")).projectLicense,
+    "Apache-2.0 (see LICENSE)",
+  );
   assert.match(run(join(distribution, "bin", "tripwire"), ["--version"]), /0\.1\.0/u);
   assert.match(run(join(distribution, "bin", "tripwire"), ["--help"]), /tripwire inspect/u);
   assert.match(
@@ -52,6 +60,10 @@ try {
   const installEnv = { ...process.env, PROMPT_TRIPWIRE_PREFIX: installedPrefix };
   run(join(distribution, "install.sh"), [], { env: installEnv });
   assert.match(run(join(installedPrefix, "bin", "tripwire"), ["--version"]), /0\.1\.0/u);
+  assert.match(
+    readFileSync(join(installedPrefix, "lib", "prompt-tripwire", "0.1.0", "LICENSE"), "utf8"),
+    /Apache License\s+Version 2\.0, January 2004/u,
+  );
   run(join(installedPrefix, "lib", "prompt-tripwire", "0.1.0", "uninstall.sh"), [], {
     env: installEnv,
   });
