@@ -26,8 +26,8 @@ Place the `.tar.gz` and `SHA256SUMS.txt` files in the same directory, then run:
 
 ```sh
 shasum -a 256 -c SHA256SUMS.txt
-tar -xzf prompt-tripwire-v0.1.0-macos-arm64.tar.gz
-cd prompt-tripwire-v0.1.0-macos-arm64
+tar -xzf prompt-tripwire-v0.1.1-macos-arm64.tar.gz
+cd prompt-tripwire-v0.1.1-macos-arm64
 ./bin/tripwire --version
 ./bin/tripwire --help
 ```
@@ -48,17 +48,19 @@ Use prompt-tripwire:preflight before implementing this task.
 ```
 
 The default runtime and marketplace root is
-`~/.local/lib/prompt-tripwire/0.1.0`. The marketplace retains the relative
+`~/.local/lib/prompt-tripwire/0.1.1`. The marketplace retains the relative
 `./plugins/prompt-tripwire` source. The installer verifies macOS arm64, Node.js,
 Git, Codex 0.144.4, and the existing login; it never runs inspect, decisions,
 approval, or implementation. It does not require `OPENAI_API_KEY`.
+An upgrade in the same prefix repoints only launchers owned by a verified older
+PromptTripwire install and rejects unrelated files or symlinks.
 
 Plain `./install.sh` remains runtime-only and does not register a Codex Plugin.
 Add `~/.local/bin` to `PATH` if using the runtime directly. To remove the
 Plugin, its owned marketplace registration, and runtime together:
 
 ```sh
-~/.local/lib/prompt-tripwire/0.1.0/uninstall.sh --with-codex-plugin
+~/.local/lib/prompt-tripwire/0.1.1/uninstall.sh --with-codex-plugin
 ```
 
 The targeted uninstall leaves every other Plugin and marketplace untouched and

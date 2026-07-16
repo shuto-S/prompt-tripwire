@@ -13,6 +13,7 @@ const allowedEmails = new Set([
   "fixture@example.invalid",
   "fixture@example.test",
   "support@devpost.com",
+  "test@example.invalid",
   "testing@devpost.com",
 ]);
 const patterns = [

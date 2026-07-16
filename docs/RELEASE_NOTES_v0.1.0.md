@@ -10,7 +10,8 @@ Build Week judge release candidate for macOS arm64.
 - Immutable snapshot-bound execution contracts.
 - Disposable-worktree execution, approval correlation, deviation interruption, real required checks, and sanitized reports.
 - Existing Codex CLI login; no separate `OPENAI_API_KEY`.
-- Compiled JavaScript/runtime archive with runtime-only and one-command runtime-plus-Plugin install/uninstall, dependency-free judge fixture, and recorded read-only replay.
+- Compiled JavaScript/runtime archive with runtime-only install/uninstall,
+  dependency-free judge fixture, and recorded read-only replay.
 
 ## Requirements
 
@@ -39,3 +40,6 @@ Verify the checksum, unpack the archive, and follow `JUDGE_GUIDE.md`. The archiv
 The compiled archive completed the full safe-fixture flow on 2026-07-15 using the existing Codex CLI ChatGPT login with `OPENAI_API_KEY` and `CODEX_API_KEY` unset. Sanitized evidence is included at `fixtures/app-server/judge-live-2026-07-15.json` in the source repository.
 
 PromptTripwire source is licensed under Apache-2.0. The public repository and this `v0.1.0` release provide the judge access route.
+
+The later v0.1.1 release is the first artifact to bundle the Codex Plugin and
+the `install.sh --with-codex-plugin` installation path.

@@ -96,7 +96,7 @@ for (const [source, destination] of [
   ["docs/JUDGE_GUIDE.md", "JUDGE_GUIDE.md"],
   ["docs/SECURITY.md", "SECURITY.md"],
   ["docs/DEPENDENCIES.md", "THIRD_PARTY_NOTICES.md"],
-  ["docs/RELEASE_NOTES_v0.1.0.md", "RELEASE_NOTES.md"],
+  [`docs/RELEASE_NOTES_v${version}.md`, "RELEASE_NOTES.md"],
 ]) {
   copyFile(join(root, source), join(stagingRoot, destination));
 }
@@ -197,7 +197,7 @@ const manifest = {
 };
 writeFileSync(join(stagingRoot, "release-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 
-const releaseTimestamp = new Date("2026-07-15T00:00:00.000Z");
+const releaseTimestamp = new Date("2026-07-16T00:00:00.000Z");
 function normalizeTimestamps(path) {
   if (statSync(path).isDirectory()) {
     for (const entry of readdirSync(path).sort()) normalizeTimestamps(join(path, entry));

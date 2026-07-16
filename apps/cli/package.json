@@ -1,6 +1,6 @@
 {
   "name": "@prompt-tripwire/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "bin": {
@@ -11,11 +11,11 @@
     "dist"
   ],
   "dependencies": {
-    "@prompt-tripwire/contract-runtime": "0.1.0",
-    "@prompt-tripwire/controller": "0.1.0",
-    "@prompt-tripwire/domain": "0.1.0",
-    "@prompt-tripwire/git-snapshot": "0.1.0",
-    "@prompt-tripwire/persistence": "0.1.0",
-    "@prompt-tripwire/ui": "0.1.0"
+    "@prompt-tripwire/contract-runtime": "0.1.1",
+    "@prompt-tripwire/controller": "0.1.1",
+    "@prompt-tripwire/domain": "0.1.1",
+    "@prompt-tripwire/git-snapshot": "0.1.1",
+    "@prompt-tripwire/persistence": "0.1.1",
+    "@prompt-tripwire/ui": "0.1.1"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@prompt-tripwire/contract-runtime",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "exports": "./dist/index.js",
@@ -8,10 +8,10 @@
     "dist"
   ],
   "dependencies": {
-    "@prompt-tripwire/codex-app-server": "0.1.0",
-    "@prompt-tripwire/domain": "0.1.0",
-    "@prompt-tripwire/git-snapshot": "0.1.0",
-    "@prompt-tripwire/persistence": "0.1.0",
-    "@prompt-tripwire/policy": "0.1.0"
+    "@prompt-tripwire/codex-app-server": "0.1.1",
+    "@prompt-tripwire/domain": "0.1.1",
+    "@prompt-tripwire/git-snapshot": "0.1.1",
+    "@prompt-tripwire/persistence": "0.1.1",
+    "@prompt-tripwire/policy": "0.1.1"
   }
 }

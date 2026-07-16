@@ -10,7 +10,7 @@ This file prepares the English submission fields. It is not a saved or final Dev
 - **Repository URL:** `https://github.com/shuto-S/prompt-tripwire`
 - **Repository access:** Public, Apache-2.0
 - **Supported platform:** macOS arm64
-- **Release artifact:** `https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.0`
+- **Release artifact:** `https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.1`
 - **Demo video:** `<PENDING: public YouTube URL, audio, under 3 minutes>`
 - **Codex /feedback Session ID:** `<PENDING: paste the formal Session ID captured outside source into Devpost>`
 

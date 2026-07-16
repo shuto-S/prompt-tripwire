@@ -66,7 +66,7 @@ function snapshot(repositoryPath) {
     task: "Implement the fixture change",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.0",
+    promptTripwireVersion: "0.1.1",
     createdAt: "2026-07-14T00:00:00.000Z",
   });
 }
@@ -529,7 +529,7 @@ async function createPreparedRepository() {
     task: "Implement the fixture change",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.0",
+    promptTripwireVersion: "0.1.1",
     effectiveConfig: { probeCount: 3 },
     createdAt: "2026-07-14T00:00:00.000Z",
   });

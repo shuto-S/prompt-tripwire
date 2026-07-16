@@ -74,16 +74,41 @@ if [ -e "$DEST" ] || [ -L "$DEST" ]; then
   [ "$INSTALLED_VERSION" = "prompt-tripwire $VERSION" ] ||
     fail "RUNTIME_INSTALL_CONFLICT: a different runtime version is installed."
 else
-  for launcher in "$BIN/tripwire" "$BIN/tripwire-create-fixture"
-  do
-    [ ! -e "$launcher" ] && [ ! -L "$launcher" ] ||
-      fail "RUNTIME_INSTALL_CONFLICT: an existing PromptTripwire launcher is present."
-  done
+  UPGRADE_OLD_DEST=""
+  if [ -e "$BIN/tripwire" ] || [ -L "$BIN/tripwire" ] ||
+    [ -e "$BIN/tripwire-create-fixture" ] || [ -L "$BIN/tripwire-create-fixture" ]
+  then
+    [ -L "$BIN/tripwire" ] && [ -L "$BIN/tripwire-create-fixture" ] ||
+      fail "RUNTIME_INSTALL_CONFLICT: an existing launcher is not owned by PromptTripwire."
+    TRIPWIRE_TARGET=$(readlink "$BIN/tripwire")
+    FIXTURE_TARGET=$(readlink "$BIN/tripwire-create-fixture")
+    UPGRADE_OLD_DEST=${TRIPWIRE_TARGET%/bin/tripwire}
+    case "$UPGRADE_OLD_DEST" in
+      "$PREFIX"/lib/prompt-tripwire/*) ;;
+      *) fail "RUNTIME_INSTALL_CONFLICT: an existing launcher is not owned by PromptTripwire." ;;
+    esac
+    [ "$TRIPWIRE_TARGET" = "$UPGRADE_OLD_DEST/bin/tripwire" ] &&
+      [ "$FIXTURE_TARGET" = "$UPGRADE_OLD_DEST/bin/create-judge-fixture" ] &&
+      [ "$UPGRADE_OLD_DEST" != "$DEST" ] &&
+      [ -d "$UPGRADE_OLD_DEST" ] && [ ! -L "$UPGRADE_OLD_DEST" ] &&
+      [ -x "$UPGRADE_OLD_DEST/bin/tripwire" ] ||
+      fail "RUNTIME_INSTALL_CONFLICT: the existing PromptTripwire install could not be verified."
+    UPGRADE_OLD_VERSION=$(
+      "$UPGRADE_OLD_DEST/bin/tripwire" --version 2>/dev/null
+    ) || fail "RUNTIME_INSTALL_CONFLICT: the existing PromptTripwire runtime could not be verified."
+    case "$UPGRADE_OLD_VERSION" in
+      "prompt-tripwire "*) ;;
+      *) fail "RUNTIME_INSTALL_CONFLICT: the existing PromptTripwire runtime could not be verified." ;;
+    esac
+  fi
   mkdir -p "$DEST" "$BIN"
   cp -R "$ROOT/bin" "$ROOT/payload" "$ROOT/judge" "$ROOT/docs" "$DEST/"
   cp "$ROOT/README.md" "$ROOT/JUDGE_GUIDE.md" "$ROOT/SECURITY.md" \
     "$ROOT/THIRD_PARTY_NOTICES.md" "$ROOT/RELEASE_NOTES.md" "$ROOT/LICENSE" "$DEST/"
   cp "$ROOT/uninstall.sh" "$DEST/uninstall.sh"
+  if [ -n "$UPGRADE_OLD_DEST" ]; then
+    rm "$BIN/tripwire" "$BIN/tripwire-create-fixture"
+  fi
   ln -s "$DEST/bin/tripwire" "$BIN/tripwire"
   ln -s "$DEST/bin/create-judge-fixture" "$BIN/tripwire-create-fixture"
 fi

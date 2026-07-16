@@ -63,8 +63,8 @@ Prerequisites are Node.js 24.15+, npm 11+, Git, and an already authenticated `co
 
 ```sh
 shasum -a 256 -c SHA256SUMS.txt
-tar -xzf prompt-tripwire-v0.1.0-macos-arm64.tar.gz
-cd prompt-tripwire-v0.1.0-macos-arm64
+tar -xzf prompt-tripwire-v0.1.1-macos-arm64.tar.gz
+cd prompt-tripwire-v0.1.1-macos-arm64
 ./install.sh --with-codex-plugin
 codex plugin list --json
 ./bin/tripwire replay --terminal
@@ -134,10 +134,13 @@ codex plugin list --json
 This requires macOS arm64, Node.js 24.15+, Git, exactly `codex-cli 0.144.4`,
 and an existing `codex login` session. It does not require or read
 `OPENAI_API_KEY`. The default install and marketplace root is
-`~/.local/lib/prompt-tripwire/0.1.0`; the installer keeps the marketplace source
+`~/.local/lib/prompt-tripwire/0.1.1`; the installer keeps the marketplace source
 as `./plugins/prompt-tripwire`, registers `prompt-tripwire-local`, installs and
 enables `prompt-tripwire@prompt-tripwire-local`, and is safe to rerun. It does
 not start inspect, select a decision, approve a contract, or run implementation.
+When upgrading from an earlier release in the same prefix, the installer
+repoints only launchers that resolve to a verified versioned PromptTripwire
+install and rejects unrelated files or symlinks.
 
 Plain `./install.sh` preserves the runtime-only installation path and makes no
 Codex Plugin changes. For a custom user-local root, set
@@ -159,7 +162,7 @@ remains in PromptTripwire's disposable worktree.
 Remove the bundled Plugin and runtime together with:
 
 ```sh
-~/.local/lib/prompt-tripwire/0.1.0/uninstall.sh --with-codex-plugin
+~/.local/lib/prompt-tripwire/0.1.1/uninstall.sh --with-codex-plugin
 ```
 
 This removes only `prompt-tripwire@prompt-tripwire-local`, removes the
@@ -230,4 +233,4 @@ PromptTripwire is licensed under the [Apache License 2.0](LICENSE).
 
 ## Status
 
-Specification baseline: 2026-07-15. App Server hard gate, three-real-probe smoke, tool-free App Server Sol/Terra comparison, live compliant execution, full P0 traceability, macOS secret scan, seven specification fixtures, recorded replay, and the judge archive verification are covered by executable gates. No separate OpenAI API credential is required. The selected Build Week distribution route is a public Apache-2.0 repository with a `v0.1.0` GitHub Release. Video creation/upload and Devpost save/final submit remain intentionally outside this preparation work.
+Specification baseline: 2026-07-15. App Server hard gate, three-real-probe smoke, tool-free App Server Sol/Terra comparison, live compliant execution, full P0 traceability, macOS secret scan, seven specification fixtures, recorded replay, and the judge archive verification are covered by executable gates. No separate OpenAI API credential is required. The selected Build Week distribution route is a public Apache-2.0 repository with a `v0.1.1` GitHub Release. Video creation/upload and Devpost save/final submit remain intentionally outside this preparation work.
