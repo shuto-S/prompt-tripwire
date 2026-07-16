@@ -5,6 +5,7 @@ import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(".");
+const packageJsonPath = resolve("package.json");
 const pluginRoot = resolve("plugins/prompt-tripwire");
 const manifestPath = resolve(pluginRoot, ".codex-plugin/plugin.json");
 const marketplacePath = resolve(".agents/plugins/marketplace.json");
@@ -13,6 +14,7 @@ const scriptPath = resolve(pluginRoot, "skills/preflight/scripts/run_preflight.m
 const installTemplatePath = resolve("scripts/distribution/install.sh");
 const uninstallTemplatePath = resolve("scripts/distribution/uninstall.sh");
 
+const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 const marketplace = JSON.parse(readFileSync(marketplacePath, "utf8"));
 const skill = readFileSync(skillPath, "utf8");
@@ -22,6 +24,7 @@ const uninstallTemplate = readFileSync(uninstallTemplatePath, "utf8");
 
 assert.equal(manifest.name, "prompt-tripwire");
 assert.match(manifest.version, /^\d+\.\d+\.\d+(?:[-+].*)?$/u);
+assert.equal(manifest.version, packageJson.version);
 assert.equal(manifest.skills, "./skills/");
 assert.equal(manifest.interface.displayName, "PromptTripwire");
 assert.equal(manifest.interface.category, "Developer Tools");
@@ -52,6 +55,7 @@ assert.match(script, /PROMPT_TRIPWIRE_PLUGIN_REENTRY/u);
 assert.match(script, /REENTRY_BLOCKED/u);
 assert.match(script, /CODEX_LOGIN_REQUIRED/u);
 assert.match(script, /runtime\.json/u);
+assert.match(script, new RegExp(`REQUIRED_TRIPWIRE_VERSION = "${packageJson.version}"`, "u"));
 assert.match(installTemplate, /--with-codex-plugin/u);
 assert.match(installTemplate, /plugin marketplace add/u);
 assert.match(installTemplate, /plugin add "\$PLUGIN_SELECTOR"/u);

@@ -11,15 +11,23 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const archive = resolve(process.argv[2] ?? "artifacts/prompt-tripwire-v0.1.0-macos-arm64.tar.gz");
+const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+const version = String(JSON.parse(readFileSync(join(projectRoot, "package.json"), "utf8")).version);
+const versionPattern = new RegExp(version.replaceAll(".", "\\."), "u");
+const archive = resolve(
+  process.argv[2] ??
+    join(projectRoot, "artifacts", `prompt-tripwire-v${version}-macos-arm64.tar.gz`),
+);
 const sshGitRemotePrefix = ["git", "github.com:"].join("@");
 assert.ok(existsSync(archive), `artifact does not exist: ${archive}`);
 const checksums = readFileSync(join(dirname(archive), "SHA256SUMS.txt"), "utf8");
@@ -137,10 +145,11 @@ try {
     readFileSync(join(distribution, "LICENSE"), "utf8"),
     /Apache License\s+Version 2\.0, January 2004/u,
   );
-  assert.equal(
-    JSON.parse(readFileSync(join(distribution, "release-manifest.json"), "utf8")).projectLicense,
-    "Apache-2.0 (see LICENSE)",
+  const releaseManifest = JSON.parse(
+    readFileSync(join(distribution, "release-manifest.json"), "utf8"),
   );
+  assert.equal(releaseManifest.version, version);
+  assert.equal(releaseManifest.projectLicense, "Apache-2.0 (see LICENSE)");
   for (const relativePath of [
     ".agents/plugins/marketplace.json",
     "plugins/prompt-tripwire/.codex-plugin/plugin.json",
@@ -154,7 +163,7 @@ try {
       .plugins[0].source,
     { source: "local", path: "./plugins/prompt-tripwire" },
   );
-  assert.match(run(join(distribution, "bin", "tripwire"), ["--version"]), /0\.1\.0/u);
+  assert.match(run(join(distribution, "bin", "tripwire"), ["--version"]), versionPattern);
   assert.match(run(join(distribution, "bin", "tripwire"), ["--help"]), /tripwire inspect/u);
   assert.match(
     run(join(distribution, "bin", "tripwire"), ["replay", "--terminal"]),
@@ -173,12 +182,13 @@ try {
     PROMPT_TRIPWIRE_CODEX_BIN: join(root, "missing-codex"),
   };
   run(join(distribution, "install.sh"), [], { env: installEnv });
-  assert.match(run(join(installedPrefix, "bin", "tripwire"), ["--version"]), /0\.1\.0/u);
+  assert.match(run(join(installedPrefix, "bin", "tripwire"), ["--version"]), versionPattern);
+  const installedVersionRoot = join(installedPrefix, "lib", "prompt-tripwire", version);
   assert.match(
-    readFileSync(join(installedPrefix, "lib", "prompt-tripwire", "0.1.0", "LICENSE"), "utf8"),
+    readFileSync(join(installedVersionRoot, "LICENSE"), "utf8"),
     /Apache License\s+Version 2\.0, January 2004/u,
   );
-  run(join(installedPrefix, "lib", "prompt-tripwire", "0.1.0", "uninstall.sh"), [], {
+  run(join(installedVersionRoot, "uninstall.sh"), [], {
     env: installEnv,
   });
   assert.equal(existsSync(join(installedPrefix, "bin", "tripwire")), false);
@@ -186,6 +196,48 @@ try {
   const fakeBin = join(root, "fake-bin");
   const fakeState = join(root, "fake-codex-state");
   const fakeCodex = createFakeCodex(fakeBin);
+
+  const upgradePrefix = join(root, "upgrade-prefix");
+  const upgradeBin = join(upgradePrefix, "bin");
+  const oldInstalledRoot = join(upgradePrefix, "lib", "prompt-tripwire", "0.1.0");
+  mkdirSync(join(oldInstalledRoot, "bin"), { recursive: true });
+  mkdirSync(upgradeBin, { recursive: true });
+  writeExecutable(
+    join(oldInstalledRoot, "bin", "tripwire"),
+    "#!/bin/sh\nprintf '%s\\n' 'prompt-tripwire 0.1.0'\n",
+  );
+  writeExecutable(join(oldInstalledRoot, "bin", "create-judge-fixture"), "#!/bin/sh\nexit 0\n");
+  symlinkSync(join(oldInstalledRoot, "bin", "tripwire"), join(upgradeBin, "tripwire"));
+  symlinkSync(
+    join(oldInstalledRoot, "bin", "create-judge-fixture"),
+    join(upgradeBin, "tripwire-create-fixture"),
+  );
+  const upgradeState = join(root, "upgrade-codex-state");
+  mkdirSync(upgradeState);
+  writeFileSync(join(upgradeState, "marketplace-root"), oldInstalledRoot);
+  writeFileSync(join(upgradeState, "plugin-installed"), "");
+  const upgradeEnv = {
+    ...process.env,
+    OPENAI_API_KEY: "",
+    CODEX_API_KEY: "",
+    PROMPT_TRIPWIRE_PREFIX: upgradePrefix,
+    PROMPT_TRIPWIRE_CODEX_BIN: fakeCodex,
+    FAKE_CODEX_STATE: upgradeState,
+  };
+  run(join(distribution, "install.sh"), ["--with-codex-plugin"], { env: upgradeEnv });
+  const upgradedRoot = join(upgradePrefix, "lib", "prompt-tripwire", version);
+  assert.equal(readlinkSync(join(upgradeBin, "tripwire")), join(upgradedRoot, "bin", "tripwire"));
+  assert.equal(
+    readlinkSync(join(upgradeBin, "tripwire-create-fixture")),
+    join(upgradedRoot, "bin", "create-judge-fixture"),
+  );
+  assert.match(run(join(upgradeBin, "tripwire"), ["--version"]), versionPattern);
+  assert.equal(readFileSync(join(upgradeState, "marketplace-root"), "utf8"), upgradedRoot);
+  assert.ok(
+    existsSync(oldInstalledRoot),
+    "the verified prior version remains available for rollback",
+  );
+
   const oldMarketplaceRoot = join(root, "old-marketplace-root");
   mkdirSync(oldMarketplaceRoot);
   mkdirSync(fakeState);
@@ -205,7 +257,7 @@ try {
   });
   assert.match(firstInstall, /runtime and Codex Plugin/u);
   assert.doesNotMatch(firstInstall, /(?:\/Users\/|prompt-tripwire-release-)/u);
-  const installedRoot = join(pluginPrefix, "lib", "prompt-tripwire", "0.1.0");
+  const installedRoot = join(pluginPrefix, "lib", "prompt-tripwire", version);
   for (const relativePath of [
     ".agents/plugins/marketplace.json",
     "plugins/prompt-tripwire/.codex-plugin/plugin.json",

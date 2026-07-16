@@ -7,7 +7,7 @@ import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const REQUIRED_CODEX_VERSION = "0.144.4";
-export const REQUIRED_TRIPWIRE_VERSION = "0.1.0";
+export const REQUIRED_TRIPWIRE_VERSION = "0.1.1";
 export const REENTRY_ENV = "PROMPT_TRIPWIRE_PLUGIN_REENTRY";
 
 export class PluginError extends Error {
@@ -106,7 +106,7 @@ export function resolveRuntime(env = process.env) {
 export function assertRuntimeVersions(runtime, env = process.env) {
   const tripwireVersion = commandOutput(runtime, ["--version"]);
   if (text(tripwireVersion) !== `prompt-tripwire ${REQUIRED_TRIPWIRE_VERSION}`) {
-    throw new PluginError("RUNTIME_VERSION_MISMATCH", "PromptTripwire runtime 0.1.0 is required");
+    throw new PluginError("RUNTIME_VERSION_MISMATCH", "PromptTripwire runtime 0.1.1 is required");
   }
   const codex = env.PROMPT_TRIPWIRE_CODEX_BIN?.trim() || executableOnPath("codex");
   if (!codex) {

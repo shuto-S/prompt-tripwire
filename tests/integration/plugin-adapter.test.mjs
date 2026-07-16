@@ -47,7 +47,7 @@ test("plugin delegates inspect without changing the target repository", () => {
   const marker = join(root, "args.txt");
   const fake = `#!/bin/sh
 if [ "$1" = "--version" ]; then
-  printf '%s\\n' 'prompt-tripwire 0.1.0'
+  printf '%s\\n' 'prompt-tripwire 0.1.1'
   exit 0
 fi
 printf '%s' "$*" > "$MARKER"
@@ -92,7 +92,7 @@ test("plugin fails closed when Codex is not logged in", () => {
   writeFileSync(
     runtime,
     `#!/bin/sh
-if [ "$1" = "--version" ]; then printf '%s\\n' 'prompt-tripwire 0.1.0'; fi
+if [ "$1" = "--version" ]; then printf '%s\\n' 'prompt-tripwire 0.1.1'; fi
 `,
     { mode: 0o700 },
   );
@@ -119,7 +119,7 @@ test("plugin requires the exact Codex CLI version", () => {
   const root = mkdtempSync(join(tmpdir(), "prompt-tripwire-plugin-version-test-"));
   const runtime = join(root, "tripwire");
   const codex = join(root, "codex");
-  writeFileSync(runtime, "#!/bin/sh\nprintf '%s\\n' 'prompt-tripwire 0.1.0'\n", {
+  writeFileSync(runtime, "#!/bin/sh\nprintf '%s\\n' 'prompt-tripwire 0.1.1'\n", {
     mode: 0o700,
   });
   writeFileSync(codex, "#!/bin/sh\nprintf '%s\\n' 'codex-cli 0.144.40'\n", { mode: 0o700 });
