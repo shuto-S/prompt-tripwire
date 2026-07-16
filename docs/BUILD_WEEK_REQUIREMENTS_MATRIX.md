@@ -23,7 +23,7 @@ The official rules take precedence if they change. This matrix records the requi
 | README must explain Codex collaboration, acceleration, human decisions, and GPT-5.6/Codex contributions. | README summary plus the detailed accepted/changed/rejected and dated record in `docs/CODEX_COLLABORATION.md`. | Ready |
 | Provide the `/feedback` Codex Session ID for the task where most core functionality was built. | The retained primary session was uploaded through App Server `feedback/upload` on 2026-07-15 and the returned Session ID was captured outside the repository for Devpost entry. | Ready |
 | Developer tools need installation instructions, supported platforms, and a way to test without rebuilding. | `docs/JUDGE_GUIDE.md`; compiled JavaScript/runtime archive; safe local fixture; recorded read-only replay. | Ready |
-| Provide free, unrestricted working-project access through the judging period. | Public repository and `v0.1.0` release are reachable without authentication; no hosted account or paid PromptTripwire service is required. Codex account usage remains under the judge's own OpenAI access. | Ready |
+| Provide free, unrestricted working-project access through the judging period. | Public repository and current `v0.1.1` release are reachable without authentication; no hosted account or paid PromptTripwire service is required. Codex account usage remains under the judge's own OpenAI access. | Ready |
 | Submission and testing materials must be English or have English translations. | README, Judge Guide, release notes, fixture, and Devpost draft are English. | Ready |
 | Submission must be original, owned by the entrant, and not violate IP/privacy rights. | No copied media or private repository fixture; dependency licenses reviewed; secret/local-path scans gate the artifact. | Ready |
 | Stage-one viability: fit the theme and reasonably apply the required tools. | Real Codex/GPT-5.6 vertical slice and executable P0 evidence. | Ready |
@@ -35,9 +35,10 @@ The official rules take precedence if they change. This matrix records the requi
 1. Record/upload the public YouTube demo and replace media placeholders.
 2. Save and finally submit on Devpost; neither action is performed by repository preparation.
 
-Publication evidence captured on 2026-07-15 JST:
+Publication evidence captured on 2026-07-16 JST:
 
 - merged license PR: [#15](https://github.com/shuto-S/prompt-tripwire/pull/15), merge commit `c45feb2d890bf93bf922a5ac085e49aadadb4e55`
-- release: [v0.1.0](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.0)
-- artifact SHA-256: `fbff8b060d6309d151f5ffdf66fc2c76abf2ebe39da4122195bba2c801856b98`
-- anonymous release asset download and local SHA verification passed
+- Plugin-enabled release PR: [#20](https://github.com/shuto-S/prompt-tripwire/pull/20), merge commit `1b1fd6156eda3382132633a777f503f448b09852`
+- current release: [v0.1.1](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.1); v0.1.0 remains preserved as historical evidence
+- artifact SHA-256: `7a29de3241bab426b2e9b9edd84a6d6f01dd0fc1bf13d71da3927a4a83277f50`
+- anonymous release asset download, local SHA verification, and complete 918-file release verification passed
