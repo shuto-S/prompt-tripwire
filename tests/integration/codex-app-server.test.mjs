@@ -16,7 +16,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -82,7 +82,7 @@ function snapshot(repositoryPath) {
     task: "Implement the fixture change",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.3",
+    promptTripwireVersion: "0.1.4",
     createdAt: "2026-07-14T00:00:00.000Z",
   });
 }
@@ -758,8 +758,10 @@ test("AC-002: structured static reads reject shell ambiguity and command/action 
 test("AC-002: bounded cat, read, search, and listing commands remain allowed", async () => {
   const root = await mkdtemp(join(tmpdir(), "prompt-tripwire-safe-probe-"));
   await mkdir(join(root, "src"));
+  await mkdir(join(root, "other"));
   await writeFile(join(root, "README.md"), "# Safe fixture\n");
   await writeFile(join(root, "src", "safe.ts"), "// TODO: safe\n");
+  await writeFile(join(root, "other", "safe.ts"), "// TODO: duplicate basename\n");
   const base = {
     threadId: "thread_static_read",
     turnId: "turn_static_read",
@@ -801,6 +803,42 @@ test("AC-002: bounded cat, read, search, and listing commands remain allowed", a
       commandActions: [
         { type: "search", command: "rg -n 'TODO.*safe' src", path: "src", query: "TODO.*safe" },
       ],
+    },
+    {
+      ...base,
+      command: "rg -n . src/safe.ts",
+      commandActions: [
+        { type: "search", command: "rg -n . src/safe.ts", path: "safe.ts", query: "." },
+      ],
+    },
+    {
+      ...base,
+      command: "rg -n . README.md src/safe.ts",
+      commandActions: [
+        {
+          type: "search",
+          command: "rg -n . README.md src/safe.ts",
+          path: "README.md",
+          query: ".",
+        },
+      ],
+    },
+    {
+      ...base,
+      command: "rg -n -e TODO -- README.md src/safe.ts",
+      commandActions: [
+        {
+          type: "search",
+          command: "rg -n -e TODO -- README.md src/safe.ts",
+          path: "README.md",
+          query: "TODO",
+        },
+      ],
+    },
+    {
+      ...base,
+      command: "rg -n TODO",
+      commandActions: [{ type: "search", command: "rg -n TODO", path: null, query: "TODO" }],
     },
     {
       ...base,
@@ -859,6 +897,50 @@ test("AC-002: bounded cat, read, search, and listing commands remain allowed", a
       assert.equal(decision.observation.reasonCode, "static_read");
     }
 
+    const rejectedMultiPathSearches = [
+      {
+        command: `rg -n TODO src/safe.ts ${join(dirname(root), "outside.ts")}`,
+        path: "safe.ts",
+      },
+      {
+        command: `rg -n TODO ${join(dirname(root), "outside.ts")} src/safe.ts`,
+        path: "safe.ts",
+      },
+      {
+        command: "rg -n TODO src/safe.ts .git/config",
+        path: "safe.ts",
+      },
+      {
+        command: "rg -n TODO README.md src/safe.ts",
+        path: "unrelated.md",
+      },
+      {
+        command: "rg -n TODO src/safe.ts other/safe.ts",
+        path: "safe.ts",
+      },
+      {
+        command: "rg -n TODO src/safe.ts .git/config",
+        actualCommand: "/bin/zsh -lc 'rg -n TODO src/safe.ts .git/config'",
+        path: "safe.ts",
+      },
+    ];
+    for (const fixture of rejectedMultiPathSearches) {
+      const decision = decideProbeApproval(
+        2,
+        "item/commandExecution/requestApproval",
+        {
+          ...base,
+          command: fixture.actualCommand ?? fixture.command,
+          commandActions: [
+            { type: "search", command: fixture.command, path: fixture.path, query: "TODO" },
+          ],
+        },
+        root,
+      );
+      assert.equal(decision.observation.decision, "decline", fixture.command);
+      assert.equal(decision.observation.reasonCode, "unsafe_action");
+    }
+
     const appServerWrappedItems = [
       {
         command: "/bin/zsh -c ls",
@@ -877,6 +959,17 @@ test("AC-002: bounded cat, read, search, and listing commands remain allowed", a
       {
         command: "/bin/zsh -lc 'rg -n TODO src'",
         commandActions: [{ type: "search", command: "rg -n TODO src", path: "src", query: "TODO" }],
+      },
+      {
+        command: "/bin/zsh -lc 'rg -n TODO README.md src/safe.ts'",
+        commandActions: [
+          {
+            type: "search",
+            command: "rg -n TODO README.md src/safe.ts",
+            path: "README.md",
+            query: "TODO",
+          },
+        ],
       },
     ];
     for (const [index, item] of appServerWrappedItems.entries()) {
@@ -1138,7 +1231,8 @@ if (process.argv[2] === "--version") {
 }
 const result = spawnSync(process.execPath, [${JSON.stringify(adapter)}, "--help"], {
   encoding: "utf8",
-  env: process.argv.includes(${JSON.stringify(expectedShellConfig)})
+  env: process.argv.includes(${JSON.stringify(expectedShellConfig)}) &&
+      process.argv.some((argument, index) => argument === "--disable" && process.argv[index + 1] === "plugins")
     ? { PATH: process.env.PATH, PROMPT_TRIPWIRE_PLUGIN_REENTRY: "1" }
     : { PATH: process.env.PATH },
 });
@@ -1217,6 +1311,14 @@ process.stdin.resume();
     }
     const args = JSON.parse(await readFile(marker, "utf8"));
     assert.equal(args.includes(expectedShellConfig), true);
+    assert.deepEqual(
+      args.flatMap((argument, index) =>
+        argument === "--disable" && args[index + 1] === "plugins"
+          ? [argument, args[index + 1]]
+          : [],
+      ),
+      ["--disable", "plugins"],
+    );
     assert.equal(
       args.some((argument) => argument.includes("PROMPT_TRIPWIRE_PLUGIN_REENTRY")),
       false,
@@ -1225,6 +1327,63 @@ process.stdin.resume();
     assert.deepEqual(await readdir(zDotDir), []);
   } finally {
     if (previous !== undefined) process.env.PROMPT_TRIPWIRE_PLUGIN_REENTRY = previous;
+    await transport?.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("App Server preserves custom Codex auth home without broad environment inheritance", async () => {
+  const root = await mkdtemp(join(tmpdir(), "prompt-tripwire-codex-home-child-"));
+  const codex = join(root, "codex");
+  const marker = join(root, "environment.json");
+  const zDotDir = join(root, "zsh-startup");
+  const codexHome = join(root, "codex-home");
+  await mkdir(zDotDir, { mode: 0o700 });
+  await writeFile(
+    codex,
+    `#!/usr/bin/env node
+import { writeFileSync } from "node:fs";
+if (process.argv[2] === "--version") {
+  process.stdout.write("codex-cli 0.144.4\\n");
+  process.exit(0);
+}
+writeFileSync(${JSON.stringify(marker)}, JSON.stringify({
+  codexHomeMatches: process.env.CODEX_HOME === ${JSON.stringify(codexHome)},
+  unrelatedCanaryPresent: process.env.PROMPT_TRIPWIRE_UNRELATED_ENV_CANARY !== undefined,
+}), { mode: 0o600 });
+process.stdin.resume();
+`,
+    { mode: 0o700 },
+  );
+
+  const previousCodexHome = process.env.CODEX_HOME;
+  const previousCanary = process.env.PROMPT_TRIPWIRE_UNRELATED_ENV_CANARY;
+  process.env.CODEX_HOME = codexHome;
+  process.env.PROMPT_TRIPWIRE_UNRELATED_ENV_CANARY = "must-not-be-inherited";
+  let transport;
+  try {
+    transport = ProcessJsonRpcTransport.start({
+      cwd: root,
+      codexPath: codex,
+      shellStartupDirectory: zDotDir,
+    });
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      try {
+        await access(marker);
+        break;
+      } catch {
+        await new Promise((resolveTimer) => setTimeout(resolveTimer, 10));
+      }
+    }
+    assert.deepEqual(JSON.parse(await readFile(marker, "utf8")), {
+      codexHomeMatches: true,
+      unrelatedCanaryPresent: false,
+    });
+  } finally {
+    if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = previousCodexHome;
+    if (previousCanary === undefined) delete process.env.PROMPT_TRIPWIRE_UNRELATED_ENV_CANARY;
+    else process.env.PROMPT_TRIPWIRE_UNRELATED_ENV_CANARY = previousCanary;
     await transport?.close();
     await rm(root, { recursive: true, force: true });
   }
@@ -1303,7 +1462,7 @@ async function createPreparedRepository() {
     task: "Implement the fixture change",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.3",
+    promptTripwireVersion: "0.1.4",
     effectiveConfig: { probeCount: 3 },
     createdAt: "2026-07-14T00:00:00.000Z",
   });
@@ -1380,7 +1539,7 @@ test("AC-002: an external tracked symlink blocks the batch before any probe thre
     task: "Inspect the fixture without changing it",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.3",
+    promptTripwireVersion: "0.1.4",
     effectiveConfig: { probeCount: 3 },
     createdAt: "2026-07-14T00:00:00.000Z",
   });
