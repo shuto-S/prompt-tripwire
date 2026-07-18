@@ -57,8 +57,16 @@ export function redactOutput(value) {
     .replace(/\bgh[pousr]_[A-Za-z0-9]{20,}\b/gu, "gh_****")
     .replace(/\bxox[baprs]-[A-Za-z0-9-]{16,}\b/gu, "xox-****")
     .replace(/\bAKIA[0-9A-Z]{16}\b/gu, "AKIA****")
+    .replace(/("authorization"\s*:\s*"(?:bearer|basic)\s+)(?:\\.|[^"\\])+(?=")/giu, "$1****")
+    .replace(/\b(authorization\s*:\s*(?:bearer|basic)\s+)[^\r\n]+/giu, "$1****")
+    .replace(/\b((?:bearer|basic)\s+)\\"[^\r\n]*?\\"/giu, "$1****")
+    .replace(/\b((?:bearer|basic)\s+)\\'[^\r\n]*?\\'/giu, "$1****")
+    .replace(/\b((?:bearer|basic)\s+)\\["'][^\r\n]*/giu, "$1****")
+    .replace(/\b((?:bearer|basic)\s+)"(?:\\.|[^"\\])*"/giu, "$1****")
+    .replace(/\b((?:bearer|basic)\s+)'(?:\\.|[^'\\])*'/giu, "$1****")
+    .replace(/\b((?:bearer|basic)\s+)["'][^\r\n]*/giu, "$1****")
     .replace(
-      /\b((?:authorization\s*:\s*)?(?:bearer|basic)\s+)[A-Za-z0-9._~+/=-]{8,}(?=[^A-Za-z0-9._~+/=-]|$)/giu,
+      /\b((?:bearer|basic)\s+)(?!\*{4}(?=[\s"',;.!?)}\]]|$))\S+?(?=(?:[,;.!?](?=\s|$))|\s|$)/giu,
       "$1****",
     )
     .replace(

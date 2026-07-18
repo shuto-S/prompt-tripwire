@@ -18,6 +18,7 @@ import {
   assertSupportedPlatform,
   assertRuntimeVersions,
   buildRuntimeArgs,
+  redactOutput,
   runPreflight,
 } from "../../plugins/prompt-tripwire/skills/preflight/scripts/run_preflight.mjs";
 
@@ -228,6 +229,86 @@ exit 0
     },
   );
   assert.equal(readFileSync(marker, "utf8"), "1");
+});
+
+test("plugin redacts malformed and short Basic and Bearer credentials across output boundaries", () => {
+  const cases = [
+    {
+      input: "Authorization: Basic q",
+      expected: "Authorization: Basic ****",
+      secrets: ["q"],
+    },
+    {
+      input: "Authorization: Bearer a:b",
+      expected: "Authorization: Bearer ****",
+      secrets: ["a:b"],
+    },
+    {
+      input: "Authorization: Bearer a:b; diagnostic context",
+      expected: "Authorization: Bearer ****",
+      secrets: ["a:b", "diagnostic context"],
+    },
+    {
+      input: "Authorization: Basic abc$def, trailing context",
+      expected: "Authorization: Basic ****",
+      secrets: ["abc$def", "trailing context"],
+    },
+    {
+      input: '{"Authorization":"Basic Z","x":1}',
+      expected: '{"Authorization":"Basic ****","x":1}',
+      secrets: ["Z"],
+    },
+    {
+      input: '{"Authorization":"Bearer a:b","x":1}',
+      expected: '{"Authorization":"Bearer ****","x":1}',
+      secrets: ["a:b"],
+    },
+    {
+      input: '{"Authorization":"Basic abc$def?","x":1}',
+      expected: '{"Authorization":"Basic ****","x":1}',
+      secrets: ["abc$def?"],
+    },
+    {
+      input: '{"Authorization":"Bearer a:\\"b","x":1}',
+      expected: '{"Authorization":"Bearer ****","x":1}',
+      secrets: ['a:\\"b'],
+    },
+    { input: "Bearer ?", expected: "Bearer ****", secrets: ["?"] },
+    { input: 'Bearer "a:b"', expected: "Bearer ****", secrets: ["a:b"] },
+    {
+      input: 'Basic \\"a b:c$?\\" next',
+      expected: "Basic **** next",
+      secrets: ["a b:c$?", "b:c$?"],
+    },
+    {
+      input: "Bearer \\'alpha beta:gamma$delta?\\' next",
+      expected: "Bearer **** next",
+      secrets: ["alpha beta:gamma$delta?", "beta:gamma$delta?"],
+    },
+    { input: "Bearer abc$def", expected: "Bearer ****", secrets: ["abc$def"] },
+    { input: "Basic 'abc$def'", expected: "Basic ****", secrets: ["abc$def"] },
+    {
+      input: "Bearer abc$def, next",
+      expected: "Bearer ****, next",
+      secrets: ["abc$def"],
+    },
+    { input: "Basic a:b; next", expected: "Basic ****; next", secrets: ["a:b"] },
+    {
+      input: "Bearer abc? next",
+      expected: "Bearer ****? next",
+      secrets: ["abc"],
+    },
+  ];
+
+  for (const { input, expected, secrets } of cases) {
+    const output = redactOutput(input);
+    assert.equal(output, expected);
+    for (const secret of secrets) assert.equal(output.includes(secret), false, input);
+  }
+
+  const decisionInbox =
+    "Decision Inbox: http://127.0.0.1:43100/runs/run_123#token=capability-value-1234";
+  assert.equal(redactOutput(decisionInbox), decisionInbox);
 });
 
 test("plugin redacts common credential shapes from delegated runtime failures", () => {
