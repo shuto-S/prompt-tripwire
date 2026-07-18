@@ -218,6 +218,15 @@ const TASK_TRIGGER_PATTERNS: Readonly<Partial<Record<DeterministicTrigger, RegEx
   unknown: /\b(?:tbd|todo|unknown|uncertain|unclassified|to be determined)\b|未定|不明|未確認/iu,
 };
 
+const REPOSITORY_VISIBILITY_OR_TRANSFER_MUTATION =
+  /\b(?:mak(?:e|es|ing)|set(?:s|ting)?)\s+(?:(?:a|the|this|that|our|my|your)\s+)?(?:github\s+)?(?:repository|repo)\s+(?:private|internal)\b|\b(?:change|set|update)\s+(?:(?:a|the|this|that|our|my|your)\s+)?(?:github\s+)?(?:repository|repo)(?:'s)?\s+(?:visibility|access)\s+(?:to\s+)?(?:private|internal)\b|\b(?:transfer(?:s|red|ring)?|mov(?:e|es|ed|ing))\s+(?:(?:a|the|this|that|our|my|your)\s+)?(?:github\s+)?(?:repository|repo)(?:\s+ownership)?\s+to\s+(?:(?:another|a\s+different|the|this|that|our|my|your|[a-z0-9][a-z0-9._-]{0,63})\s+)?(?:organization|org|owner|account)\b|\btransfer(?:s|red|ring)?\s+(?:the\s+)?ownership\s+of\s+(?:(?:a|the|this|that|our|my|your)\s+)?(?:github\s+)?(?:repository|repo)\s+to\s+(?:(?:another|a\s+different|the|this|that|our|my|your|[a-z0-9][a-z0-9._-]{0,63})\s+)?(?:organization|org|owner|account)\b|\b(?:(?:the|this|that|our|my|your)\s+)?(?:github\s+)?(?:repository|repo)\s+(?:must|should|needs?\s+to|is\s+to|will)\s+be\s+(?:made|set)\s+(?:private|internal)\b|\b(?:(?:the|this|that|our|my|your)\s+)?(?:github\s+)?(?:repository|repo)\s+(?:must|should|needs?\s+to|is\s+to|will)\s+be\s+transferred\s+to\s+(?:(?:another|a\s+different|the|this|that|our|my|your|[a-z0-9][a-z0-9._-]{0,63})\s+)?(?:organization|org|owner|account)\b|(?:GitHub\s*)?リポジトリ(?:を|の(?:公開範囲|可視性|アクセス)を)(?:非公開|プライベート|内部公開)(?:に|へ)(?:する|して|変更|設定)|(?:GitHub\s*)?リポジトリ(?:の所有権)?を(?:別|他)(?:の)?(?:組織|Organization|オーナー|所有者|アカウント)(?:へ|に)(?:移管|譲渡|移動)|(?:別|他)(?:の)?(?:組織|Organization|オーナー|所有者|アカウント)(?:へ|に)(?:GitHub\s*)?リポジトリ(?:の所有権)?を(?:移管|譲渡|移動)|(?:GitHub\s*)?リポジトリ(?:は|が)(?:非公開|プライベート|内部公開)(?:に|へ)(?:される|設定される)(?:必要|べき)|(?:GitHub\s*)?リポジトリ(?:は|が).{0,24}?(?:別|他)(?:の)?(?:組織|Organization|オーナー|所有者|アカウント)(?:へ|に)(?:移管|譲渡|移動)される(?:必要|べき)/iu;
+
+const BRANCH_PROTECTION_MUTATION =
+  /\bprotect(?:s|ed|ing)?\s+(?:(?:the|our)\s+)?(?:main|default)\s+branch\b|\b(?:add|configure|enable|set|update)\s+(?:(?:the|a)\s+)?branch[ -]protection(?:\s+rules?)?\s+(?:for|on|to)\s+(?:(?:the|our)\s+)?(?:main|default)\s+branch\b|\b(?:enable|set)\s+protection\s+(?:for|on)\s+(?:(?:the|our)\s+)?(?:main|default)\s+branch\b|\b(?:(?:the|this|that|our|my|your)\s+)?(?:main|default)\s+branch\s+(?:must|should|needs?\s+to|is\s+to|will)\s+be\s+protected\b|(?:main|メイン|default|デフォルト)(?:の)?ブランチ(?:を|の).{0,12}?(?:ブランチ)?保護|(?:main|メイン|default|デフォルト)(?:の)?ブランチ(?:に|へ).{0,12}?ブランチ保護(?:を)?(?:追加|設定|有効)|(?:main|メイン|default|デフォルト)(?:の)?ブランチ(?:は|が)保護される(?:必要|べき)/iu;
+
+const S3_OBJECT_DELETION =
+  /\b(?:delet(?:e|es|ed|ing)|remov(?:e|es|ed|ing)|eras(?:e|es|ed|ing)|purg(?:e|es|ed|ing))\s+(?:(?:an?|the|this|that|our|my|your)\s+)?s3\s+objects?\b|\b(?:delet(?:e|es|ed|ing)|remov(?:e|es|ed|ing)|eras(?:e|es|ed|ing)|purg(?:e|es|ed|ing))\s+(?:(?:an?|the|this|that|our|my|your)\s+)?objects?\b.{0,32}?\b(?:from|in)\s+s3\b|\b(?:delete|remove|erase|purge)\s+(?:s3:\/\/|from\s+s3\b)|\b(?:(?:the|this|that|our|my|your)\s+)?s3\s+objects?\s+(?:must|should|needs?\s+to|is\s+to|will)\s+be\s+(?:deleted|removed|erased|purged)\b|S3(?:上|内|の|から)?(?:の)?(?:オブジェクト|Object|キー).{0,16}?(?:削除|消去|破棄)|(?:オブジェクト|Object|キー).{0,16}?S3(?:上|内|の|から)?.{0,16}?(?:削除|消去|破棄)|S3(?:上|内|の|から)?(?:の)?(?:オブジェクト|Object|キー)(?:は|が)(?:削除|消去|破棄)される(?:必要|べき)/iu;
+
 const TASK_TRIGGER_AUGMENT_PATTERNS: readonly (readonly [DeterministicTrigger, RegExp])[] = [
   [
     "remote_write",
@@ -225,6 +234,13 @@ const TASK_TRIGGER_AUGMENT_PATTERNS: readonly (readonly [DeterministicTrigger, R
   ],
   ["remote_write", /\b(?:write|put)\s+(?:(?:a|an|the)\s+)?(?:s3\s+)?object\s+to\s+s3\b/iu],
   ["network", /\b(?:write|put)\s+(?:(?:a|an|the)\s+)?(?:s3\s+)?object\s+to\s+s3\b/iu],
+  ["remote_write", REPOSITORY_VISIBILITY_OR_TRANSFER_MUTATION],
+  ["permission", REPOSITORY_VISIBILITY_OR_TRANSFER_MUTATION],
+  ["remote_write", BRANCH_PROTECTION_MUTATION],
+  ["permission", BRANCH_PROTECTION_MUTATION],
+  ["remote_write", S3_OBJECT_DELETION],
+  ["network", S3_OBJECT_DELETION],
+  ["destructive_data", S3_OBJECT_DELETION],
   [
     "remote_write",
     /\b(?:archiv(?:e|ing)|renam(?:e|ing))\b.{0,48}?\b(?:github\s+)?(?:repository|repo)\b|\b(?:make|set)\b.{0,48}?\b(?:github\s+)?(?:repository|repo)\b.{0,32}?\bread[ -]only\b|\b(?:change|set)\b.{0,48}?\b(?:github\s+)?(?:repository|repo)(?:'s)?\s+(?:display\s+)?name\b|\b(?:github\s+)?(?:repository|repo)\b.{0,24}?\b(?:should|must|needs?\s+to|will)\s+be\s+(?:archived|renamed)\b|\b(?:lock|transfer|mov(?:e|ing))\b.{0,48}?\b(?:github\s+)?issues?\b|\b(?:sync|mirror(?:ing)?)\b.{0,48}?\b(?:build\s+)?artifacts?\b.{0,24}?\b(?:to|into|with)\s+s3\b|\bcreate\s+(?:(?:a|an|the)\s+)?notification\b.{0,24}?\bin\s+slack\b|\bnotif(?:y|ied|ying)\b.{0,48}?\bslack\b|\bslack\b.{0,32}?\bnotif(?:y|ied|ying)\b|(?:GitHub)?リポジトリ.{0,24}?(?:アーカイブ|読み取り専用|名前.{0,8}変更)|(?:GitHub\s*)?(?:Issue|イシュー).{0,32}?(?:別.{0,16}リポジトリ.{0,8})?移動|(?:ビルド)?成果物.{0,20}S3.{0,12}(?:同期|sync|ミラー)|Slack.{0,24}(?:通知|知らせ)/iu,
@@ -307,16 +323,44 @@ function positiveMatch(text: string, pattern: RegExp): boolean {
     const clauseBoundary =
       /(?:[.!?;]|,\s*(?=(?:and\s+)?(?:then|afterwards?|after\s+that|subsequently|next|finally|instead)\b)|\band\s+(?:actually|instead)\b|\b(?:but|however|except)\b)/u;
     const negationPrefix = prefix.split(clauseBoundary).at(-1) ?? prefix;
-    const suffix = text.slice(index + match[0].length, index + match[0].length + 96).toLowerCase();
+    const subjectClausePrefix = prefix.split(clauseBoundary).at(-1) ?? prefix;
+    const remainingText = text.slice(index + match[0].length).toLowerCase();
+    const suffix = remainingText.slice(0, 96);
+    const englishPronounFollowThrough = suffix.match(
+      /^(?:\s*["'`]?\s*[,;:.!?]\s*(?:(?:(?:and\s+)?(?:then|afterwards?|after\s+that|next|finally)|and)\s+)?|\s+[–—]\s+(?:(?:(?:and\s+)?(?:then|afterwards?|after\s+that|next|finally)|and)\s+)?|\s+(?:(?:and\s+)?then|afterwards?|after\s+that|next|finally)\s+)(?:(?:please|actually|also|just)\s+)*(?:execute|perform|apply|run|do|follow)\s+(?:(?:those|these|the|that|this)\s+)?(?:steps?|actions?|operations?|changes?|instructions?|it|them)\b/u,
+    );
+    const japanesePronounFollowThrough = suffix.match(
+      /^(?:[^。.!?]{0,96}?(?:手順|方法|例|テスト)(?:を|は)?(?:文書化|記載|説明|追加)(?:し|して|した|しないで|せず|するだけでなく)?[、,]\s*|[。.!?、,]\s*)(?:(?:その後|次に|続けて|それから)[、,\s]*)?(?:(?:その|これら|上記)(?:の)?(?:手順|操作|処理|変更|内容)|それ|これ)(?:を)?(?:(?:モック|シミュレーション)(?:内|環境)?で)?(?:実行|適用|行(?:う|って)|進め(?:る|て)|従(?:う|って))/u,
+    );
+    const safeMockExecution =
+      (englishPronounFollowThrough !== null &&
+        /^\s+(?:(?:only\s+)?(?:in|with|against|as)\s+(?:(?:an?|the)\s+)?(?:(?:mock(?:ed)?|simulated)(?:\s+(?:environment|repository|target|service))?|simulation)|using\s+(?:(?:an?|the)\s+)?(?:mock(?:ed)?|simulator)(?:\s+(?:environment|repository|target|service))?)\s*[.!?]?\s*$/u.test(
+          remainingText.slice(englishPronounFollowThrough[0].length),
+        )) ||
+      (japanesePronounFollowThrough !== null &&
+        /(?:モック|シミュレーション)/u.test(japanesePronounFollowThrough[0]) &&
+        /^\s*(?:してください|します|する)?[。.!?]?\s*$/u.test(
+          remainingText.slice(japanesePronounFollowThrough[0].length),
+        ));
+    const explicitPronounExecutionAfterMeta =
+      !safeMockExecution &&
+      (englishPronounFollowThrough !== null || japanesePronounFollowThrough !== null);
+    const englishNegationTargetsMetaSubject =
+      /(?:\bdo\s+not|\bdon['’]t|\bnever)\s+(?:(?:just|only|merely)\s+)?(?:document|describe|explain|write)\b[^\r\n.!?;]{0,128}\bhow\s+to\s*$/u.test(
+        subjectClausePrefix,
+      );
+    const japaneseNegationTargetsMetaSuffix =
+      /^[^。.!?]{0,64}?(?:手順|方法|例|テスト)(?:を|は)?(?:文書化|記載|説明|追加)(?:しないで|せず)[、,]/u.test(
+        suffix,
+      );
     const negatedBefore =
       /(?:\bno|\bnot|\bnever|\bwithout|\bdeny|\bdenied|\bdisable|\bdisabled|\bprevent|\bavoid|\bdo\s+not|\bdon['’]t|\bdoesn['’]t|\bmustn['’]t)\s+(?:(?:[\w-]+(?:,\s*|\s+))|(?:(?:and|or)\s+)){0,32}$/u.test(
         negationPrefix,
       );
     const negatedAfter =
-      /^(?:[- ]free\b|\s*(?:(?:is|are|remains?)\s+)?(?:unchanged|preserved|disabled|denied|not required|not used)\b|\s+(?:(?:unit|integration|e2e|regression)\s+)?(?:tests?|test coverage|documentation|docs?)\b|.{0,16}(?:しない|せず|不要|禁止|行わない))/u.test(
+      /^(?:[- ]free\b|\s*(?:(?:is|are|remains?)\s+)?(?:unchanged|preserved|disabled|denied|not required|not used)\b|\s+(?:(?:unit|integration|e2e|regression)\s+)?(?:tests?|test coverage|documentation|docs?)\b|.{0,16}(?:しない|せず|不要|禁止|行わない|べきでは?ない|では?ない|必要(?:は|が)?ない|必要はありません|はありません))/u.test(
         suffix,
       );
-    const subjectClausePrefix = prefix.split(clauseBoundary).at(-1) ?? prefix;
     const howToSubject =
       /\b(?:document(?:ation|ing)?|docs?|tests?|testing|test coverage)\b[^\r\n]{0,512}\bhow\s+to\b/u.test(
         subjectClausePrefix,
@@ -326,7 +370,7 @@ function positiveMatch(text: string, pattern: RegExp): boolean {
         suffix,
       );
     const explicitActionMatch =
-      /^(?:delete|destroy|drop|truncate|erase|wipe|purge|apply|run|execute|migrate|change|modify|update|write|operate|start|stop|restart|promote|provision|roll|scale|backfill|deploy|publish|release|commit|create|insert|open|submit|approve|push|implement|configure|turn|access|read|rotate|regenerate|reset|store|expose|use|make|grant|revoke|elevate|charge|refund|bill|increase|consume|call|connect|fetch|send|post|upload|download|request|enable|disable|remove|install|upgrade|replace|uninstall|add)\b/u.test(
+      /^(?:delete|destroy|drop|truncate|erase|wipe|purge|apply|run|execute|migrate|change|modify|update|write|operate|start|stop|restart|promote|provision|roll|scale|backfill|deploy|publish|release|commit|create|insert|open|submit|approve|push|implement|configure|turn|access|read|rotate|regenerate|reset|store|expose|use|make|set|archive|rename|transfer|move|protect|grant|revoke|elevate|charge|refund|bill|increase|consume|call|connect|fetch|send|post|upload|download|request|enable|disable|remove|install|upgrade|replace|uninstall|add)\b/u.test(
         matchedText.trimStart(),
       );
     const connector = subjectClausePrefix.match(
@@ -402,6 +446,13 @@ function positiveMatch(text: string, pattern: RegExp): boolean {
       /^\s+(?:-[a-z0-9-]+\s+){0,3}(?:example|sample|snippet|usage|documentation|docs?)\b/u.test(
         suffix,
       );
+    const readmeOrDocumentationExampleSubject =
+      /\b(?:readme|documentation|docs?|guides?|examples?)\b[^\r\n.!?;]{0,256}\b(?:example|sample|snippet)\s*:\s*["'`]?\s*(?:(?:the|this|that|our|my|your)\s+)?(?:github\s*)?$/u.test(
+        subjectClausePrefix,
+      ) ||
+      /(?:README|ドキュメント|文書|ガイド)[^\r\n。.!?;]{0,128}(?:例|サンプル|コード例)[^\r\n。.!?;]{0,32}[：:]\s*["'`]?\s*(?:(?:the|this|that|our|my|your)\s+)?(?:github\s*)?$/iu.test(
+        subjectClausePrefix,
+      );
     const parserOrFixtureSubject =
       /\b(?:parser|parsing|lexer|tokenizer|grammar|syntax|mock|fixture|simulator)\s+(?:for|of|around|about|covering)\b[^\r\n]{0,512}$/u.test(
         subjectPrefix,
@@ -435,6 +486,10 @@ function positiveMatch(text: string, pattern: RegExp): boolean {
       !/\b(?:and\s+(?:then\s+)?(?:run|execute|actually|please)|then|but|however|instead)\b[^\r\n.!?;]{0,128}$/u.test(
         subjectClausePrefix,
       );
+    const testThatSubject =
+      /\b(?:add|create|write|update|implement)\s+(?:(?:a|the)\s+)?(?:(?:unit|integration|e2e|regression)\s+)?tests?\s+that\b[^\r\n.!?;]{0,512}$/u.test(
+        subjectPrefix,
+      );
     const testOrDocumentationSubject =
       /\b(?:tests?|testing|test coverage|documentation|docs?|document(?:ing)?)\s+(?:for|of|around|about|covering|how\s+to)\b/u.test(
         matchedText,
@@ -454,16 +509,21 @@ function positiveMatch(text: string, pattern: RegExp): boolean {
       uiOrModelMetaInsideMatch ||
       documentationFileReference ||
       commandExampleContext ||
+      readmeOrDocumentationExampleSubject ||
       parserOrFixtureSubject ||
       operationUsedAsMetaLabel ||
       clientImplementationMeta ||
       clientUnderTest ||
       mockedOperation ||
-      directDocumentationSubject;
+      directDocumentationSubject ||
+      testThatSubject;
     if (
-      (!negatedBefore || explicitIndependentPositiveClause || independentCommaClause) &&
-      !negatedAfter &&
-      !testOrDocumentationSubject
+      (!negatedBefore ||
+        explicitIndependentPositiveClause ||
+        independentCommaClause ||
+        (explicitPronounExecutionAfterMeta && englishNegationTargetsMetaSubject)) &&
+      (!negatedAfter || (explicitPronounExecutionAfterMeta && japaneseNegationTargetsMetaSuffix)) &&
+      (!testOrDocumentationSubject || explicitPronounExecutionAfterMeta)
     ) {
       return true;
     }

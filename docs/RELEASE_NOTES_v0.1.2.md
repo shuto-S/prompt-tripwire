@@ -38,6 +38,11 @@ v0.1.2 release; an earlier release checksum does not verify this archive.
   Japanese. GitHub release-artifact downloads are network-only evidence;
   local inspection, checksum verification, and test wording no longer look like
   release publication.
+- Explicitly classifies repository private/internal visibility changes and
+  ownership transfers as `remote_write` plus `permission`, main/default
+  branch-protection changes as `remote_write` plus `permission`, and S3 object
+  deletion as `destructive_data` plus `network` plus `remote_write`, with
+  bounded English and Japanese action-and-target coverage.
 - Parses validated plan commands as shell-free tokens, reuses the command-class
   policy, and evaluates actual path/config/output operands. Ambiguous syntax,
   parent/absolute paths, protected reads, and write outputs fail closed in the
@@ -57,6 +62,9 @@ v0.1.2 release; an earlier release checksum does not verify this archive.
   credential-bearing URLs, and private-key blocks. Only the exact loopback,
   run-scoped Decision Inbox capability URL is preserved for the human caller;
   secret assignments in other URL queries or fragments are redacted.
+- Redacts every non-empty Authorization Basic/Bearer credential regardless of
+  credential length, so short synthetic or malformed values cannot bypass the
+  Plugin output boundary.
 - Sends the exact untrusted task through an echo-disabled interactive command
   channel rather than interpolating it into shell source. Quotes, newlines, and
   shell metacharacters therefore reach the adapter as data and never become a

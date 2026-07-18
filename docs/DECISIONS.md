@@ -241,6 +241,11 @@ only as shell-free token sequences and classified through the runtime command
 classifier. Ambiguous syntax remains unknown; absolute or parent-traversing
 path operands, protected read targets, and output paths become explicit
 scope/secret/unknown evidence rather than being hidden inside command prose.
+Repository private/internal visibility changes and ownership transfers map to
+`remote_write` plus `permission`; changes to main/default branch protection map
+to the same pair. S3 object deletion maps to `destructive_data`, `network`, and
+`remote_write`. These bounded English and Japanese forms require both an action
+and target.
 
 **Reason:** A probabilistic plan can omit an operation that the user explicitly
 requested, so plan-only policy evidence could remove a mandatory confirmation.
@@ -251,7 +256,9 @@ whole-field no-change handling improves precision without letting a negated
 clause hide a later positive action. Action-and-target matching also preserves
 category accuracy: a read-only remote fetch cannot silently become publication,
 and a concrete external mutation cannot disappear behind a harmless noun or a
-nearby documentation/test context.
+nearby documentation/test context. Explicit repository administration,
+branch-protection, and object-deletion mappings close high-impact omissions
+without turning their service names into blanket blockers.
 
 ### D-031 — Bound Decision Inbox capability lifetime without inferring approval
 

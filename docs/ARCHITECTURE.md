@@ -282,6 +282,13 @@ and passed through the same command-class classifier used by the policy
 boundary. Ambiguous shell syntax is unknown, and actual path/config/output
 operands are checked for absolute paths, parent traversal, and protected targets.
 
+Additional bounded task rules classify repository private/internal visibility
+changes and ownership transfers as `remote_write` plus `permission`, main or
+default branch-protection changes as `remote_write` plus `permission`, and S3
+object deletion as `destructive_data` plus `network` plus `remote_write`.
+English and Japanese action-and-target forms share those categories; bare
+target nouns remain non-authoritative.
+
 Compatibility findings from independent probes are retained as one deterministic all-or-none blocker. Explicit statements that compatibility is preserved are not impacts. The grouped blocker keeps every remaining description, component, probe, and evidence reference visible; selecting it accepts the whole disclosed set and never removes the normal P0 runtime boundaries. This avoids paraphrase-amplified question counts without using model similarity to suppress a deterministic finding.
 
 ## 7. Enforcement model

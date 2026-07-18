@@ -297,6 +297,14 @@ particular, download/fetch/retrieve of a GitHub release artifact is network
 evidence but not release/publish evidence, and local inspect/verify/test wording
 is neither. A concrete release action remains blocking.
 
+The same bounded task rules explicitly classify making a repository private or
+internal, or transferring its ownership, as both `remote_write` and
+`permission`; changing protection for the main or default branch has the same
+two categories. Deleting an S3 object is classified as `destructive_data`,
+`network`, and `remote_write`. These action-and-target forms are covered in
+English and Japanese without treating a bare repository, branch, or S3 mention
+as an operation.
+
 The following always require explicit human confirmation, even under unanimous plans:
 
 - data deletion, destructive transformation, or migration application;

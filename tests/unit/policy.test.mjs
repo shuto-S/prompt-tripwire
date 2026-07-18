@@ -289,6 +289,288 @@ test("final hardening task vocabulary covers repository, S3, release, and Slack 
   }
 });
 
+test("deterministic-v2 covers repository access, ownership, branch protection, and S3 deletion", () => {
+  const cases = [
+    ["Make the GitHub repository private.", ["permission", "remote_write"]],
+    ["Make this GitHub repository private.", ["permission", "remote_write"]],
+    ["Make that GitHub repository private.", ["permission", "remote_write"]],
+    ["Make our GitHub repository private.", ["permission", "remote_write"]],
+    ["Set my GitHub repo internal.", ["permission", "remote_write"]],
+    ["Change your repository visibility to private.", ["permission", "remote_write"]],
+    ["Set the repository visibility to internal.", ["permission", "remote_write"]],
+    ["Transfer the repository to another organization.", ["permission", "remote_write"]],
+    ["Transfer this repository to another organization.", ["permission", "remote_write"]],
+    ["Transfer that repository to another organization.", ["permission", "remote_write"]],
+    ["Transfer our repository to another organization.", ["permission", "remote_write"]],
+    ["Transfer my repository to your organization.", ["permission", "remote_write"]],
+    ["Transfer your repository to our organization.", ["permission", "remote_write"]],
+    ["Transfer this GitHub repository to Acme organization.", ["permission", "remote_write"]],
+    ["Transfer ownership of the GitHub repo to a different owner.", ["permission", "remote_write"]],
+    ["Delete an S3 object.", ["destructive_data", "network", "remote_write"]],
+    ["Delete this S3 object.", ["destructive_data", "network", "remote_write"]],
+    ["Remove the object from S3.", ["destructive_data", "network", "remote_write"]],
+    ["Remove our object from S3.", ["destructive_data", "network", "remote_write"]],
+    ["Protect the main branch.", ["permission", "remote_write"]],
+    ["Enable branch protection for the default branch.", ["permission", "remote_write"]],
+    ["GitHubリポジトリを非公開にしてください。", ["permission", "remote_write"]],
+    ["リポジトリの公開範囲をプライベートに変更してください。", ["permission", "remote_write"]],
+    ["リポジトリを別の組織に移管してください。", ["permission", "remote_write"]],
+    ["別組織へGitHubリポジトリを譲渡してください。", ["permission", "remote_write"]],
+    ["S3オブジェクトを削除してください。", ["destructive_data", "network", "remote_write"]],
+    ["S3からオブジェクトを消去してください。", ["destructive_data", "network", "remote_write"]],
+    ["mainブランチを保護してください。", ["permission", "remote_write"]],
+    ["デフォルトブランチにブランチ保護を設定してください。", ["permission", "remote_write"]],
+  ];
+  for (const [task, expected] of cases) {
+    const triggers = new Set(
+      evaluateDeterministicPolicy({ task, plans: [plan()] }).map((blocker) => blocker.trigger),
+    );
+    for (const trigger of expected) {
+      assert.equal(triggers.has(trigger), true, `${task} missed ${trigger}`);
+    }
+  }
+});
+
+test("repository access, ownership, branch protection, and S3 deletion respect safe contexts", () => {
+  for (const task of [
+    "Do not make the GitHub repository private.",
+    "Do not make this GitHub repository private.",
+    "Do not transfer the repository to another organization.",
+    "Do not transfer this repository to another organization.",
+    "Do not transfer this GitHub repository to Acme organization.",
+    "Do not delete an S3 object.",
+    "Do not delete this S3 object.",
+    "Do not remove our object from S3.",
+    "Do not protect the main branch.",
+    "Document how to make a GitHub repository private.",
+    "Document how to make this GitHub repository private.",
+    "Add tests for transferring a repository to another organization.",
+    "Document how to transfer this repository to another organization.",
+    "Document how to transfer this GitHub repository to Acme organization.",
+    'Add tests for the "Make this GitHub repository private" workflow.',
+    'Add tests for the "Transfer this repository to another organization" workflow.',
+    "Document how to delete this S3 object.",
+    "Add tests for removing our object from S3.",
+    "Add a fixture for deleting an S3 object.",
+    "Document how to protect the main branch.",
+    "GitHubリポジトリを非公開にしないでください。",
+    "リポジトリを別の組織に移管しないでください。",
+    "S3オブジェクトを削除しないでください。",
+    "mainブランチを保護しないでください。",
+    "GitHubリポジトリを非公開にする手順を文書化してください。",
+    "リポジトリを別組織に移管するテストを追加してください。",
+    "S3オブジェクトを削除するテストを追加してください。",
+    "mainブランチを保護する手順を文書化してください。",
+    "Move this repository to another directory.",
+    "Move our repository into the local fixtures directory.",
+  ]) {
+    assert.deepEqual(evaluateDeterministicPolicy({ task, plans: [plan()] }), [], task);
+  }
+
+  for (const [task, expected] of [
+    ["Do not make the repository private; then protect the main branch.", "permission"],
+    ["Do not transfer the repository; then delete an S3 object.", "destructive_data"],
+    ["Document how to protect main; then protect the main branch.", "remote_write"],
+    ["S3オブジェクトは削除せず、mainブランチを保護してください。", "permission"],
+  ]) {
+    assert.equal(
+      evaluateDeterministicPolicy({ task, plans: [plan()] }).some(
+        (blocker) => blocker.trigger === expected,
+      ),
+      true,
+      `${task} missed ${expected}`,
+    );
+  }
+});
+
+test("safe meta wording cannot hide an explicit pronoun follow-through", () => {
+  const cases = [
+    [
+      "Document how to make this repository private, then execute those steps.",
+      ["permission", "remote_write"],
+    ],
+    [
+      "Document how to transfer this repository to another organization, then do it.",
+      ["permission", "remote_write"],
+    ],
+    [
+      "Add a test that transfers this repository to another organization, then run it.",
+      ["permission", "remote_write"],
+    ],
+    [
+      "Document how to delete this S3 object, then execute those steps.",
+      ["destructive_data", "network", "remote_write"],
+    ],
+    ["Document how to protect the main branch, then do it.", ["permission", "remote_write"]],
+    [
+      "Do not document how to make this repository private, then execute those steps.",
+      ["permission", "remote_write"],
+    ],
+    [
+      "Do not just document how to make this repository private; then execute those steps.",
+      ["permission", "remote_write"],
+    ],
+    [
+      "Never just document how to transfer this repository to another organization; then do it.",
+      ["permission", "remote_write"],
+    ],
+    [
+      "Document how to make this repository private, and execute those steps.",
+      ["permission", "remote_write"],
+    ],
+    [
+      "Document how to make this repository private. Execute those steps.",
+      ["permission", "remote_write"],
+    ],
+    [
+      "Document how to make this repository private; follow those instructions.",
+      ["permission", "remote_write"],
+    ],
+    [
+      "Do not just document how to make this repository private; then just do it.",
+      ["permission", "remote_write"],
+    ],
+    [
+      "Document how to make this repository private: then execute those steps.",
+      ["permission", "remote_write"],
+    ],
+    [
+      "Document how to make this repository private — then execute those steps.",
+      ["permission", "remote_write"],
+    ],
+    [
+      "Document how to make this repository private – then execute those steps.",
+      ["permission", "remote_write"],
+    ],
+    [
+      'Update README with this example: "Make this repository private", then execute those steps.',
+      ["permission", "remote_write"],
+    ],
+    [
+      "Update README with this example: `Make this repository private`; then do it.",
+      ["permission", "remote_write"],
+    ],
+    [
+      "Document how to make this repository private, then execute those steps in a mock and against the real repository.",
+      ["permission", "remote_write"],
+    ],
+    [
+      "Document how to make this repository private, then run it in a test.",
+      ["permission", "remote_write"],
+    ],
+    [
+      "Document how to make this repository private, then run it in a sandbox.",
+      ["permission", "remote_write"],
+    ],
+    [
+      "GitHubリポジトリを非公開にする手順を文書化し、その手順を実行してください。",
+      ["permission", "remote_write"],
+    ],
+    [
+      "リポジトリを別の組織に移管する方法を文書化し、その操作を実行してください。",
+      ["permission", "remote_write"],
+    ],
+    [
+      "S3オブジェクトを削除する手順を文書化し、その操作を実行してください。",
+      ["destructive_data", "network", "remote_write"],
+    ],
+    [
+      "mainブランチを保護する方法を文書化し、その手順を実行してください。",
+      ["permission", "remote_write"],
+    ],
+    [
+      "GitHubリポジトリを非公開にする手順は文書化せず、その手順を実行してください。",
+      ["permission", "remote_write"],
+    ],
+    [
+      "GitHubリポジトリを非公開にする手順を文書化するだけでなく、その手順を実行してください。",
+      ["permission", "remote_write"],
+    ],
+    [
+      "GitHubリポジトリを非公開にする手順を文書化し、その操作をモック内で実行し、実際のリポジトリにも適用してください。",
+      ["permission", "remote_write"],
+    ],
+  ];
+  for (const [task, expected] of cases) {
+    const triggers = new Set(
+      evaluateDeterministicPolicy({ task, plans: [plan()] }).map((blocker) => blocker.trigger),
+    );
+    for (const trigger of expected) {
+      assert.equal(triggers.has(trigger), true, `${task} missed ${trigger}`);
+    }
+  }
+});
+
+test("mock-only follow-through and README examples remain safe meta contexts", () => {
+  for (const task of [
+    "Document how to make this repository private, then run it in a mock.",
+    "Document how to transfer this repository to another organization, then do it in a simulation.",
+    "Add a test that transfers this repository to another organization, then run it in a mock.",
+    "Document how to make this repository private, then execute those steps against a mocked repository.",
+    "Do not make this repository private; document the steps only.",
+    "Document how not to make this repository private, then execute those steps.",
+    "Document how to avoid making this repository private, then follow those steps.",
+    "Document how to make this repository private, and test the docs.",
+    "Update README with this example: Make this repository private.",
+    'Update README with this example: "Make this repository private."',
+    "Update README with this example: `Make this repository private.`",
+    "Update README with this example: Transfer this repository to another organization.",
+    "Update README with this example: Delete this S3 object.",
+    "Update README with this example: Protect the main branch.",
+    "Update README with this example: The repository must be made private.",
+    "Update README with this example: This repository should be transferred to another organization.",
+    "Update README with this example: This S3 object must be deleted.",
+    "Update README with this example: The main branch should be protected.",
+    "リポジトリを別の組織に移管するテストを追加し、その操作をモック内で実行してください。",
+    "GitHubリポジトリを非公開にせず、その手順だけ文書化してください。",
+    "READMEにこの例を追加してください：GitHubリポジトリを非公開にする。",
+  ]) {
+    assert.deepEqual(evaluateDeterministicPolicy({ task, plans: [plan()] }), [], task);
+  }
+});
+
+test("passive bounded high-impact operations retain their original categories", () => {
+  const cases = [
+    ["The repository must be made private.", ["permission", "remote_write"]],
+    ["This GitHub repository should be set internal.", ["permission", "remote_write"]],
+    [
+      "This repository should be transferred to another organization.",
+      ["permission", "remote_write"],
+    ],
+    [
+      "Our GitHub repository must be transferred to Acme organization.",
+      ["permission", "remote_write"],
+    ],
+    ["This S3 object must be deleted.", ["destructive_data", "network", "remote_write"]],
+    ["The main branch should be protected.", ["permission", "remote_write"]],
+    ["GitHubリポジトリは非公開にされるべきです。", ["permission", "remote_write"]],
+    ["GitHubリポジトリは別の組織へ移管される必要があります。", ["permission", "remote_write"]],
+    ["S3オブジェクトは削除される必要があります。", ["destructive_data", "network", "remote_write"]],
+    ["mainブランチは保護されるべきです。", ["permission", "remote_write"]],
+  ];
+  for (const [task, expected] of cases) {
+    const triggers = new Set(
+      evaluateDeterministicPolicy({ task, plans: [plan()] }).map((blocker) => blocker.trigger),
+    );
+    for (const trigger of expected) {
+      assert.equal(triggers.has(trigger), true, `${task} missed ${trigger}`);
+    }
+  }
+
+  for (const task of [
+    "The repository must not be made private.",
+    "This repository should not be transferred to another organization.",
+    "This S3 object must not be deleted.",
+    "The main branch should not be protected.",
+    "GitHubリポジトリは非公開にされるべきではありません。",
+    "GitHubリポジトリは別組織へ移管される必要はありません。",
+    "S3オブジェクトは削除されるべきではありません。",
+    "mainブランチは保護される必要はありません。",
+  ]) {
+    assert.deepEqual(evaluateDeterministicPolicy({ task, plans: [plan()] }), [], task);
+  }
+});
+
 test("final hardening recognizes mutation synonyms without treating release artifacts as releases", () => {
   const mutationCases = [
     ["Make the GitHub repository read-only by archiving it.", ["remote_write"]],

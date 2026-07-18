@@ -169,6 +169,13 @@ forms for deterministic classification. Ambiguous syntax is unknown, and
 absolute, parent-traversing, output, or protected-path operands create the
 corresponding scope, unknown, or secret evidence.
 
+Repository private/internal visibility changes and ownership transfers are
+classified as both `remote_write` and `permission`; main/default
+branch-protection changes carry the same two categories. S3 object deletion is
+classified as `destructive_data`, `network`, and `remote_write`. The bounded
+English and Japanese task patterns require the operation and target rather than
+promoting a bare repository, branch, or object-store mention into authority.
+
 ## 8. Local UI
 
 - Bind only to loopback.
@@ -200,6 +207,9 @@ sanitized report. The target checkout is inspected by the existing
 
 Adapter output redaction covers common provider token formats, authorization
 headers, secret-bearing assignments, credential URLs, and private-key blocks.
+Every non-empty Basic or Bearer credential in authorization-style output is
+redacted regardless of credential length, including short synthetic or
+malformed values that must not bypass the last-resort boundary.
 The scoped Decision Inbox URL is intentionally preserved because the caller
 must hand that capability to the human; it remains governed by the lifecycle,
 loopback, and non-persistence controls above.
