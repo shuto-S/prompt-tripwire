@@ -1,12 +1,12 @@
 # PromptTripwire judge guide
 
-PromptTripwire is a local-first preflight and execution gate for Codex. This guide targets the compiled v0.1.3 macOS arm64 patch release; judges do not need the TypeScript source tree or a source build. Download the archive and `SHA256SUMS.txt` from the [v0.1.3 GitHub Release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.3). The public v0.1.2 release remains immutable historical evidence and must not be substituted for the v0.1.3 judge artifact.
+PromptTripwire is a local-first preflight and execution gate for Codex. This guide targets the compiled v0.1.4 macOS arm64 patch release; judges do not need the TypeScript source tree or a source build. Download the archive and `SHA256SUMS.txt` from the [v0.1.4 GitHub Release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.4). The public v0.1.2 and v0.1.3 releases remain immutable historical evidence and must not be substituted for the v0.1.4 judge artifact.
 
-v0.1.3 preserves the v0.1.2 product flow and adds compatibility and fail-closed
-hardening for the pinned Codex App Server: exact `/bin/zsh -c` and
-`/bin/zsh -lc` launcher envelopes, an empty private runtime-owned `ZDOTDIR`,
-rejection of missing raw commands, continued validation of failed command/file
-items, and denial of direct `.git` metadata reads.
+v0.1.4 preserves the product flow and v0.1.3 launcher hardening while disabling
+installed Plugin contributions in every child App Server without changing the
+task text. It keeps the re-entry sentinel as a separate control, preserves a
+custom Codex home only for App Server login, and validates every explicit path
+in the pinned basename-only or multi-target `rg` representation.
 
 ## Supported platform and prerequisites
 
@@ -32,14 +32,14 @@ Place the `.tar.gz` and `SHA256SUMS.txt` files in the same directory, then run:
 
 ```sh
 shasum -a 256 -c SHA256SUMS.txt
-tar -xzf prompt-tripwire-v0.1.3-macos-arm64.tar.gz
-cd prompt-tripwire-v0.1.3-macos-arm64
+tar -xzf prompt-tripwire-v0.1.4-macos-arm64.tar.gz
+cd prompt-tripwire-v0.1.4-macos-arm64
 ./bin/tripwire --version
 ./bin/tripwire --help
 ```
 
-Do not use a historical v0.1.1 or v0.1.2 SHA-256 for this archive. Verify only
-with the `SHA256SUMS.txt` downloaded alongside the v0.1.3 archive.
+Do not use a historical v0.1.1, v0.1.2, or v0.1.3 SHA-256 for this archive. Verify only
+with the `SHA256SUMS.txt` downloaded alongside the v0.1.4 archive.
 
 The shortest user-local setup installs the runtime and Codex Plugin together
 and requires no `sudo`:
@@ -56,6 +56,12 @@ The installed display name is `PromptTripwire`; its Skill name is
 Use prompt-tripwire:preflight before implementing this task.
 ```
 
+That line remains part of the exact snapshot-bound task. PromptTripwire
+disables installed Plugin contributions before creating its child App Server
+threads, so the child does not rediscover the PromptTripwire Skill from the
+same text. Standalone Skills are not globally disabled; any out-of-repository
+read they request is rejected by the existing containment boundary.
+
 The Skill starts an authenticated nested `codex app-server`. A calling Codex
 shell sandbox can block that child from reaching the model service even though
 the CLI login is valid. In that case, allow the normal Codex command permission
@@ -66,7 +72,7 @@ restrictions remain unchanged. If the permission is denied, preflight stops;
 do not configure an API key as a workaround.
 
 The default runtime and marketplace root is
-`~/.local/lib/prompt-tripwire/0.1.3`. The marketplace retains the relative
+`~/.local/lib/prompt-tripwire/0.1.4`. The marketplace retains the relative
 `./plugins/prompt-tripwire` source. The installer verifies macOS arm64, Node.js,
 Git, Codex 0.144.4, and the existing login; it never runs inspect, decisions,
 approval, or implementation. It does not require `OPENAI_API_KEY`.
@@ -81,7 +87,7 @@ Add `~/.local/bin` to `PATH` if using the runtime directly. To remove the
 Plugin, its owned marketplace registration, and runtime together:
 
 ```sh
-~/.local/lib/prompt-tripwire/0.1.3/uninstall.sh --with-codex-plugin
+~/.local/lib/prompt-tripwire/0.1.4/uninstall.sh --with-codex-plugin
 ```
 
 The targeted uninstall leaves every other Plugin and marketplace untouched and
@@ -102,7 +108,7 @@ For a Git-marketplace fallback, first keep the artifact's `tripwire` launcher
 on `PATH` or set `PROMPT_TRIPWIRE_BIN`, then run:
 
 ```sh
-codex plugin marketplace add shuto-S/prompt-tripwire --ref v0.1.3
+codex plugin marketplace add shuto-S/prompt-tripwire --ref v0.1.4
 codex plugin add prompt-tripwire@prompt-tripwire-local
 codex plugin list --marketplace prompt-tripwire-local
 ```
@@ -127,7 +133,7 @@ notes](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/demo/README.m
 embedded default English subtitles. These repository files are excluded from
 the compact release archive.
 
-This media is explicitly a v0.1.2 capture, not footage of the v0.1.3
+This media is explicitly a v0.1.2 capture, not footage of the v0.1.4
 compatibility patch. The Inbox capture is an actual API-key-free v0.1.2 Plugin
 inspect. It has one
 unresolved compatibility decision, no dependency blocker, no selected option,

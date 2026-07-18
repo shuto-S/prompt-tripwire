@@ -104,11 +104,12 @@ limit; the sidecar contains 74 cues with a measured maximum of 19.08 characters
 per second. The [demo notes](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/demo/README.md) record the media hash, narration,
 format, and evidence boundary.
 
-This is explicitly a v0.1.2 capture. v0.1.3 is a compatibility and fail-closed
-patch for the pinned Codex App Server, not a newly recorded demo: it recognizes
-only the exact `/bin/zsh -c` and `/bin/zsh -lc` launcher envelopes, supplies an
-empty private runtime-owned `ZDOTDIR`, rejects missing raw commands, validates
-failed command/file items, and denies direct `.git` metadata reads.
+This is explicitly a v0.1.2 capture. v0.1.3 added the pinned App Server's exact
+zsh launcher compatibility and startup isolation. v0.1.4 is a further
+compatibility and fail-closed patch, not a newly recorded demo: it preserves the
+exact Plugin task while disabling child Plugin contributions, keeps the
+re-entry sentinel, preserves custom Codex-home login for App Server only, and
+validates every target in basename-only or multi-target static searches.
 
 The captured flow is:
 
@@ -131,7 +132,7 @@ is excluded from the judge release archive.
 ### Product
 
 - [x] All P0 functional requirements implemented.
-- [ ] Run the complete v0.1.3 source and release gates after the patch version bump.
+- [ ] Run the complete v0.1.4 source and release gates after the patch version bump.
 - [x] Real Codex App Server integration; no mocked core demo.
 - [x] Real GPT-5.6 Structured Outputs integration.
 - [x] Judge-ready install that does not require rebuilding.
@@ -142,8 +143,8 @@ is excluded from the judge release archive.
 
 - [x] Apache-2.0 selected as the project license for the public repository.
 - [x] README includes installation, supported platforms, test instructions, architecture summary, and Codex collaboration.
-- [x] Public repository and `v0.1.2` Release verified anonymously.
-- [ ] Publish the verified `v0.1.3` macOS arm64 patch artifact and checksum, then verify both anonymously.
+- [x] Public repository and `v0.1.2` / `v0.1.3` Releases verified anonymously.
+- [ ] Publish the verified `v0.1.4` macOS arm64 patch artifact and checksum, then verify both anonymously.
 - [x] Dated commits distinguish specification, implementation, and submission work.
 - [x] Dependency licenses and third-party assets reviewed.
 - [x] No secrets in Git history.
@@ -170,12 +171,12 @@ is excluded from the judge release archive.
 
 ## 9. Remaining submission actions
 
-- Complete the v0.1.3 verification gates and build the final reproducible archive/checksum.
-- Publish the v0.1.3 GitHub Release and verify the artifact, checksum, repository, and judge instructions from a clean account.
+- Complete the v0.1.4 verification gates and build the final reproducible archive/checksum.
+- Publish the v0.1.4 GitHub Release and verify the artifact, checksum, repository, and judge instructions from a clean account.
 - Present the prepared YouTube video, title, description, visibility, captions, and thumbnail for human confirmation; only then upload and verify playback anonymously.
 - Replace the Devpost public video/release placeholders and prepare the complete draft; present the final field/attachment/link packet for a separate human confirmation before final submission.
 
-Publication evidence: repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0. The public v0.1.2 release and its downloaded artifact/checksum were verified anonymously; its macOS arm64 archive SHA-256 is `73d61b8262b5c81be558a89b800ddaa0f5d71c4c9e46679893c3c93b1bbfee3f`. The earlier public v0.1.1 release remains historical evidence with SHA-256 `7a29de3241bab426b2e9b9edd84a6d6f01dd0fc1bf13d71da3927a4a83277f50`. Neither historical SHA verifies the v0.1.3 candidate archive.
+Publication evidence: repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0. The public v0.1.3 release and its downloaded artifact/checksum were verified anonymously; its macOS arm64 archive SHA-256 is `2328e2673ab2fd67d4bd3043dc2c838fc584fad1a10719da28dcbcfd38156682`. The public v0.1.2 archive SHA-256 is `73d61b8262b5c81be558a89b800ddaa0f5d71c4c9e46679893c3c93b1bbfee3f`, and the earlier public v0.1.1 release remains historical evidence with SHA-256 `7a29de3241bab426b2e9b9edd84a6d6f01dd0fc1bf13d71da3927a4a83277f50`. No historical SHA verifies the v0.1.4 candidate archive.
 
 A final local v0.1.2 H.264/AAC English demo, caption/narration copy, thumbnail,
 and owned UI captures are now in `docs/demo/` and `docs/assets/demo/`. The live
@@ -184,7 +185,7 @@ scenes use an earlier human-approved safe-fixture run. These files are present
 in the repository but intentionally excluded from the compact judge archive.
 They are local review evidence, not proof of public YouTube publication.
 
-These do not block the product specification or local v0.1.3 patch preparation,
-but v0.1.3 publication/verification must finish before the external confirmation
+These do not block the product specification or local v0.1.4 patch preparation,
+but v0.1.4 publication/verification must finish before the external confirmation
 packets are final. YouTube upload and Devpost final submission remain blocked on
 their respective explicit human confirmations.
