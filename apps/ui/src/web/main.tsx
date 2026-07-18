@@ -16,28 +16,22 @@ import type {
   RunReviewDto,
 } from "../api-types.js";
 
+import {
+  detectUiLocale,
+  displayLabel,
+  displayProductText,
+  persistUiLocale,
+  type UiLocale,
+  type UiMessages,
+  uiMessages,
+} from "./i18n.js";
+
 import "./styles.css";
 
-const stateLabels: Readonly<Record<string, string>> = {
-  created: "Created",
-  snapshotting: "Capturing repository snapshot",
-  probing: "Planning probes are running",
-  comparing: "Comparing plans",
-  needs_review: "Decisions require review",
-  ready_for_approval: "Contract is ready for approval",
-  approved: "Contract approved",
-  running: "Execution is running",
-  pausing: "Execution is pausing",
-  paused: "Execution paused for review",
-  completed: "Execution completed",
-  failed: "Run failed",
-  cancelled: "Run cancelled",
-  stale: "Snapshot is stale",
-};
 const terminalStates = new Set(["completed", "failed", "cancelled", "stale"]);
 
-function stateLabel(state: string): string {
-  return stateLabels[state] ?? state;
+function stateLabel(state: string, messages: UiMessages): string {
+  return displayLabel(messages.states, state);
 }
 
 function readBootstrap(): { runId: string; token: string } | null {
@@ -54,13 +48,14 @@ const initialBootstrap = readBootstrap();
 async function fetchReview(
   runId: string,
   token: string,
+  messages: UiMessages,
   signal?: AbortSignal,
 ): Promise<RunReviewDto> {
   const response = await fetch(`/api/runs/${encodeURIComponent(runId)}`, {
     headers: { Authorization: `Bearer ${token}` },
     ...(signal === undefined ? {} : { signal }),
   });
-  if (!response.ok) throw new Error(`Review request failed (${String(response.status)})`);
+  if (!response.ok) throw new Error(messages.requestFailed("review", response.status));
   return (await response.json()) as RunReviewDto;
 }
 
@@ -69,13 +64,14 @@ async function streamEvents(
   token: string,
   signal: AbortSignal,
   onEvent: (event: RunEventDto) => void,
+  messages: UiMessages,
 ): Promise<void> {
   const response = await fetch(`/api/runs/${encodeURIComponent(runId)}/events`, {
     headers: { Authorization: `Bearer ${token}`, Accept: "text/event-stream" },
     signal,
   });
   if (!response.ok || response.body === null) {
-    throw new Error(`Event stream failed (${String(response.status)})`);
+    throw new Error(messages.requestFailed("event", response.status));
   }
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = "";
@@ -97,13 +93,21 @@ async function streamEvents(
 interface DecisionCardProps {
   readonly decision: DecisionCardDto;
   readonly disabled: boolean;
+  readonly locale: UiLocale;
+  readonly messages: UiMessages;
   readonly onResolve: (
     decision: DecisionCardDto,
     payload: Record<string, unknown>,
   ) => Promise<void>;
 }
 
-function DecisionCard({ decision, disabled, onResolve }: DecisionCardProps): JSX.Element {
+function DecisionCard({
+  decision,
+  disabled,
+  locale,
+  messages,
+  onResolve,
+}: DecisionCardProps): JSX.Element {
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [freeform, setFreeform] = useState("");
   const [validation, setValidation] = useState("");
@@ -112,7 +116,7 @@ function DecisionCard({ decision, disabled, onResolve }: DecisionCardProps): JSX
     event.preventDefault();
     const override = freeform.trim();
     if (selectedOptionId === null && override.length === 0) {
-      setValidation("Choose one option or enter a free-form decision.");
+      setValidation(messages.chooseOrEnter);
       return;
     }
     setValidation("");
@@ -127,15 +131,17 @@ function DecisionCard({ decision, disabled, onResolve }: DecisionCardProps): JSX
   return (
     <article className="decision-card" aria-labelledby={`${decision.decisionId}-heading`}>
       <div className="card-meta">
-        <span className={`impact impact-${decision.impact}`}>{decision.impact} impact</span>
-        <span>{decision.category.replaceAll("_", " ")}</span>
-        {decision.status === "deferred" ? <span>Deferred</span> : null}
+        <span className={`impact impact-${decision.impact}`}>
+          {messages.impactLabel(decision.impact)}
+        </span>
+        <span>{displayLabel(messages.categories, decision.category)}</span>
+        {decision.status === "deferred" ? <span>{messages.deferred}</span> : null}
       </div>
-      <h3 id={`${decision.decisionId}-heading`}>{decision.question}</h3>
-      <p className="reason">{decision.reason}</p>
+      <h3 id={`${decision.decisionId}-heading`}>{displayProductText(decision.question, locale)}</h3>
+      <p className="reason">{displayProductText(decision.reason, locale)}</p>
       <form onSubmit={(event) => void submit(event)}>
         <fieldset disabled={disabled}>
-          <legend>Choose an explicit direction</legend>
+          <legend>{messages.chooseDirection}</legend>
           <div className="options">
             {decision.options.map((option) => (
               <label className="option" key={option.id}>
@@ -151,25 +157,25 @@ function DecisionCard({ decision, disabled, onResolve }: DecisionCardProps): JSX
                       setValidation("");
                     }}
                   />
-                  <strong>{option.label}</strong>
+                  <strong>{displayProductText(option.label, locale)}</strong>
                 </span>
-                <span>{option.description}</span>
+                <span>{displayProductText(option.description, locale)}</span>
                 {option.effects.length > 0 ? (
                   <ul>
                     {option.effects.map((effect) => (
-                      <li key={effect}>{effect}</li>
+                      <li key={effect}>{displayProductText(effect, locale)}</li>
                     ))}
                   </ul>
                 ) : null}
                 <span className="support">
-                  Probe support: {option.supportedByProbeIds.join(", ") || "none"}
+                  {messages.probeSupport}: {option.supportedByProbeIds.join(", ") || messages.none}
                 </span>
               </label>
             ))}
           </div>
           {decision.freeformAllowed ? (
             <label className="freeform">
-              Free-form decision
+              {messages.freeformDecision}
               <textarea
                 rows={3}
                 value={freeform}
@@ -178,7 +184,7 @@ function DecisionCard({ decision, disabled, onResolve }: DecisionCardProps): JSX
                   setSelectedOptionId(null);
                   setValidation("");
                 }}
-                placeholder="Describe the exact behavior you want"
+                placeholder={messages.freeformPlaceholder}
               />
             </label>
           ) : null}
@@ -189,28 +195,32 @@ function DecisionCard({ decision, disabled, onResolve }: DecisionCardProps): JSX
           ) : null}
           <div className="card-actions">
             <button className="primary" type="submit">
-              Record decision
+              {messages.recordDecision}
             </button>
             <button
               type="button"
               disabled={decision.status === "deferred"}
               onClick={() => void onResolve(decision, { action: "defer" })}
             >
-              Defer
+              {messages.defer}
             </button>
           </div>
         </fieldset>
       </form>
       <details>
-        <summary>Evidence and policy triggers</summary>
+        <summary>{messages.evidenceAndTriggers}</summary>
         <dl className="evidence">
           <div>
-            <dt>Repository evidence</dt>
-            <dd>{decision.evidenceRefs.join(", ") || "No references supplied"}</dd>
+            <dt>{messages.repositoryEvidence}</dt>
+            <dd>{decision.evidenceRefs.join(", ") || messages.noReferences}</dd>
           </div>
           <div>
-            <dt>Deterministic triggers</dt>
-            <dd>{decision.deterministicTriggers.join(", ") || "None"}</dd>
+            <dt>{messages.deterministicTriggers}</dt>
+            <dd>
+              {decision.deterministicTriggers
+                .map((trigger) => displayLabel(messages.triggers, trigger))
+                .join(", ") || messages.none}
+            </dd>
           </div>
         </dl>
       </details>
@@ -218,13 +228,44 @@ function DecisionCard({ decision, disabled, onResolve }: DecisionCardProps): JSX
   );
 }
 
+interface LanguageSelectorProps {
+  readonly locale: UiLocale;
+  readonly messages: UiMessages;
+  readonly onChange: (locale: UiLocale) => void;
+}
+
+function LanguageSelector({ locale, messages, onChange }: LanguageSelectorProps): JSX.Element {
+  return (
+    <nav className="language-selector" aria-label={messages.languageSelector}>
+      <button
+        type="button"
+        aria-pressed={locale === "ja"}
+        onClick={() => {
+          onChange("ja");
+        }}
+      >
+        日本語
+      </button>
+      <button
+        type="button"
+        aria-pressed={locale === "en"}
+        onClick={() => {
+          onChange("en");
+        }}
+      >
+        English
+      </button>
+    </nav>
+  );
+}
+
 function App(): JSX.Element {
   const bootstrap = initialBootstrap;
+  const [locale, setLocale] = useState<UiLocale>(() => detectUiLocale());
+  const messages = uiMessages[locale];
   const [review, setReview] = useState<RunReviewDto | null>(null);
-  const [announcement, setAnnouncement] = useState("Loading review");
-  const [error, setError] = useState(
-    bootstrap === null ? "This review link has no capability token." : "",
-  );
+  const [announcedState, setAnnouncedState] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [evidence, setEvidence] = useState<ReviewEvidenceDto | null>(null);
   const [evidenceBusy, setEvidenceBusy] = useState(false);
@@ -235,50 +276,63 @@ function App(): JSX.Element {
     if (next.version < observedVersion.current) return;
     observedVersion.current = next.version;
     setReview(next);
-    setAnnouncement(stateLabel(next.state));
+    setAnnouncedState(next.state);
   }, []);
 
   const refresh = useCallback(
     async (signal?: AbortSignal): Promise<void> => {
       if (bootstrap === null) return;
-      const next = await fetchReview(bootstrap.runId, bootstrap.token, signal);
+      const next = await fetchReview(bootstrap.runId, bootstrap.token, messages, signal);
       applyReview(next);
     },
-    [applyReview, bootstrap],
+    [applyReview, bootstrap, messages],
   );
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    document.title = messages.documentTitle;
+    persistUiLocale(locale);
+  }, [locale, messages]);
 
   useEffect(() => {
     if (bootstrap === null) return;
     const abort = new AbortController();
-    void fetchReview(bootstrap.runId, bootstrap.token, abort.signal)
+    void fetchReview(bootstrap.runId, bootstrap.token, messages, abort.signal)
       .then((next) => {
         applyReview(next);
       })
       .catch((cause: unknown) => {
         if (!abort.signal.aborted) {
-          setError(cause instanceof Error ? cause.message : "Review failed");
+          setError(cause instanceof Error ? cause.message : messages.reviewFailed);
         }
       });
-    void streamEvents(bootstrap.runId, bootstrap.token, abort.signal, (event) => {
-      setAnnouncement(stateLabel(event.state));
-      void refresh(abort.signal).catch((cause: unknown) => {
-        if (!abort.signal.aborted) {
-          setError(cause instanceof Error ? cause.message : "Refresh failed");
-        }
-      });
-    }).catch((cause: unknown) => {
-      if (!abort.signal.aborted)
-        setError(cause instanceof Error ? cause.message : "Event stream failed");
+    void streamEvents(
+      bootstrap.runId,
+      bootstrap.token,
+      abort.signal,
+      (event) => {
+        setAnnouncedState(event.state);
+        void refresh(abort.signal).catch((cause: unknown) => {
+          if (!abort.signal.aborted) {
+            setError(cause instanceof Error ? cause.message : messages.refreshFailed);
+          }
+        });
+      },
+      messages,
+    ).catch((cause: unknown) => {
+      if (!abort.signal.aborted) {
+        setError(cause instanceof Error ? cause.message : messages.eventStreamFailed);
+      }
     });
     return () => {
       abort.abort();
     };
-  }, [applyReview, bootstrap, refresh]);
+  }, [applyReview, bootstrap, messages, refresh]);
 
   async function mutate(path: string, body: Record<string, unknown>): Promise<void> {
     if (bootstrap === null || review === null) return;
     if (review.mode === "recorded") {
-      setError("Recorded replay is read-only. Run a live inspection to make decisions.");
+      setError(messages.recordedMutationDenied);
       return;
     }
     setBusy(true);
@@ -295,12 +349,16 @@ function App(): JSX.Element {
       });
       if (!response.ok) {
         const failure = (await response.json()) as { code?: string };
-        throw new Error(failure.code ?? `Mutation failed (${String(response.status)})`);
+        throw new Error(
+          failure.code === undefined
+            ? messages.requestFailed("review", response.status)
+            : messages.mutationFailedWithCode(failure.code),
+        );
       }
       await refresh();
       requestAnimationFrame(() => contentRef.current?.focus());
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Mutation failed");
+      setError(cause instanceof Error ? cause.message : messages.mutationFailed);
     } finally {
       setBusy(false);
     }
@@ -314,10 +372,10 @@ function App(): JSX.Element {
       const response = await fetch(`/api/runs/${encodeURIComponent(bootstrap.runId)}/evidence`, {
         headers: { Authorization: `Bearer ${bootstrap.token}` },
       });
-      if (!response.ok) throw new Error(`Evidence request failed (${String(response.status)})`);
+      if (!response.ok) throw new Error(messages.requestFailed("evidence", response.status));
       setEvidence((await response.json()) as ReviewEvidenceDto);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Evidence request failed");
+      setError(cause instanceof Error ? cause.message : messages.evidenceRequestFailed);
     } finally {
       setEvidenceBusy(false);
     }
@@ -326,21 +384,30 @@ function App(): JSX.Element {
   if (bootstrap === null) {
     return (
       <main className="shell">
-        <h1>Decision Inbox</h1>
-        <p role="alert">{error}</p>
+        <div className="utility-row">
+          <p className="eyebrow">PromptTripwire</p>
+          <LanguageSelector locale={locale} messages={messages} onChange={setLocale} />
+        </div>
+        <h1>{messages.inboxTitle}</h1>
+        <p role="alert">{messages.missingCapability}</p>
       </main>
     );
   }
 
   return (
     <main className="shell" ref={contentRef} tabIndex={-1}>
-      <p className="eyebrow">PromptTripwire</p>
+      <div className="utility-row">
+        <p className="eyebrow">PromptTripwire</p>
+        <LanguageSelector locale={locale} messages={messages} onChange={setLocale} />
+      </div>
       <div className="title-row">
-        <h1>Decision Inbox</h1>
-        <span className="state-pill">{review === null ? "Loading" : stateLabel(review.state)}</span>
+        <h1>{messages.inboxTitle}</h1>
+        <span className="state-pill">
+          {review === null ? messages.loading : stateLabel(review.state, messages)}
+        </span>
       </div>
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {announcement}
+        {announcedState === null ? messages.loadingReview : stateLabel(announcedState, messages)}
       </p>
       {error.length > 0 ? (
         <p className="error" role="alert">
@@ -349,36 +416,33 @@ function App(): JSX.Element {
       ) : null}
       {review?.mode === "recorded" ? (
         <aside className="recorded-banner" role="note">
-          <strong>Recorded replay · read-only</strong>
-          <span>
-            This sanitized example does not call Codex or execute code. Use the judge fixture for
-            live verification.
-          </span>
+          <strong>{messages.recordedTitle}</strong>
+          <span>{messages.recordedDescription}</span>
         </aside>
       ) : null}
       {review === null ? (
         <section aria-labelledby="loading-heading">
-          <h2 id="loading-heading">Loading review</h2>
+          <h2 id="loading-heading">{messages.loadingReview}</h2>
         </section>
       ) : (
         <>
           <section className="summary" aria-labelledby="summary-heading">
             <div>
-              <p className="section-label">Task and snapshot</p>
+              <p className="section-label">{messages.taskAndSnapshot}</p>
               <h2 id="summary-heading">{review.snapshot?.task ?? `Run ${review.runId}`}</h2>
             </div>
             <dl>
               <div>
-                <dt>Repository</dt>
-                <dd>{review.snapshot?.repositoryPath ?? "Not captured"}</dd>
+                <dt>{messages.repository}</dt>
+                <dd>{review.snapshot?.repositoryPath ?? messages.notCaptured}</dd>
               </div>
               <div>
-                <dt>Snapshot</dt>
-                <dd>{review.snapshot?.commitSha.slice(0, 12) ?? "Pending"}</dd>
+                <dt>{messages.snapshot}</dt>
+                <dd>{review.snapshot?.commitSha.slice(0, 12) ?? messages.pending}</dd>
               </div>
               <div>
-                <dt>Branch</dt>
-                <dd>{review.snapshot?.branch ?? "Detached"}</dd>
+                <dt>{messages.branch}</dt>
+                <dd>{review.snapshot?.branch ?? messages.detached}</dd>
               </div>
             </dl>
           </section>
@@ -387,22 +451,22 @@ function App(): JSX.Element {
             <section aria-labelledby="decisions-heading">
               <div className="section-heading">
                 <div>
-                  <p className="section-label">Explicit choices</p>
-                  <h2 id="decisions-heading">Decisions requiring review</h2>
+                  <p className="section-label">{messages.explicitChoices}</p>
+                  <h2 id="decisions-heading">{messages.decisionsRequiringReview}</h2>
                 </div>
                 <p>
-                  {String(review.decisions.length)} shown
-                  {review.remainingDecisionCount > 0
-                    ? ` · ${String(review.remainingDecisionCount)} remaining after these`
-                    : ""}
+                  {messages.shownDecisions(review.decisions.length, review.remainingDecisionCount)}
                 </p>
               </div>
+              <p className="source-text-notice">{messages.sourceTextNotice}</p>
               <div className="decision-grid">
                 {review.decisions.map((decision) => (
                   <DecisionCard
                     key={decision.decisionId}
                     decision={decision}
                     disabled={busy || review.mode === "recorded"}
+                    locale={locale}
+                    messages={messages}
                     onResolve={async (item, payload) => {
                       await mutate(
                         `/api/runs/${encodeURIComponent(review.runId)}/decisions/${encodeURIComponent(item.decisionId)}`,
@@ -417,12 +481,12 @@ function App(): JSX.Element {
 
           {review.contract !== null ? (
             <section className="contract" aria-labelledby="contract-heading">
-              <p className="section-label">Consolidated contract</p>
-              <h2 id="contract-heading">Approve the bounded execution</h2>
+              <p className="section-label">{messages.consolidatedContract}</p>
+              <h2 id="contract-heading">{messages.approveBoundedExecution}</h2>
               <p>{review.contract.approvedGoal}</p>
               <div className="contract-columns">
                 <div>
-                  <h3>Allowed paths</h3>
+                  <h3>{messages.allowedPaths}</h3>
                   <ul>
                     {review.contract.allowedPaths.map((path) => (
                       <li key={path}>{path}</li>
@@ -430,7 +494,7 @@ function App(): JSX.Element {
                   </ul>
                 </div>
                 <div>
-                  <h3>Required checks</h3>
+                  <h3>{messages.requiredChecks}</h3>
                   <ul>
                     {review.contract.requiredChecks.map((check) => (
                       <li key={check}>{check}</li>
@@ -438,7 +502,7 @@ function App(): JSX.Element {
                   </ul>
                 </div>
                 <div>
-                  <h3>Stop conditions</h3>
+                  <h3>{messages.stopConditions}</h3>
                   <ul>
                     {review.contract.stopConditions.map((condition) => (
                       <li key={condition}>{condition}</li>
@@ -446,7 +510,9 @@ function App(): JSX.Element {
                   </ul>
                 </div>
               </div>
-              <p className="contract-hash">Contract hash: {review.contract.contentHash}</p>
+              <p className="contract-hash">
+                {messages.contractHash}: {review.contract.contentHash}
+              </p>
               {review.state === "ready_for_approval" && review.mode === "live" ? (
                 <div className="card-actions">
                   <button
@@ -462,7 +528,7 @@ function App(): JSX.Element {
                       )
                     }
                   >
-                    Approve contract
+                    {messages.approveContract}
                   </button>
                   {review.resolvedDecisionCount > 0 ? (
                     <button
@@ -475,29 +541,31 @@ function App(): JSX.Element {
                         )
                       }
                     >
-                      Edit decisions
+                      {messages.editDecisions}
                     </button>
                   ) : null}
                 </div>
               ) : (
-                <p className="success">{stateLabel(review.state)}</p>
+                <p className="success">{stateLabel(review.state, messages)}</p>
               )}
             </section>
           ) : null}
 
           <section aria-labelledby="evidence-heading">
-            <h2 id="evidence-heading">Planning evidence</h2>
+            <h2 id="evidence-heading">{messages.planningEvidence}</h2>
             <details className="plan-evidence">
-              <summary>Open full sanitized plan artifacts</summary>
+              <summary>{messages.openPlanArtifacts}</summary>
               {evidence === null ? (
                 <button type="button" disabled={evidenceBusy} onClick={() => void loadEvidence()}>
-                  {evidenceBusy ? "Loading evidence" : "Load plan artifacts"}
+                  {evidenceBusy ? messages.loadingEvidence : messages.loadPlanArtifacts}
                 </button>
               ) : (
                 <div className="plan-list">
                   {evidence.plans.map((plan) => (
                     <article key={plan.probeId}>
-                      <h3>Probe {plan.probeId}</h3>
+                      <h3>
+                        {messages.probe} {plan.probeId}
+                      </h3>
                       <pre>{JSON.stringify(plan, null, 2)}</pre>
                     </article>
                   ))}
@@ -508,12 +576,12 @@ function App(): JSX.Element {
 
           {review.deviations.length > 0 ? (
             <section aria-labelledby="deviations-heading">
-              <h2 id="deviations-heading">Observed deviations</h2>
+              <h2 id="deviations-heading">{messages.observedDeviations}</h2>
               {review.deviations.map((deviation) => (
                 <article className="deviation" key={deviation.deviationId}>
-                  <h3>{deviation.category}</h3>
+                  <h3>{displayLabel(messages.categories, deviation.category)}</h3>
                   <p>{deviation.summary}</p>
-                  <p>{deviation.resolution ?? "Resolution required"}</p>
+                  <p>{deviation.resolution ?? messages.resolutionRequired}</p>
                 </article>
               ))}
             </section>
@@ -522,8 +590,8 @@ function App(): JSX.Element {
           {!terminalStates.has(review.state) && review.mode === "live" ? (
             <section className="cancel-zone" aria-labelledby="cancel-heading">
               <div>
-                <h2 id="cancel-heading">Stop this run</h2>
-                <p>Cancellation does not execute or modify the target repository.</p>
+                <h2 id="cancel-heading">{messages.stopRun}</h2>
+                <p>{messages.cancellationDescription}</p>
               </div>
               <button
                 type="button"
@@ -532,7 +600,7 @@ function App(): JSX.Element {
                   void mutate(`/api/runs/${encodeURIComponent(review.runId)}/cancel`, {})
                 }
               >
-                Cancel run
+                {messages.cancelRun}
               </button>
             </section>
           ) : null}

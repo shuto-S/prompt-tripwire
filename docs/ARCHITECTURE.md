@@ -118,6 +118,14 @@ Live issuance also advances a per-run, non-secret SQLite generation lease so a
 new listener deterministically supersedes an older listener in another local
 process without persisting either listener's bearer token.
 
+The bundled React client owns a presentation-only Japanese/English dictionary.
+It derives the initial locale from the browser preference, stores only the
+`ja`/`en` choice in origin-scoped browser storage, and updates the document
+language for assistive technology. Exact PromptTripwire-owned templates may be
+localized at render time; task, model, repository, contract, ID, and mutation
+data cross the existing API unchanged. Locale state is not sent to the
+controller and cannot alter a decision or approval fingerprint.
+
 ### Codex Plugin adapter
 
 `plugins/prompt-tripwire` is a distribution adapter, not another controller.

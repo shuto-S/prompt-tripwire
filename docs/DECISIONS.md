@@ -396,6 +396,24 @@ otherwise bounded repository read. Validating every command operand restores
 that observed safe shape without trusting lossy metadata, weakening canonical
 containment, or allowing protected content.
 
+### D-036 — Localize display chrome without translating approval evidence
+
+**Decision:** Provide Japanese and English Decision Inbox chrome in the bundled
+React client. Select Japanese when the browser preference is Japanese, keep a
+visible `日本語 / English` switch, update the document language, and retain only
+the selected `ja`/`en` value in origin-scoped browser storage. Localize fixed UI
+labels, state announcements, categories, triggers, and exact
+PromptTripwire-owned decision templates at render time. Do not translate or
+rewrite snapshot-bound task text, arbitrary model output, repository evidence,
+contract content, identifiers, or mutation payloads.
+
+**Reason:** Japanese Codex users should be able to complete the human review
+flow without navigating English-only controls, while Build Week judges still
+need the existing English presentation. Keeping localization in the display
+adapter preserves immutable contract identity and avoids making translation a
+new probabilistic input to approval. A two-value local preference adds no
+credential path and cannot select, defer, approve, or cancel a run.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage
@@ -432,4 +450,4 @@ containment, or allowing protected content.
 
 ## Decision-change rule
 
-Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, D-034, or D-035 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.
+Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, D-034, D-035, or D-036 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.

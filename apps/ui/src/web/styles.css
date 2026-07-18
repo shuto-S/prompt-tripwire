@@ -83,6 +83,7 @@ button.primary:hover:not(:disabled) {
   text-transform: uppercase;
 }
 
+.utility-row,
 .title-row,
 .section-heading,
 .cancel-zone {
@@ -90,6 +91,30 @@ button.primary:hover:not(:disabled) {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.utility-row {
+  margin-bottom: 0.6rem;
+}
+
+.language-selector {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  background: rgb(250 252 248 / 92%);
+  border: 1px solid #ccd6ca;
+  border-radius: 0.65rem;
+}
+
+.language-selector button {
+  min-height: 2rem;
+  padding: 0.3rem 0.65rem;
+  border: 0;
+}
+
+.language-selector button[aria-pressed="true"] {
+  color: white;
+  background: #176747;
 }
 
 h1,
@@ -208,6 +233,13 @@ dd {
 .reason {
   max-width: 70ch;
   color: #4e5d54;
+}
+
+.source-text-notice {
+  max-width: 72ch;
+  margin: 0.75rem 0 0;
+  color: #5b695f;
+  font-size: 0.88rem;
 }
 
 fieldset {
@@ -400,6 +432,10 @@ summary {
   .cancel-zone {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .utility-row {
+    align-items: center;
   }
 
   .summary dl,
