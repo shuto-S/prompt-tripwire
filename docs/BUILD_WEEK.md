@@ -132,7 +132,7 @@ is excluded from the judge release archive.
 ### Product
 
 - [x] All P0 functional requirements implemented.
-- [ ] Run the complete v0.1.4 source and release gates after the patch version bump.
+- [x] Run the complete v0.1.4 source and release gates after the patch version bump.
 - [x] Real Codex App Server integration; no mocked core demo.
 - [x] Real GPT-5.6 Structured Outputs integration.
 - [x] Judge-ready install that does not require rebuilding.
@@ -143,8 +143,8 @@ is excluded from the judge release archive.
 
 - [x] Apache-2.0 selected as the project license for the public repository.
 - [x] README includes installation, supported platforms, test instructions, architecture summary, and Codex collaboration.
-- [x] Public repository and `v0.1.2` / `v0.1.3` Releases verified anonymously.
-- [ ] Publish the verified `v0.1.4` macOS arm64 patch artifact and checksum, then verify both anonymously.
+- [x] Public repository and `v0.1.2` / `v0.1.3` / `v0.1.4` Releases verified anonymously.
+- [x] Publish the verified `v0.1.4` macOS arm64 patch artifact and checksum, then verify both anonymously.
 - [x] Dated commits distinguish specification, implementation, and submission work.
 - [x] Dependency licenses and third-party assets reviewed.
 - [x] No secrets in Git history.
@@ -165,18 +165,16 @@ is excluded from the judge release archive.
 - [x] Regenerate owned local demo media against v0.1.2.
 - [ ] Public YouTube video with audio under three minutes.
 - [x] Confirm the regenerated final video contains only owned or permitted assets and trademarks.
-- [ ] Repository URL and judge instructions verified from a clean machine/account.
+- [x] Repository URL, release artifact, checksum, and judge instructions verified from an anonymous clean environment.
 - [ ] Free, unrestricted judging access maintained through the judging period.
 - [ ] Devpost draft saved early and final submission completed before deadline; final submission requires explicit human confirmation.
 
 ## 9. Remaining submission actions
 
-- Complete the v0.1.4 verification gates and build the final reproducible archive/checksum.
-- Publish the v0.1.4 GitHub Release and verify the artifact, checksum, repository, and judge instructions from a clean account.
 - Present the prepared YouTube video, title, description, visibility, captions, and thumbnail for human confirmation; only then upload and verify playback anonymously.
-- Replace the Devpost public video/release placeholders and prepare the complete draft; present the final field/attachment/link packet for a separate human confirmation before final submission.
+- Replace the Devpost public video placeholder after YouTube publication and prepare the complete draft; present the final field/attachment/link packet for a separate human confirmation before final submission.
 
-Publication evidence: repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0. The public v0.1.3 release and its downloaded artifact/checksum were verified anonymously; its macOS arm64 archive SHA-256 is `2328e2673ab2fd67d4bd3043dc2c838fc584fad1a10719da28dcbcfd38156682`. The public v0.1.2 archive SHA-256 is `73d61b8262b5c81be558a89b800ddaa0f5d71c4c9e46679893c3c93b1bbfee3f`, and the earlier public v0.1.1 release remains historical evidence with SHA-256 `7a29de3241bab426b2e9b9edd84a6d6f01dd0fc1bf13d71da3927a4a83277f50`. No historical SHA verifies the v0.1.4 candidate archive.
+Publication evidence: repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0. The public v0.1.4 release and its downloaded artifact/checksum were verified anonymously on 2026-07-19 JST; its macOS arm64 archive SHA-256 is `02a30d1f202e18da556aff576ef6d01d82970973e2566639e116615cc6aea4fa`. The public v0.1.3 archive SHA-256 is `2328e2673ab2fd67d4bd3043dc2c838fc584fad1a10719da28dcbcfd38156682`, the public v0.1.2 archive SHA-256 is `73d61b8262b5c81be558a89b800ddaa0f5d71c4c9e46679893c3c93b1bbfee3f`, and the earlier public v0.1.1 release remains historical evidence with SHA-256 `7a29de3241bab426b2e9b9edd84a6d6f01dd0fc1bf13d71da3927a4a83277f50`. Historical checksums do not verify the v0.1.4 archive.
 
 A final local v0.1.2 H.264/AAC English demo, caption/narration copy, thumbnail,
 and owned UI captures are now in `docs/demo/` and `docs/assets/demo/`. The live
@@ -185,7 +183,6 @@ scenes use an earlier human-approved safe-fixture run. These files are present
 in the repository but intentionally excluded from the compact judge archive.
 They are local review evidence, not proof of public YouTube publication.
 
-These do not block the product specification or local v0.1.4 patch preparation,
-but v0.1.4 publication/verification must finish before the external confirmation
-packets are final. YouTube upload and Devpost final submission remain blocked on
-their respective explicit human confirmations.
+The v0.1.4 product, Release, checksum, and anonymous artifact verification are
+complete. YouTube upload and Devpost final submission remain blocked on their
+respective explicit human confirmations.
