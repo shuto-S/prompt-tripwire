@@ -15,19 +15,44 @@ import type {
 
 const MAX_BODY_BYTES = 64 * 1024;
 const DEFAULT_STATIC_ROOT = fileURLToPath(new URL("../web-dist/", import.meta.url));
+const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1_000;
+const DEFAULT_LIFECYCLE_POLL_MS = 500;
+const DEFAULT_CLOSE_GRACE_MS = 500;
+const DEFAULT_REQUEST_BODY_TIMEOUT_MS = 5_000;
+const REVIEWABLE_STATES = new Set(["needs_review", "ready_for_approval", "paused"]);
 
 export interface ReviewServerOptions {
   readonly controller: LocalController;
   readonly runId: string;
   readonly staticRoot?: string;
   readonly mode?: "live" | "recorded";
+  readonly idleTimeoutMs?: number;
+  readonly lifecyclePollMs?: number;
+  readonly closeGraceMs?: number;
+  readonly requestBodyTimeoutMs?: number;
+}
+
+export type ReviewServerCloseReason =
+  "manual" | "terminal_state" | "archived" | "idle_timeout" | "run_unavailable" | "superseded";
+
+export interface ReviewServerClose {
+  readonly reason: ReviewServerCloseReason;
 }
 
 export interface ReviewServer {
   readonly origin: string;
   readonly url: string;
   readonly capabilityToken: string;
+  readonly closed: Promise<ReviewServerClose>;
   close(): Promise<void>;
+}
+
+function positiveDuration(value: number | undefined, fallback: number, name: string): number {
+  const duration = value ?? fallback;
+  if (!Number.isSafeInteger(duration) || duration <= 0) {
+    throw new TypeError(`${name} must be a positive integer`);
+  }
+  return duration;
 }
 
 function securityHeaders(): Readonly<Record<string, string>> {
@@ -66,6 +91,7 @@ function errorCode(error: unknown): string {
 
 function statusForError(code: string): number {
   if (code === "NOT_FOUND") return 404;
+  if (code === "RUN_ARCHIVED" || code === "CAPABILITY_REVOKED") return 410;
   if (code === "CONFLICTING_VERSION" || code === "CONFLICTING_IDEMPOTENCY_KEY") return 409;
   if (code === "INVALID_REQUEST") return 400;
   return 422;
@@ -96,20 +122,40 @@ function sameOriginMutation(request: IncomingMessage, origin: string): boolean {
   );
 }
 
-async function readJson(request: IncomingMessage): Promise<Record<string, unknown>> {
-  let byteCount = 0;
-  const chunks: Buffer[] = [];
-  for await (const chunk of request) {
-    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array);
-    byteCount += bytes.byteLength;
-    if (byteCount > MAX_BODY_BYTES) throw new TypeError("request body is too large");
-    chunks.push(bytes);
+async function readJson(
+  request: IncomingMessage,
+  requestBodyTimeoutMs: number,
+): Promise<Record<string, unknown>> {
+  const body = (async (): Promise<Record<string, unknown>> => {
+    let byteCount = 0;
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) {
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array);
+      byteCount += bytes.byteLength;
+      if (byteCount > MAX_BODY_BYTES) throw new TypeError("request body is too large");
+      chunks.push(bytes);
+    }
+    const value = JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      throw new TypeError("request body must be a JSON object");
+    }
+    return value as Record<string, unknown>;
+  })();
+  const timedOut = Promise.withResolvers<never>();
+  const timeout = setTimeout(() => {
+    request.destroy();
+    timedOut.reject(
+      Object.assign(new Error("request body timed out"), {
+        code: "REQUEST_BODY_TIMEOUT",
+      }),
+    );
+  }, requestBodyTimeoutMs);
+  timeout.unref();
+  try {
+    return await Promise.race([body, timedOut.promise]);
+  } finally {
+    clearTimeout(timeout);
   }
-  const value = JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new TypeError("request body must be a JSON object");
-  }
-  return value as Record<string, unknown>;
 }
 
 function requiredString(value: unknown, name: string): string {
@@ -247,12 +293,87 @@ function serveStatic(response: ServerResponse, pathname: string, staticRoot: str
 }
 
 export async function startReviewServer(options: ReviewServerOptions): Promise<ReviewServer> {
+  const mode = options.mode ?? "live";
+  const initialStatus = options.controller.status(options.runId);
+  if (initialStatus.archived) {
+    throw Object.assign(new Error("archived runs cannot open a Decision Inbox"), {
+      code: "RUN_ARCHIVED",
+    });
+  }
+  if (mode === "live" && !REVIEWABLE_STATES.has(initialStatus.run.state)) {
+    throw Object.assign(new Error("this run is not reviewable"), {
+      code: "RUN_NOT_REVIEWABLE",
+    });
+  }
   const capabilityToken = randomBytes(32).toString("base64url");
   const tokenDigest = createHash("sha256").update(capabilityToken, "utf8").digest();
   const staticRoot = options.staticRoot ?? DEFAULT_STATIC_ROOT;
-  const mode = options.mode ?? "live";
+  const idleTimeoutMs = positiveDuration(
+    options.idleTimeoutMs,
+    DEFAULT_IDLE_TIMEOUT_MS,
+    "idleTimeoutMs",
+  );
+  const lifecyclePollMs = positiveDuration(
+    options.lifecyclePollMs,
+    DEFAULT_LIFECYCLE_POLL_MS,
+    "lifecyclePollMs",
+  );
+  const closeGraceMs = positiveDuration(
+    options.closeGraceMs,
+    DEFAULT_CLOSE_GRACE_MS,
+    "closeGraceMs",
+  );
+  const requestBodyTimeoutMs = positiveDuration(
+    options.requestBodyTimeoutMs,
+    DEFAULT_REQUEST_BODY_TIMEOUT_MS,
+    "requestBodyTimeoutMs",
+  );
   let origin = "";
   const streams = new Set<ServerResponse>();
+  let lastAuthenticatedActivity = Date.now();
+  let lifecycleTimer: ReturnType<typeof setInterval> | null = null;
+  let closeTimer: ReturnType<typeof setTimeout> | null = null;
+  let closing: Promise<void> | null = null;
+  let capabilityRevoked = false;
+  let reviewCapabilityGeneration: number | null = null;
+  let resolveClosed: ((event: ReviewServerClose) => void) | null = null;
+  const closed = new Promise<ReviewServerClose>((resolvePromise) => {
+    resolveClosed = resolvePromise;
+  });
+
+  const enforceRequestBoundary = (response: ServerResponse): boolean => {
+    if (capabilityRevoked) {
+      writeJson(response, 410, { code: "CAPABILITY_REVOKED" });
+      return false;
+    }
+    try {
+      const current = options.controller.status(options.runId);
+      if (current.archived) {
+        writeJson(response, 410, { code: "RUN_ARCHIVED" });
+        scheduleClose("archived");
+        return false;
+      }
+      if (mode === "live" && !REVIEWABLE_STATES.has(current.run.state)) {
+        writeJson(response, 410, { code: "RUN_NOT_REVIEWABLE" });
+        scheduleClose("terminal_state");
+        return false;
+      }
+      if (
+        mode === "live" &&
+        (reviewCapabilityGeneration === null ||
+          !options.controller.isReviewCapabilityCurrent(options.runId, reviewCapabilityGeneration))
+      ) {
+        writeJson(response, 410, { code: "CAPABILITY_REVOKED" });
+        scheduleClose("superseded");
+        return false;
+      }
+      return true;
+    } catch {
+      writeJson(response, 404, { code: "NOT_FOUND" });
+      scheduleClose("run_unavailable");
+      return false;
+    }
+  };
 
   const handleRequest = async (
     request: IncomingMessage,
@@ -278,6 +399,10 @@ export async function startReviewServer(options: ReviewServerOptions): Promise<R
       if (isApi && !validToken(requestToken(request), tokenDigest)) {
         writeJson(response, 401, { code: "UNAUTHORIZED" });
         return;
+      }
+      if (isApi) {
+        lastAuthenticatedActivity = Date.now();
+        if (!enforceRequestBoundary(response)) return;
       }
       const routeRunId =
         runApi?.[1] ??
@@ -312,6 +437,14 @@ export async function startReviewServer(options: ReviewServerOptions): Promise<R
           writeJson(response, 404, { code: "NOT_FOUND" });
           return;
         }
+        let initialEvent: RunEventDto;
+        try {
+          initialEvent = toEvent(options.controller, runId);
+        } catch {
+          writeJson(response, 404, { code: "NOT_FOUND" });
+          scheduleClose("run_unavailable");
+          return;
+        }
         response.writeHead(200, {
           ...securityHeaders(),
           Connection: "keep-alive",
@@ -319,16 +452,27 @@ export async function startReviewServer(options: ReviewServerOptions): Promise<R
         });
         streams.add(response);
         let previous = "";
-        const send = (): void => {
-          const event = toEvent(options.controller, runId);
+        const writeEvent = (event: RunEventDto): void => {
           const serialized = JSON.stringify(event);
           if (serialized !== previous) {
             response.write(`event: run\ndata: ${serialized}\n\n`);
             previous = serialized;
           }
         };
-        send();
-        const timer = setInterval(send, 750);
+        const send = (): void => {
+          writeEvent(toEvent(options.controller, runId));
+        };
+        writeEvent(initialEvent);
+        const timer = setInterval(() => {
+          try {
+            send();
+          } catch {
+            clearInterval(timer);
+            streams.delete(response);
+            response.end();
+            scheduleClose("run_unavailable");
+          }
+        }, 750);
         request.on("close", () => {
           clearInterval(timer);
           streams.delete(response);
@@ -367,7 +511,8 @@ export async function startReviewServer(options: ReviewServerOptions): Promise<R
       if (decisionApi !== null && request.method === "POST") {
         const runId = decodeURIComponent(requiredString(decisionApi[1], "runId"));
         const decisionId = decodeURIComponent(requiredString(decisionApi[2], "decisionId"));
-        const body = await readJson(request);
+        const body = await readJson(request, requestBodyTimeoutMs);
+        if (!enforceRequestBoundary(response)) return;
         if (!["select", "freeform", "defer"].includes(String(body.action))) {
           throw new TypeError("action must be select, freeform, or defer");
         }
@@ -380,6 +525,8 @@ export async function startReviewServer(options: ReviewServerOptions): Promise<R
                 decisionId,
                 expectedVersion,
                 idempotencyKey: key,
+                requireUnpinned: true,
+                ...(reviewCapabilityGeneration === null ? {} : { reviewCapabilityGeneration }),
               })
             : options.controller.decide({
                 runId,
@@ -396,42 +543,55 @@ export async function startReviewServer(options: ReviewServerOptions): Promise<R
                   body.rationale === undefined ? null : nullableString(body.rationale, "rationale"),
                 expectedVersion,
                 idempotencyKey: key,
+                requireUnpinned: true,
+                ...(reviewCapabilityGeneration === null ? {} : { reviewCapabilityGeneration }),
               });
         writeJson(response, 200, mutationResponse(run));
         return;
       }
       if (approveApi !== null && request.method === "POST") {
         const runId = decodeURIComponent(requiredString(approveApi[1], "runId"));
-        const body = await readJson(request);
+        const body = await readJson(request, requestBodyTimeoutMs);
+        if (!enforceRequestBoundary(response)) return;
         const run = options.controller.approve({
           runId,
           contractId: requiredString(body.contractId, "contractId"),
           expectedVersion: requiredVersion(body.expectedVersion),
           idempotencyKey: mutationKey(request),
+          requireUnpinned: true,
+          ...(reviewCapabilityGeneration === null ? {} : { reviewCapabilityGeneration }),
         });
         writeJson(response, 200, mutationResponse(run));
+        scheduleClose("terminal_state");
         return;
       }
       if (reopenApi !== null && request.method === "POST") {
         const runId = decodeURIComponent(requiredString(reopenApi[1], "runId"));
-        const body = await readJson(request);
+        const body = await readJson(request, requestBodyTimeoutMs);
+        if (!enforceRequestBoundary(response)) return;
         const run = options.controller.reopenReview({
           runId,
           expectedVersion: requiredVersion(body.expectedVersion),
           idempotencyKey: mutationKey(request),
+          requireUnpinned: true,
+          ...(reviewCapabilityGeneration === null ? {} : { reviewCapabilityGeneration }),
         });
         writeJson(response, 200, mutationResponse(run));
         return;
       }
       if (cancelApi !== null && request.method === "POST") {
         const runId = decodeURIComponent(requiredString(cancelApi[1], "runId"));
-        const body = await readJson(request);
+        const body = await readJson(request, requestBodyTimeoutMs);
+        if (!enforceRequestBoundary(response)) return;
         const run = await options.controller.cancelVersioned({
           runId,
           expectedVersion: requiredVersion(body.expectedVersion),
           idempotencyKey: mutationKey(request),
+          requireUnpinned: true,
+          ...(reviewCapabilityGeneration === null ? {} : { reviewCapabilityGeneration }),
         });
         writeJson(response, 200, mutationResponse(run));
+        scheduleClose("terminal_state");
         return;
       }
       if (!isApi && (request.method === "GET" || request.method === "HEAD")) {
@@ -440,7 +600,13 @@ export async function startReviewServer(options: ReviewServerOptions): Promise<R
       }
       writeJson(response, 404, { code: "NOT_FOUND" });
     } catch (error) {
+      if (response.destroyed) return;
+      if (response.headersSent) {
+        if (!response.writableEnded) response.end();
+        return;
+      }
       const code = errorCode(error);
+      if (code === "CAPABILITY_REVOKED") scheduleClose("superseded");
       writeJson(response, statusForError(code), {
         code,
         message: "Request could not be completed.",
@@ -448,8 +614,42 @@ export async function startReviewServer(options: ReviewServerOptions): Promise<R
     }
   };
   const server = createServer((request, response) => {
-    void handleRequest(request, response);
+    void handleRequest(request, response).catch(() => {
+      if (!response.destroyed) response.destroy();
+    });
   });
+
+  const closeServer = (reason: ReviewServerCloseReason): Promise<void> => {
+    if (closing !== null) return closing;
+    capabilityRevoked = true;
+    if (lifecycleTimer !== null) clearInterval(lifecycleTimer);
+    if (closeTimer !== null) clearTimeout(closeTimer);
+    for (const stream of streams) stream.end();
+    streams.clear();
+    closing = new Promise<void>((resolveClose, reject) => {
+      server.close((error) => {
+        if (error === undefined) {
+          resolveClosed?.({ reason });
+          resolveClosed = null;
+          resolveClose();
+        } else {
+          reject(error);
+        }
+      });
+      server.closeAllConnections();
+    });
+    return closing;
+  };
+
+  function scheduleClose(reason: ReviewServerCloseReason): void {
+    if (closing !== null || closeTimer !== null) return;
+    capabilityRevoked = true;
+    closeTimer = setTimeout(() => {
+      closeTimer = null;
+      void closeServer(reason);
+    }, closeGraceMs);
+    closeTimer.unref();
+  }
 
   await new Promise<void>((resolveListen, reject) => {
     server.once("error", reject);
@@ -463,19 +663,74 @@ export async function startReviewServer(options: ReviewServerOptions): Promise<R
     throw new TypeError("review server did not receive a TCP address");
   }
   origin = `http://127.0.0.1:${String(address.port)}`;
+  let currentAfterBind: ReturnType<LocalController["status"]>;
+  try {
+    currentAfterBind = options.controller.status(options.runId);
+  } catch (error) {
+    await closeServer("run_unavailable");
+    throw error;
+  }
+  if (currentAfterBind.archived) {
+    await closeServer("archived");
+    throw Object.assign(new Error("archived runs cannot open a Decision Inbox"), {
+      code: "RUN_ARCHIVED",
+    });
+  }
+  if (mode === "live" && !REVIEWABLE_STATES.has(currentAfterBind.run.state)) {
+    await closeServer("terminal_state");
+    throw Object.assign(new Error("this run is not reviewable"), {
+      code: "RUN_NOT_REVIEWABLE",
+    });
+  }
+  if (mode === "live") {
+    try {
+      reviewCapabilityGeneration = options.controller.claimReviewCapability(options.runId);
+    } catch (error) {
+      const code = errorCode(error);
+      await closeServer(
+        code === "RUN_ARCHIVED"
+          ? "archived"
+          : code === "RUN_NOT_REVIEWABLE"
+            ? "terminal_state"
+            : "run_unavailable",
+      );
+      throw error;
+    }
+  }
+  lifecycleTimer = setInterval(() => {
+    try {
+      const current = options.controller.status(options.runId);
+      if (!REVIEWABLE_STATES.has(current.run.state)) {
+        scheduleClose("terminal_state");
+        return;
+      }
+      if (current.archived) {
+        scheduleClose("archived");
+        return;
+      }
+      if (
+        mode === "live" &&
+        (reviewCapabilityGeneration === null ||
+          !options.controller.isReviewCapabilityCurrent(options.runId, reviewCapabilityGeneration))
+      ) {
+        scheduleClose("superseded");
+        return;
+      }
+      if (streams.size === 0 && Date.now() - lastAuthenticatedActivity >= idleTimeoutMs) {
+        scheduleClose("idle_timeout");
+      }
+    } catch {
+      scheduleClose("run_unavailable");
+    }
+  }, lifecyclePollMs);
   const url = `${origin}/runs/${encodeURIComponent(options.runId)}#token=${encodeURIComponent(capabilityToken)}`;
   return {
     origin,
     url,
     capabilityToken,
+    closed,
     async close(): Promise<void> {
-      for (const stream of streams) stream.end();
-      await new Promise<void>((resolveClose, reject) => {
-        server.close((error) => {
-          if (error === undefined) resolveClose();
-          else reject(error);
-        });
-      });
+      await closeServer("manual");
     },
   };
 }

@@ -232,6 +232,13 @@ const MIGRATIONS = [
   ALTER TABLE comparator_attempts
     ADD COLUMN turn_id TEXT;
   `,
+  `
+  CREATE TABLE review_capability_leases (
+    run_id TEXT PRIMARY KEY REFERENCES runs(run_id) ON DELETE CASCADE,
+    generation INTEGER NOT NULL CHECK (generation > 0),
+    issued_at TEXT NOT NULL
+  ) STRICT;
+  `,
 ] as const;
 
 export function migrate(database: DatabaseSync, appliedAt: string): void {

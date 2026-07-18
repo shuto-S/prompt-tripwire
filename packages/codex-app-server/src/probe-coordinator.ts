@@ -5,6 +5,7 @@ import {
 } from "@prompt-tripwire/git-snapshot";
 
 import { AppServerError } from "./errors.js";
+import { assertProbeRootSymlinkContainment } from "./probe-policy.js";
 import type {
   PlanProbeInput,
   PlanProbeResult,
@@ -114,6 +115,7 @@ export class ProbeCoordinator {
 
           let result: ProbeAttemptResult;
           try {
+            assertProbeRootSymlinkContainment(worktree.cwd);
             const completed = await this.runner.runPlanProbe({
               probeId,
               cwd: worktree.cwd,
@@ -142,6 +144,7 @@ export class ProbeCoordinator {
           }
           attempts.push(result);
           if (result.state === "completed") break;
+          if (result.errorCode === "PROBE_CONTAINMENT_VIOLATION") break;
         }
         return attempts;
       }),
@@ -150,12 +153,16 @@ export class ProbeCoordinator {
     const attempts = attemptGroups.flat().sort(byProbeAndAttempt);
     const worktrees = worktreeResults.sort(byProbeAndAttempt);
     const cleanupFailed = worktrees.some((result) => !result.cleanup.success);
-    const plans = cleanupFailed
-      ? []
-      : attempts.flatMap((attempt) =>
-          attempt.state === "completed" && attempt.artifact !== null ? [attempt.artifact] : [],
-        );
-    const blocked = cleanupFailed || plans.length < 2;
+    const containmentFailed = attempts.some(
+      (attempt) => attempt.errorCode === "PROBE_CONTAINMENT_VIOLATION",
+    );
+    const plans =
+      cleanupFailed || containmentFailed
+        ? []
+        : attempts.flatMap((attempt) =>
+            attempt.state === "completed" && attempt.artifact !== null ? [attempt.artifact] : [],
+          );
+    const blocked = cleanupFailed || containmentFailed || plans.length < 2;
 
     return {
       snapshotHash: input.prepared.snapshot.snapshotHash,
@@ -167,11 +174,12 @@ export class ProbeCoordinator {
       worktrees,
       degraded: !blocked && plans.length === 2,
       blocked,
-      blockingReason: cleanupFailed
-        ? "PROBE_CONTAINMENT_VIOLATION"
-        : blocked
-          ? "INSUFFICIENT_VALID_PROBES"
-          : null,
+      blockingReason:
+        cleanupFailed || containmentFailed
+          ? "PROBE_CONTAINMENT_VIOLATION"
+          : blocked
+            ? "INSUFFICIENT_VALID_PROBES"
+            : null,
     };
   }
 }

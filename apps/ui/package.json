@@ -1,6 +1,6 @@
 {
   "name": "@prompt-tripwire/ui",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "exports": "./dist/index.js",
@@ -12,7 +12,7 @@
     "build:web": "vite build"
   },
   "dependencies": {
-    "@prompt-tripwire/controller": "0.1.1",
+    "@prompt-tripwire/controller": "0.1.2",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },

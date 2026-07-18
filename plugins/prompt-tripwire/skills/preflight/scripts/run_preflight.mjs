@@ -7,8 +7,16 @@ import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const REQUIRED_CODEX_VERSION = "0.144.4";
-export const REQUIRED_TRIPWIRE_VERSION = "0.1.1";
+export const REQUIRED_TRIPWIRE_VERSION = "0.1.2";
 export const REENTRY_ENV = "PROMPT_TRIPWIRE_PLUGIN_REENTRY";
+
+const NESTED_APP_SERVER_REQUEST_FAILURE = /\bINSUFFICIENT_VALID_PROBES:\s*request failed\b/iu;
+const CALLER_SANDBOX_HINT =
+  "The caller shell sandbox may have blocked the nested authenticated Codex App Server request. " +
+  "Ask for normal Codex command permission to run only this adapter outside the caller shell " +
+  "sandbox, then retry the same inspect once. This permission is not a PromptTripwire decision " +
+  "or contract approval. If permission is denied or the retry fails, stop; never remove " +
+  `${REENTRY_ENV} or weaken PromptTripwire restrictions.`;
 
 export class PluginError extends Error {
   constructor(code, message) {
@@ -31,10 +39,39 @@ function text(value) {
 }
 
 export function redactOutput(value) {
-  return text(value)
-    .replace(/sk-[A-Za-z0-9_-]{20,}/gu, "sk-****")
-    .replace(/(Bearer\s+)[A-Za-z0-9._-]+/giu, "$1****")
-    .replace(/(OPENAI_API_KEY\s*[=:]\s*)[^\s]+/giu, "$1****");
+  const preservedDecisionInboxUrls = [];
+  const output = text(value).replace(
+    /http:\/\/127\.0\.0\.1:\d{1,5}\/runs\/run_[a-z0-9-]+#token=[a-z0-9_-]{16,}/giu,
+    (url) => {
+      const index = preservedDecisionInboxUrls.push(url) - 1;
+      return `\uE000${String(index)}\uE001`;
+    },
+  );
+  return output
+    .replace(
+      /-----BEGIN [^-\r\n]*PRIVATE KEY-----[\s\S]*?-----END [^-\r\n]*PRIVATE KEY-----/giu,
+      "[REDACTED]",
+    )
+    .replace(/\b[a-z][a-z0-9+.-]*:\/\/[^/\s"'@:]+(?::[^/\s"'@]*)?@[^\s"'<>]+/giu, "[REDACTED]")
+    .replace(/\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}\b/gu, "sk-****")
+    .replace(/\bgh[pousr]_[A-Za-z0-9]{20,}\b/gu, "gh_****")
+    .replace(/\bxox[baprs]-[A-Za-z0-9-]{16,}\b/gu, "xox-****")
+    .replace(/\bAKIA[0-9A-Z]{16}\b/gu, "AKIA****")
+    .replace(
+      /\b((?:authorization\s*:\s*)?(?:bearer|basic)\s+)[A-Za-z0-9._~+/=-]{8,}(?=[^A-Za-z0-9._~+/=-]|$)/giu,
+      "$1****",
+    )
+    .replace(
+      /\b((?:(?:[a-z0-9]+[_-])*(?:api[_-]?key|token|password|secret|credential|cookie|private[_-]?key|signing[_-]?key))\s*[:=]\s*)(["'])[^"'\r\n]*\2/giu,
+      "$1$2****$2",
+    )
+    .replace(
+      /\b((?:(?:[a-z0-9]+[_-])*(?:api[_-]?key|token|password|secret|credential|cookie|private[_-]?key|signing[_-]?key))\s*[:=]\s*)[^\s"',;\]}]{4,}/giu,
+      "$1****",
+    )
+    .replace(/\uE000(\d+)\uE001/gu, (_placeholder, index) => {
+      return preservedDecisionInboxUrls[Number(index)] ?? "[REDACTED]";
+    });
 }
 
 export function assertSupportedPlatform(platform = process.platform, arch = process.arch) {
@@ -106,7 +143,7 @@ export function resolveRuntime(env = process.env) {
 export function assertRuntimeVersions(runtime, env = process.env) {
   const tripwireVersion = commandOutput(runtime, ["--version"]);
   if (text(tripwireVersion) !== `prompt-tripwire ${REQUIRED_TRIPWIRE_VERSION}`) {
-    throw new PluginError("RUNTIME_VERSION_MISMATCH", "PromptTripwire runtime 0.1.1 is required");
+    throw new PluginError("RUNTIME_VERSION_MISMATCH", "PromptTripwire runtime 0.1.2 is required");
   }
   const codex = env.PROMPT_TRIPWIRE_CODEX_BIN?.trim() || executableOnPath("codex");
   if (!codex) {
@@ -234,8 +271,15 @@ function runRuntime(runtime, args, input = undefined, env = process.env) {
     .join("\n");
   if (result.error?.code === "ENOENT")
     throw new PluginError("RUNTIME_NOT_FOUND", "tripwire runtime could not be started");
-  if ((result.status ?? 1) !== 0)
-    throw new PluginError("RUNTIME_FAILED", output || "tripwire command failed");
+  if ((result.status ?? 1) !== 0) {
+    const message = output || "tripwire command failed";
+    throw new PluginError(
+      "RUNTIME_FAILED",
+      NESTED_APP_SERVER_REQUEST_FAILURE.test(message)
+        ? `${message}\n${CALLER_SANDBOX_HINT}`
+        : message,
+    );
+  }
   return output;
 }
 

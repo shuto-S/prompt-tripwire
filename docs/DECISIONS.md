@@ -86,9 +86,9 @@ This log separates confirmed product decisions from assumptions that still requi
 
 ### D-014 — Keep filesystem resolution outside the pure policy matcher
 
-**Decision:** The policy package receives a requested path plus trusted symlink-resolution and case-ambiguity facts from the caller. Missing resolution evidence, absolute paths, parent traversal, case ambiguity, protected paths, raw shell commands, and unknown structured actions are denied.
+**Decision:** The policy package receives a requested path plus trusted symlink-resolution and case-ambiguity facts from the caller. The probe coordinator must first audit every materialized symlink and block the entire batch before thread creation when a link is external, broken, or unresolvable. The App Server adapter must then canonicalize the root, command CWD, and each structured action path independently for every approval. Missing resolution evidence, shell-expanded or ambiguous structured path text, explicit parent traversal, absolute-path escape, case ambiguity, protected paths, raw shell commands, and unknown structured actions are denied. A structured absolute probe-action path is permitted only when its canonical target remains inside the probe root because App Server can report `${cwd}/README.md` rather than a relative path.
 
-**Reason:** The deterministic policy layer must remain independent of filesystem and process access. Explicit evidence inputs preserve that boundary while preventing the matcher from treating an unresolved path or raw command prefix as safe.
+**Reason:** The deterministic policy layer must remain independent of filesystem and process access. Explicit evidence inputs preserve that boundary while preventing the matcher from treating an unresolved path or raw command prefix as safe. A startup walk catches an already-materialized escape before any model thread exists, while per-action canonicalization covers filesystem change and nonexistent-path suffixes after that audit.
 
 ### D-015 — Materialize snapshots with disposable Git worktrees
 
@@ -104,9 +104,9 @@ This log separates confirmed product decisions from assumptions that still requi
 
 ### D-017 — Bind plan identity in the adapter and trust only structured static-read actions
 
-**Decision:** Codex produces the identity-free `PlanArtifactContent` schema. The App Server adapter binds the probe ID, fresh thread ID, snapshot hash, and task hash after validating the final agent message. Probe commands continue only when every App Server `CommandAction` is `read`, `listFiles`, or `search`, its cwd and resolved path remain inside the disposable worktree, and no permission or network expansion is requested. Relative action paths resolve from the command cwd. Raw command text and `unknown` actions never establish safety.
+**Decision:** Codex produces the identity-free `PlanArtifactContent` schema. The App Server adapter binds the probe ID, fresh thread ID, snapshot hash, and task hash after validating the final agent message. Probe commands continue only when the App Server reports one `CommandAction` of `read`, `listFiles`, or `search`; its CWD and action path resolve canonically inside the disposable worktree; its actual command is a single allowlisted static-read program with bounded non-executing flags and operands that match the structured type/path; and no permission or network expansion is requested. Relative action paths resolve from the command CWD; root-contained absolute structured paths are accepted after canonical proof; and a nonexistent suffix derives canonical containment from its nearest existing ancestor. Shell expansion/ambiguity, explicit `..` segments, compound or redirected commands, shell/interpreter wrappers, the `-` standard-input sentinel, symlink-following searches, executable read hooks, unresolved paths, and `unknown` actions are denied. Direct reads also deny default protected paths by lexical and canonical name. Recursive content search walks its effective target first and fails closed when visible protected content, or hidden protected content enabled by `rg --hidden` or any positive inclusion glob, is reachable; a negative-only glob does not broaden hidden reachability. A `listFiles` action remains names-and-metadata-only and may enumerate protected names without content access. Raw command text can only narrow a structured action; it never establishes safety by itself. Before starting any probe thread, the coordinator also performs D-014's complete materialized-symlink audit; a containment failure is a batch blocker rather than a retryable probe failure.
 
-**Reason:** Giving the model identity fields would let schema-valid output claim the wrong probe or snapshot. App Server 0.144.4 also reports some apparently read-only shell commands, including `pwd` and `sed`, as `unknown`; classifying those from raw text would contradict the fail-closed protocol boundary. Probe instructions therefore avoid command shapes that the pinned structured parser cannot identify. Completed command/file items and non-empty diffs remain independently monitored.
+**Reason:** Giving the model identity fields would let schema-valid output claim the wrong probe or snapshot. App Server action data is itself untrusted: checking only its type/path could label a dangerous underlying command as a read. Cross-validating an intentionally small command grammar preserves useful `cat`, bounded `head`/`tail`/`wc`/print-only `sed`, `rg`, `ls`, and non-executing `find` inspection while rejecting stdin-dependent reads and execution-capable flags such as `rg --pre` and `find -exec`. Applying the shared protected-path policy to content access prevents planning from becoming a secret-reading channel, while keeping list-only discovery usable for safe navigation. App Server 0.144.4 can still report apparently read-only command shapes as `unknown`; classifying those from raw text would contradict the fail-closed protocol boundary. Probe instructions therefore avoid command shapes that the pinned structured parser cannot identify. Completed command/file items and non-empty diffs remain independently monitored.
 
 ### D-018 — Bind comparison identity locally and keep model failure in manual review
 
@@ -118,9 +118,9 @@ This log separates confirmed product decisions from assumptions that still requi
 
 ### D-019 — Use an authenticated loopback React Decision Inbox
 
-**Decision:** Build the browser review surface as bundled React/Vite assets served by a Node HTTP server bound to `127.0.0.1` on a random port. Scope a 256-bit capability to one run, bootstrap it through a URL fragment, remove the fragment immediately, and use authorization-header fetches for both aggregate state and SSE. Require exact Host, Origin, expected version, and idempotency on mutations. Editing an unapproved contract reopens all decisions and creates the next immutable contract version; the superseded contract remains stored but inactive.
+**Decision:** Build the browser review surface as bundled React/Vite assets served by a Node HTTP server bound to `127.0.0.1` on a random port. Scope a 256-bit capability to one run, bootstrap it through a URL fragment, remove the fragment immediately, and use authorization-header fetches for both aggregate state and SSE. Require exact Host, Origin, expected version, and idempotency on mutations. Keep the listener only while the run is reviewable; close and revoke the in-memory capability on terminal/non-reviewable state, archive, run loss, or 30 minutes without authenticated activity when no authenticated SSE stream remains active. Closure never mutates the run or infers approval. Editing an unapproved contract reopens all decisions and creates the next immutable contract version; the superseded contract remains stored but inactive.
 
-**Reason:** An aggregate first read avoids a client waterfall and full raw plans, while native semantic controls preserve keyboard and assistive-technology behavior. Header-authenticated streaming keeps the capability out of query and Referer logs. Strict loopback/run scoping, same-origin checks, bundled assets, React text escaping, CSP, and frame denial reduce the local-web attack surface without adding a hosted backend or account system.
+**Reason:** An aggregate first read avoids a client waterfall and full raw plans, while native semantic controls preserve keyboard and assistive-technology behavior. Header-authenticated streaming keeps the capability out of query and Referer logs. Strict loopback/run scoping, same-origin checks, bounded capability lifetime, bundled assets, React text escaping, CSP, and frame denial reduce the local-web attack surface without adding a hosted backend or account system. Separating listener closure from persisted decision state avoids converting transport loss or inactivity into human intent.
 
 ### D-020 — Correlate execution file approvals to validated items and run checks through sandboxed argv
 
@@ -154,9 +154,9 @@ This log separates confirmed product decisions from assumptions that still requi
 
 ### D-025 — Ship a relocatable macOS arm64 archive with an unmistakable recorded fallback
 
-**Decision:** Package compiled PromptTripwire JavaScript, bundled UI assets, minimal runtime dependencies, checksum, direct launcher, user-local installer/uninstaller, and a dependency-free Git fixture in a macOS arm64 tar archive. The launcher still requires Node 24.15+, Git, npm 11+, and an authenticated `codex-cli 0.144.4`; it does not run a source build. Add `tripwire replay` as a sanitized, disposable, read-only Decision Inbox example that calls no model or command, rejects all mutations, and is persistently labeled recorded.
+**Decision:** Package compiled PromptTripwire JavaScript, bundled UI assets, minimal runtime dependencies, checksum, direct launcher, user-local installer/uninstaller, and a dependency-free Git fixture in a macOS arm64 tar archive. The launcher still requires Node 24.15+, Git, npm 11+, and an authenticated `codex-cli 0.144.4`; it does not run a source build. Add `tripwire replay` as a sanitized, disposable, read-only Decision Inbox example that calls no model or command, rejects all mutations, and is persistently labeled recorded. Record source commit, dirty state, source epoch, release tag, archive format, and the size ceiling in the archive manifest. A release-tag build must be clean, use the matching `v<version>` tag that resolves to the packaged commit, and use that commit's timestamp; archive verification independently compares those fields with the current source and enforces the checksum and eight-MiB ceiling.
 
-**Reason:** Build Week judges need a reproducible way to run a developer tool without rebuilding it, while live Codex availability can still be affected by login or usage limits. A relocatable runtime archive is lower-risk than adding a native compiler/signing dependency during the event and preserves the version-pinned App Server boundary. A clearly non-live replay improves review reliability without falsely claiming the core integration works.
+**Reason:** Build Week judges need a reproducible way to run a developer tool without rebuilding it, while live Codex availability can still be affected by login or usage limits. A relocatable runtime archive is lower-risk than adding a native compiler/signing dependency during the event and preserves the version-pinned App Server boundary. A clearly non-live replay improves review reliability without falsely claiming the core integration works. Binding release provenance to a real tag and rechecking it prevents a same-version archive built from dirty or different source from being mistaken for the published artifact.
 
 ### D-026 — Keep deterministic compatibility evidence complete but actionable
 
@@ -184,14 +184,21 @@ The unified installer records that launcher in private installed metadata;
 repo/Git installs resolve it from `PATH`, with `PROMPT_TRIPWIRE_BIN` as an
 explicit local override. The adapter checks for the pinned runtime and
 logged-in Codex CLI 0.144.4, propagates
-`PROMPT_TRIPWIRE_PLUGIN_REENTRY=1` to child PromptTripwire processes, and fails
-closed when the guard is present. V1 does not bundle a second compiled runtime,
+`PROMPT_TRIPWIRE_PLUGIN_REENTRY=1` to child PromptTripwire processes, retains
+only that non-secret sentinel in the minimal App Server process environment,
+and conditionally injects it into App Server child commands through
+`shell_environment_policy.set` while leaving
+`shell_environment_policy.inherit=none` active. The adapter fails closed when
+the guard is present, including inside the child Codex thread. Normal
+non-Plugin calls inject no guard. V1 does not bundle a second compiled runtime,
 publish npm packages, add credentials, or create a new GitHub Release.
 
 **Reason:** The relocatable archive is already the supported packaging and
 authentication surface. Bundling its generated tree into a Plugin would create
 large duplicated artifacts and a second release path without improving the
-Codex-user credential experience.
+Codex-user credential experience. Propagating the guard across both process
+boundaries closes deterministic re-entry without broadening environment
+inheritance or relying on prompt text.
 
 ### D-029 — Co-install the thin Plugin from the existing release archive
 
@@ -212,6 +219,105 @@ Co-distribution does not create a second runtime or safety implementation, and
 the stable relative marketplace layout remains compatible with direct Git
 installation for development and fallback use.
 
+### D-030 — Make the original task first-class deterministic evidence
+
+**Decision:** Identify the hardened policy as `deterministic-v2`. Evaluate the
+normalized original task alongside every validated plan so an omitted
+high-impact request still creates a blocker. Preserve `task:normalized` as its
+own evidence source, merge matching task and plan triggers, and leave probe
+support empty when the task is the only source. Classify dependency intent by
+positive add/install/update/upgrade/replace/remove/change actions. Suppress a
+structured dependency field only when its whole value is an unambiguous
+no-change declaration such as `dependency-free`, `no new dependencies`,
+`without adding dependencies`, unchanged/preserved dependencies, or a supported
+Japanese equivalent; contrast clauses are never suppressed wholesale.
+Concrete external mutations are recognized by an action plus its target, with
+bounded English and Japanese equivalents for repository administration, issue
+transfer, object-store synchronization, and team notifications. A shared noun
+does not inherit the most dangerous meaning by itself: downloading a GitHub
+release artifact is network evidence, while inspecting or verifying a local
+release artifact is not a release/publish request. Plan `commands` are parsed
+only as shell-free token sequences and classified through the runtime command
+classifier. Ambiguous syntax remains unknown; absolute or parent-traversing
+path operands, protected read targets, and output paths become explicit
+scope/secret/unknown evidence rather than being hidden inside command prose.
+
+**Reason:** A probabilistic plan can omit an operation that the user explicitly
+requested, so plan-only policy evidence could remove a mandatory confirmation.
+At the same time, treating every mention of dependencies as an intended change
+creates false blockers and erodes trust. Separate task provenance preserves the
+fail-closed backstop without inventing independent probe support, while narrow
+whole-field no-change handling improves precision without letting a negated
+clause hide a later positive action. Action-and-target matching also preserves
+category accuracy: a read-only remote fetch cannot silently become publication,
+and a concrete external mutation cannot disappear behind a harmless noun or a
+nearby documentation/test context.
+
+### D-031 — Bound Decision Inbox capability lifetime without inferring approval
+
+**Decision:** A live Decision Inbox listener exists only while its run is in
+`needs_review`, `ready_for_approval`, or `paused`. Close it on any other state,
+archive, controller/run loss, or 30 minutes with no authenticated API activity
+and no active authenticated SSE connection. Closing ends streams and revokes
+the in-memory capability but performs no persisted decision, approval,
+cancellation, or run transition. An explicit later review of a still-reviewable
+run receives a new capability. At most one live capability may exist per run
+across local processes: after bind and lifecycle revalidation, issuance
+atomically advances a non-secret SQLite generation lease. The bearer token
+remains in memory. Generation replacement changes no run, decision, contract,
+or approval state; the older listener rejects its next authenticated request and
+closes after bounded polling. Validate the boundary before and after bind,
+before every API response, and again after reading a bounded mutation body.
+UI-originated review mutations must also require an unarchived row and the
+current generation inside the same immediate database transaction. The final
+blocking answer, its idempotency/provenance records, next hash-validated draft
+contract, and `ready_for_approval` transition must be one transaction. A
+`_cancel` or `_rerun` answer and the `cancelled` transition must likewise be one
+transaction without creating a contract. Failure of the generation, version, or
+contract checks rolls back the complete outcome; approval remains a separate
+human mutation. The controller-derived outcome is not part of the client
+idempotency fingerprint, preserving replay compatibility with v0.1.1 final
+answers while a genuinely different answer still conflicts. Resolve an SSE initial event before
+sending stream headers. A mutation body must finish within five seconds; after
+the response grace expires, force-close remaining connections so an incomplete
+authenticated POST cannot hold the revoked listener open.
+
+**Reason:** A detached Plugin or CLI process can otherwise leave a loopback
+capability reachable after review is no longer active. Lifecycle and idle expiry
+reduce that exposure, while keeping transport shutdown separate from human
+intent preserves the existing fail-closed approval boundary. A byte limit alone
+does not bound a client that stops sending before the declared body ends, so the
+body deadline and forced transport closure are required for deterministic
+lifecycle completion. A process-local token registry alone permits two CLI or
+Plugin processes to leave two valid listeners for one run; a persisted
+non-secret generation gives replacement and mutation a deterministic SQLite
+ordering without storing the bearer or weakening approval semantics. Keeping the
+final answer and its derived ready-or-cancel state in that same ordering prevents
+a superseding process from stranding a committed answer between two transactions.
+
+### D-032 — Separate caller command permission from PromptTripwire approval
+
+**Decision:** The thin Plugin adapter may request the calling Codex task's
+normal command permission to launch only the adapter outside a restrictive
+caller shell sandbox so its nested, authenticated `codex app-server` can reach
+the model service. This outer tool permission is not a Decision Inbox choice,
+contract approval, or task implementation authorization. PromptTripwire keeps
+the same minimal App Server environment, two-stage re-entry guard, probe and
+comparator restrictions, deterministic policy, immutable contract gate,
+worktree containment, and executor denials. If the caller denies permission,
+preflight stops. After a sandboxed inspect returns the sanitized
+`INSUFFICIENT_VALID_PROBES: request failed` symptom, the Skill may retry at most
+once through the normal permission path and must not disable the guard, add an
+API-key credential path, or repeatedly escalate.
+
+**Reason:** A live Plugin invocation proved that the calling Codex
+`workspace-write` shell sandbox can block the nested App Server request even
+though the same adapter and existing CLI login work outside that outer
+sandbox. Treating the normal tool-launch permission as human contract approval
+would collapse two unrelated trust boundaries. A narrow, visible, one-retry
+path preserves usability without weakening PromptTripwire's internal safety
+model or introducing another credential route.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage
@@ -220,7 +326,7 @@ installation for development and fallback use.
 
 ### A-002 — Minimal child environment
 
-**Resolution:** Confirmed for 0.144.4. Start App Server with an explicit minimal process environment and `shell_environment_policy.inherit=none`. A synthetic App Server canary was absent from the child command. Never persist a full environment dump.
+**Resolution:** Confirmed for 0.144.4. Start App Server with an explicit minimal process environment and `shell_environment_policy.inherit=none`. A synthetic App Server canary was absent from the child command. For a Plugin-originated run only, retain the exact non-secret `PROMPT_TRIPWIRE_PLUGIN_REENTRY=1` sentinel in that process environment and inject the same value with `shell_environment_policy.set`; do not widen general inheritance. Never persist a full environment dump.
 
 ### A-003 — Stable schema and minimum version
 
@@ -248,4 +354,4 @@ installation for development and fallback use.
 
 ## Decision-change rule
 
-Changing D-003, D-006, D-007, D-008, D-009, D-010, or D-022 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.
+Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, or D-032 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.

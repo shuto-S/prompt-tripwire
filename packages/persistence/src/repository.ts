@@ -47,6 +47,7 @@ import type {
   ComparatorAttemptRecordInput,
   DeferDecisionInput,
   DeferDecisionResult,
+  FinalDecisionContractFactory,
   IngestEventInput,
   PersistedComparison,
   PersistedPlanArtifact,
@@ -55,6 +56,7 @@ import type {
   PersistenceOptions,
   ProbeRunRecordInput,
   RecordHumanDecisionInput,
+  RecordHumanDecisionOutcomeInput,
   RecordHumanDecisionResult,
   ReopenReviewPersistenceInput,
   SaveComparisonInput,
@@ -153,7 +155,14 @@ interface ProbeRunRow {
   readonly created_at: string;
 }
 
+interface PreparedHumanDecision {
+  readonly current: RunRecord;
+  readonly resolved: DecisionPoint;
+  readonly reviewRun: RunRecord;
+}
+
 const TERMINAL_RETENTION_STATES = new Set<RunState>(["completed", "failed", "cancelled"]);
+const REVIEWABLE_STATES = new Set<RunState>(["needs_review", "ready_for_approval", "paused"]);
 const DEFAULT_RETENTION_MILLISECONDS = 7 * 24 * 60 * 60 * 1_000;
 const NO_OMITTED_FINGERPRINT_KEYS = new Set<string>();
 
@@ -347,14 +356,66 @@ export class SqlitePersistence {
     }));
   }
 
+  claimReviewCapability(runId: string, issuedAt = this.now()): number {
+    validateIdentifier(runId, "runId");
+    return this.transaction(() => {
+      const persisted = this.getRun(runId);
+      if (persisted.retention.pinned) {
+        throw new PersistenceError(
+          "RUN_ARCHIVED",
+          "archived runs cannot issue review capabilities",
+        );
+      }
+      if (!REVIEWABLE_STATES.has(persisted.run.state)) {
+        throw new PersistenceError("RUN_NOT_REVIEWABLE", "run cannot issue a review capability");
+      }
+      const row = this.database
+        .prepare(
+          `INSERT INTO review_capability_leases(run_id, generation, issued_at)
+           VALUES (?, 1, ?)
+           ON CONFLICT(run_id) DO UPDATE SET
+             generation = review_capability_leases.generation + 1,
+             issued_at = excluded.issued_at
+           RETURNING generation`,
+        )
+        .get(runId, issuedAt) as { generation: number } | undefined;
+      if (row === undefined || !Number.isSafeInteger(row.generation) || row.generation < 1) {
+        throw new PersistenceError(
+          "DATABASE_CORRUPTION",
+          "review capability generation is invalid",
+        );
+      }
+      return row.generation;
+    });
+  }
+
+  isReviewCapabilityCurrent(runId: string, generation: number): boolean {
+    validateIdentifier(runId, "runId");
+    this.validateReviewCapabilityGeneration(generation);
+    const row = this.database
+      .prepare(
+        `SELECT review_capability_leases.generation AS generation
+         FROM runs
+         LEFT JOIN review_capability_leases USING (run_id)
+         WHERE runs.run_id = ?`,
+      )
+      .get(runId) as { generation: number | null } | undefined;
+    if (row === undefined) throw new PersistenceError("NOT_FOUND", `run ${runId} was not found`);
+    return row.generation === generation;
+  }
+
   transitionRun(
     runId: string,
     nextState: Exclude<RunState, "running">,
     expectedVersion: number,
     updatedAt = this.now(),
     lastErrorCode?: string | null,
+    requireUnpinned = false,
+    reviewCapabilityGeneration?: number,
   ): RunRecord {
     return this.transaction(() => {
+      this.assertUnpinned(runId, requireUnpinned);
+      this.assertReviewCapabilityCurrent(runId, reviewCapabilityGeneration);
       const current = this.getRun(runId).run;
       const transitioned = transitionRun(current, nextState, expectedVersion, updatedAt);
       const next =
@@ -680,7 +741,17 @@ export class SqlitePersistence {
   }
 
   recordHumanDecision(input: RecordHumanDecisionInput): RecordHumanDecisionResult {
+    return this.recordHumanDecisionOutcome({ ...input, outcome: "review_only" });
+  }
+
+  recordHumanDecisionOutcome(
+    input: RecordHumanDecisionOutcomeInput,
+    createContract?: FinalDecisionContractFactory,
+  ): RecordHumanDecisionResult {
     validateIdentifier(input.idempotencyKey, "idempotencyKey");
+    if (!(["review_only", "ready_with_contract", "cancelled"] as const).includes(input.outcome)) {
+      throw new TypeError("human decision outcome is invalid");
+    }
     const humanDecision = HumanDecisionSchema.parse(
       sanitizeStructured(input.decision, "human decision"),
     );
@@ -696,51 +767,104 @@ export class SqlitePersistence {
       },
     });
     return this.transaction(() => {
+      this.assertUnpinned(input.runId, input.requireUnpinned === true);
+      this.assertReviewCapabilityCurrent(input.runId, input.reviewCapabilityGeneration);
       const prior = this.idempotentResult(input.idempotencyKey, operation, requestHash);
       if (prior !== null)
         return this.parseHumanDecisionResult(parseJson(prior, "human decision result"));
-      const current = this.getRun(input.runId).run;
-      if (current.state !== "needs_review") {
-        throw new PersistenceError("CONFLICTING_VERSION", "run is not awaiting human review");
-      }
-      if (current.version !== humanDecision.expectedRunVersion) {
-        throw new PersistenceError(
-          "CONFLICTING_VERSION",
-          `run ${input.runId} no longer has version ${String(humanDecision.expectedRunVersion)}`,
+      const prepared = this.prepareHumanDecision(input.runId, humanDecision);
+      let contract: ExecutionContract | null = null;
+      let run = prepared.reviewRun;
+      if (input.outcome === "ready_with_contract") {
+        if (
+          prepared.current.blockingDecisionIds.length !== 1 ||
+          prepared.current.blockingDecisionIds[0] !== humanDecision.decisionId ||
+          prepared.reviewRun.blockingDecisionIds.length !== 0
+        ) {
+          throw new PersistenceError(
+            "CONFLICTING_VERSION",
+            "the selected decision is not the final blocking decision",
+          );
+        }
+        if (createContract === undefined) {
+          throw new TypeError("ready_with_contract requires a contract factory");
+        }
+        const decisions = this.listDecisionPoints(input.runId).map((decision) =>
+          decision.decisionId === prepared.resolved.decisionId ? prepared.resolved : decision,
         );
-      }
-      const row = this.database
-        .prepare("SELECT record_json FROM decision_points WHERE run_id = ? AND decision_id = ?")
-        .get(input.runId, humanDecision.decisionId) as DecisionPointRow | undefined;
-      if (!row) {
-        throw new PersistenceError(
-          "NOT_FOUND",
-          `decision ${humanDecision.decisionId} was not found`,
+        const humanDecisions = [...this.listHumanDecisions(input.runId), humanDecision].sort(
+          (left, right) => left.decisionId.localeCompare(right.decisionId),
         );
+        if (
+          decisions.some((decision) => decision.status !== "resolved") ||
+          decisions.some(
+            (decision) =>
+              !humanDecisions.some(
+                (humanDecisionEntry) => humanDecisionEntry.decisionId === decision.decisionId,
+              ),
+          )
+        ) {
+          throw new PersistenceError(
+            "DATABASE_CORRUPTION",
+            "final review state does not contain one answer for every decision",
+          );
+        }
+        const nextContractVersion = this.nextContractVersion(input.runId);
+        contract = ExecutionContractSchema.parse(
+          createContract({
+            run: prepared.reviewRun,
+            decisions,
+            humanDecisions,
+            nextContractVersion,
+          }),
+        );
+        if (
+          contract.runId !== input.runId ||
+          contract.snapshotHash !== prepared.reviewRun.snapshotHash ||
+          contract.taskHash !== prepared.reviewRun.taskHash ||
+          contract.version !== nextContractVersion ||
+          contract.approvedAt !== null ||
+          !verifyExecutionContract(contract) ||
+          JSON.stringify(contract.humanDecisions) !== JSON.stringify(humanDecisions)
+        ) {
+          throw new PersistenceError(
+            "DATABASE_CORRUPTION",
+            "final review contract does not match the resolved review state",
+          );
+        }
+        const transitioned = transitionRun(
+          prepared.reviewRun,
+          "ready_for_approval",
+          prepared.reviewRun.version,
+          humanDecision.decidedAt,
+        );
+        run = RunRecordSchema.parse({
+          ...transitioned,
+          activeContractId: contract.contractId,
+        });
+      } else if (input.outcome === "cancelled") {
+        if (
+          humanDecision.selectedOptionId === null ||
+          (!humanDecision.selectedOptionId.endsWith("_cancel") &&
+            !humanDecision.selectedOptionId.endsWith("_rerun"))
+        ) {
+          throw new TypeError("cancelled outcome requires a cancellation option");
+        }
+        run = RunRecordSchema.parse({
+          ...transitionRun(
+            prepared.reviewRun,
+            "cancelled",
+            prepared.reviewRun.version,
+            humanDecision.decidedAt,
+          ),
+          lastErrorCode: "USER_CANCELLED",
+        });
       }
-      const decision = DecisionPointSchema.parse(parseJson(row.record_json, "decision point"));
-      if (decision.status === "resolved") {
-        throw new PersistenceError("CONFLICTING_VERSION", "decision was already resolved");
-      }
-      if (
-        humanDecision.selectedOptionId !== null &&
-        !decision.options.some((option) => option.id === humanDecision.selectedOptionId)
-      ) {
-        throw new TypeError("selected option does not belong to the decision");
-      }
-      if (humanDecision.freeformOverride !== null && !decision.freeformAllowed) {
-        throw new TypeError("free-form override is not allowed for the decision");
-      }
-      const resolved = DecisionPointSchema.parse({ ...decision, status: "resolved" });
-      const next = RunRecordSchema.parse({
-        ...current,
-        version: current.version + 1,
-        blockingDecisionIds: current.blockingDecisionIds.filter(
-          (decisionId) => decisionId !== decision.decisionId,
-        ),
-        updatedAt: humanDecision.decidedAt,
-      });
-      const result = { run: next, decision: resolved, humanDecision };
+      const result = {
+        run,
+        decision: prepared.resolved,
+        humanDecision,
+      };
       this.insertIdempotency(
         input.idempotencyKey,
         input.runId,
@@ -749,32 +873,9 @@ export class SqlitePersistence {
         JSON.stringify(result),
         humanDecision.decidedAt,
       );
-      this.database
-        .prepare(
-          `INSERT INTO human_decisions(
-            run_id, decision_id, idempotency_key, record_json, created_at
-          ) VALUES (?, ?, ?, ?, ?)`,
-        )
-        .run(
-          input.runId,
-          decision.decisionId,
-          input.idempotencyKey,
-          JSON.stringify(humanDecision),
-          humanDecision.decidedAt,
-        );
-      this.database
-        .prepare(
-          `UPDATE decision_points SET status = ?, record_json = ?, updated_at = ?
-           WHERE run_id = ? AND decision_id = ? AND status IN ('unresolved', 'deferred')`,
-        )
-        .run(
-          resolved.status,
-          JSON.stringify(resolved),
-          humanDecision.decidedAt,
-          input.runId,
-          decision.decisionId,
-        );
-      this.updateRun(current.version, next);
+      this.writeHumanDecision(input, humanDecision, prepared.resolved);
+      if (contract !== null) this.insertContract(contract);
+      this.updateRun(prepared.current.version, run);
       return result;
     });
   }
@@ -801,6 +902,8 @@ export class SqlitePersistence {
       expectedVersion: input.expectedVersion,
     });
     return this.transaction(() => {
+      this.assertUnpinned(input.runId, input.requireUnpinned === true);
+      this.assertReviewCapabilityCurrent(input.runId, input.reviewCapabilityGeneration);
       const prior = this.idempotentResult(input.idempotencyKey, operation, requestHash);
       if (prior !== null) {
         return this.parseDeferDecisionResult(parseJson(prior, "defer result"));
@@ -858,6 +961,8 @@ export class SqlitePersistence {
     contract: ExecutionContract,
     expectedVersion: number,
     updatedAt = this.now(),
+    requireUnpinned = false,
+    reviewCapabilityGeneration?: number,
   ): RunRecord {
     const parsed = ExecutionContractSchema.parse(contract);
     if (parsed.runId !== runId || parsed.approvedAt !== null || !verifyExecutionContract(parsed)) {
@@ -867,6 +972,8 @@ export class SqlitePersistence {
       );
     }
     return this.transaction(() => {
+      this.assertUnpinned(runId, requireUnpinned);
+      this.assertReviewCapabilityCurrent(runId, reviewCapabilityGeneration);
       const current = this.getRun(runId).run;
       if (
         current.snapshotHash !== parsed.snapshotHash ||
@@ -969,6 +1076,8 @@ export class SqlitePersistence {
       expectedVersion: input.expectedVersion,
     });
     return this.transaction(() => {
+      this.assertUnpinned(input.runId, input.requireUnpinned === true);
+      this.assertReviewCapabilityCurrent(input.runId, input.reviewCapabilityGeneration);
       const prior = this.idempotentResult(input.idempotencyKey, operation, requestHash);
       if (prior !== null) {
         const value = parseJson(prior, "approval result") as Record<string, unknown>;
@@ -1015,6 +1124,8 @@ export class SqlitePersistence {
       expectedVersion: input.expectedVersion,
     });
     return this.transaction(() => {
+      this.assertUnpinned(input.runId, input.requireUnpinned === true);
+      this.assertReviewCapabilityCurrent(input.runId, input.reviewCapabilityGeneration);
       const prior = this.idempotentResult(input.idempotencyKey, operation, requestHash);
       if (prior !== null) return RunRecordSchema.parse(parseJson(prior, "cancel result"));
       const current = this.getRun(input.runId).run;
@@ -1048,6 +1159,8 @@ export class SqlitePersistence {
       expectedVersion: input.expectedVersion,
     });
     return this.transaction(() => {
+      this.assertUnpinned(input.runId, input.requireUnpinned === true);
+      this.assertReviewCapabilityCurrent(input.runId, input.reviewCapabilityGeneration);
       const prior = this.idempotentResult(input.idempotencyKey, operation, requestHash);
       if (prior !== null) return RunRecordSchema.parse(parseJson(prior, "reopen result"));
       const current = this.getRun(input.runId).run;
@@ -1740,6 +1853,80 @@ export class SqlitePersistence {
     };
   }
 
+  private prepareHumanDecision(runId: string, humanDecision: HumanDecision): PreparedHumanDecision {
+    const current = this.getRun(runId).run;
+    if (current.state !== "needs_review") {
+      throw new PersistenceError("CONFLICTING_VERSION", "run is not awaiting human review");
+    }
+    if (current.version !== humanDecision.expectedRunVersion) {
+      throw new PersistenceError(
+        "CONFLICTING_VERSION",
+        `run ${runId} no longer has version ${String(humanDecision.expectedRunVersion)}`,
+      );
+    }
+    const row = this.database
+      .prepare("SELECT record_json FROM decision_points WHERE run_id = ? AND decision_id = ?")
+      .get(runId, humanDecision.decisionId) as DecisionPointRow | undefined;
+    if (!row) {
+      throw new PersistenceError("NOT_FOUND", `decision ${humanDecision.decisionId} was not found`);
+    }
+    const decision = DecisionPointSchema.parse(parseJson(row.record_json, "decision point"));
+    if (decision.status === "resolved") {
+      throw new PersistenceError("CONFLICTING_VERSION", "decision was already resolved");
+    }
+    if (
+      humanDecision.selectedOptionId !== null &&
+      !decision.options.some((option) => option.id === humanDecision.selectedOptionId)
+    ) {
+      throw new TypeError("selected option does not belong to the decision");
+    }
+    if (humanDecision.freeformOverride !== null && !decision.freeformAllowed) {
+      throw new TypeError("free-form override is not allowed for the decision");
+    }
+    const resolved = DecisionPointSchema.parse({ ...decision, status: "resolved" });
+    const reviewRun = RunRecordSchema.parse({
+      ...current,
+      version: current.version + 1,
+      blockingDecisionIds: current.blockingDecisionIds.filter(
+        (decisionId) => decisionId !== decision.decisionId,
+      ),
+      updatedAt: humanDecision.decidedAt,
+    });
+    return { current, resolved, reviewRun };
+  }
+
+  private writeHumanDecision(
+    input: RecordHumanDecisionInput,
+    humanDecision: HumanDecision,
+    resolved: DecisionPoint,
+  ): void {
+    this.database
+      .prepare(
+        `INSERT INTO human_decisions(
+          run_id, decision_id, idempotency_key, record_json, created_at
+        ) VALUES (?, ?, ?, ?, ?)`,
+      )
+      .run(
+        input.runId,
+        resolved.decisionId,
+        input.idempotencyKey,
+        JSON.stringify(humanDecision),
+        humanDecision.decidedAt,
+      );
+    this.database
+      .prepare(
+        `UPDATE decision_points SET status = ?, record_json = ?, updated_at = ?
+         WHERE run_id = ? AND decision_id = ? AND status IN ('unresolved', 'deferred')`,
+      )
+      .run(
+        resolved.status,
+        JSON.stringify(resolved),
+        humanDecision.decidedAt,
+        input.runId,
+        resolved.decisionId,
+      );
+  }
+
   private parseDeferDecisionResult(value: unknown): DeferDecisionResult {
     if (value === null || typeof value !== "object") {
       throw new PersistenceError("DATABASE_CORRUPTION", "invalid defer decision result");
@@ -1749,6 +1936,29 @@ export class SqlitePersistence {
       run: RunRecordSchema.parse(record.run),
       decision: DecisionPointSchema.parse(record.decision),
     };
+  }
+
+  private assertUnpinned(runId: string, required: boolean): void {
+    if (!required) return;
+    const row = this.database.prepare("SELECT pinned FROM runs WHERE run_id = ?").get(runId) as
+      { pinned: number } | undefined;
+    if (row === undefined) throw new PersistenceError("NOT_FOUND", `run ${runId} was not found`);
+    if (row.pinned === 1) {
+      throw new PersistenceError("RUN_ARCHIVED", "archived runs reject review mutations");
+    }
+  }
+
+  private validateReviewCapabilityGeneration(generation: number): void {
+    if (!Number.isSafeInteger(generation) || generation < 1) {
+      throw new TypeError("review capability generation must be a positive safe integer");
+    }
+  }
+
+  private assertReviewCapabilityCurrent(runId: string, generation?: number): void {
+    if (generation === undefined) return;
+    if (!this.isReviewCapabilityCurrent(runId, generation)) {
+      throw new PersistenceError("CAPABILITY_REVOKED", "review capability was superseded");
+    }
   }
 
   private upsertArtifact(metadata: ArtifactMetadata): void {

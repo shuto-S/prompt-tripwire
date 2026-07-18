@@ -11,6 +11,7 @@ test("AC-003/015: keyboard-only review, approval, and state announcements", asyn
   const server = await startReviewServer({
     controller: fixture.controller,
     runId: fixture.run.runId,
+    closeGraceMs: 5_000,
   });
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
@@ -30,10 +31,6 @@ test("AC-003/015: keyboard-only review, approval, and state announcements", asyn
     await page.keyboard.press("Enter");
     await page.getByRole("heading", { name: "Approve the bounded execution" }).waitFor();
     assert.equal(await page.getByRole("status").textContent(), "Contract is ready for approval");
-    await page.getByRole("button", { name: "Approve contract" }).focus();
-    await page.keyboard.press("Enter");
-    await page.getByText("Contract approved", { exact: true }).last().waitFor();
-    assert.equal(await page.getByRole("status").textContent(), "Contract approved");
     assert.equal(await page.getByText(/FULL PLAN SHOULD NOT LEAK/u).count(), 0);
     await page.getByText("Open full sanitized plan artifacts", { exact: true }).click();
     assert.equal(await page.getByText(/FULL PLAN SHOULD NOT LEAK/u).count(), 0);
@@ -42,6 +39,11 @@ test("AC-003/015: keyboard-only review, approval, and state announcements", asyn
       .getByText(/FULL PLAN SHOULD NOT LEAK/u)
       .first()
       .waitFor();
+    await page.getByRole("button", { name: "Approve contract" }).focus();
+    await page.keyboard.press("Enter");
+    await page.getByText("Contract approved", { exact: true }).last().waitFor();
+    assert.equal(await page.getByRole("status").textContent(), "Contract approved");
+    assert.ok((await page.getByText(/FULL PLAN SHOULD NOT LEAK/u).count()) > 0);
     assert.deepEqual([...requestOrigins], [server.origin]);
   } finally {
     await page.close();
@@ -62,11 +64,17 @@ test("AC-015: probe, pause, and completion states are announced", async () => {
     ]) {
       const runId = `run_ui_state_${state}`;
       const fixture = await createStateFixture(state, runId);
-      const server = await startReviewServer({ controller: fixture.controller, runId });
+      const server = await startReviewServer({
+        controller: fixture.controller,
+        runId,
+        mode: "recorded",
+        closeGraceMs: 5_000,
+      });
       try {
         await page.goto(server.url);
-        await page.getByRole("status").waitFor();
-        assert.equal(await page.getByRole("status").textContent(), label);
+        const status = page.getByRole("status");
+        await status.filter({ hasText: new RegExp(`^${label}$`, "u") }).waitFor();
+        assert.equal(await status.textContent(), label);
       } finally {
         await server.close();
         await fixture.close();
@@ -83,6 +91,7 @@ test("AC-006/015: review shows three blockers plus remaining count and supports 
   const server = await startReviewServer({
     controller: fixture.controller,
     runId: fixture.run.runId,
+    closeGraceMs: 5_000,
   });
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();

@@ -9,7 +9,7 @@ import {
   PlanComparator,
   createContractPreview,
   createReviewRound,
-  normalizeReview,
+  normalizeReview as normalizeReviewBundle,
   renderContractPreview,
   renderDecisionCards,
 } from "../../packages/openai-comparator/dist/index.js";
@@ -34,6 +34,10 @@ const USAGE = {
   reasoningTokens: 20,
 };
 
+function normalizeReview(bundle) {
+  return normalizeReviewBundle({ task: "Implement the fixture change", ...bundle });
+}
+
 function snapshot() {
   return createRepositorySnapshot({
     repositoryPath: "/tmp/prompt-tripwire-comparator-fixture",
@@ -46,7 +50,7 @@ function snapshot() {
     task: "Implement a local validation helper",
     model: { id: "gpt-5.6-sol", reasoningEffort: "low" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.1",
+    promptTripwireVersion: "0.1.2",
     createdAt: "2026-07-14T00:00:00.000Z",
   });
 }
@@ -467,6 +471,32 @@ test("AC-003/AC-004 spec fixture: ambiguous account deletion becomes a decision"
     ),
   );
   assert.doesNotMatch(rendered, /repositoryEvidence/u);
+});
+
+test("AC-004: task-only policy evidence does not invent probe support", async () => {
+  const plans = [plan("probe_1"), plan("probe_2"), plan("probe_3")];
+  const result = await new PlanComparator(new QueueTransport([response(safeContent())])).compare(
+    compareInput(plans),
+  );
+  const review = normalizeReviewBundle({
+    task: "Deploy the result and git push the branch.",
+    candidate: result.candidate,
+    plans,
+    model: result.model,
+    reasoningEffort: result.reasoningEffort,
+    usage: result.usage,
+    degraded: false,
+  });
+  const taskDecisions = review.decisions.filter((decision) =>
+    decision.evidenceRefs.includes("task:normalized"),
+  );
+  assert.ok(taskDecisions.length >= 2);
+  assert.equal(
+    taskDecisions.every((decision) =>
+      decision.options.every((option) => option.supportedByProbeIds.length === 0),
+    ),
+    true,
+  );
 });
 
 test("AC-003 spec fixture: API compatibility choice becomes a public API decision", async () => {

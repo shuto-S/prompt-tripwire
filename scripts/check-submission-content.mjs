@@ -16,17 +16,32 @@ const allowedEmails = new Set([
   "test@example.invalid",
   "testing@devpost.com",
 ]);
+const slackApiTokenPattern = /xox(?:a|b|p|r|s)-[A-Za-z0-9-]{10,}/gu;
 const patterns = [
   { name: "absolute macOS user path", regex: /\/Users\/[A-Za-z0-9._-]+\//gu },
   { name: "SSH Git remote", regex: /git@github\.com:/gu },
   { name: "OpenAI-style secret", regex: /sk-[A-Za-z0-9_-]{20,}/gu },
+  { name: "Slack API token", regex: slackApiTokenPattern },
   { name: "AWS access key", regex: /AKIA[0-9A-Z]{16}/gu },
   {
     name: "private key block",
     regex: /-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----/gu,
   },
+  { name: "Codex thread URI", regex: /codex:\/\/threads\//gu },
+  {
+    name: "Codex Session ID value",
+    regex:
+      /(?:Codex\s+\/feedback\s+)?Session ID[^\r\n]{0,80}\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/giu,
+  },
 ];
 const emailPattern = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu;
+
+assert.equal(
+  slackApiTokenPattern.test(["xoxb", "1234567890", "abcdefghijklmnop"].join("-")),
+  true,
+  "Slack token pattern self-test failed",
+);
+slackApiTokenPattern.lastIndex = 0;
 
 function command(args) {
   const result = spawnSync("git", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
@@ -75,7 +90,10 @@ for (const revision of revisions) {
   for (const path of paths) {
     const result = spawnSync("git", ["show", `${revision}:${path}`], {
       encoding: "buffer",
-      maxBuffer: 8 * 1024 * 1024,
+      // Owned demo media is committed for review and may exceed Node's small
+      // child-process default. Keep the history scanner's bound aligned with
+      // the git inventory helper, then skip binary blobs before text scanning.
+      maxBuffer: 64 * 1024 * 1024,
     });
     assert.equal(result.status, 0, `could not inspect ${revision}:${path}`);
     if (result.stdout.includes(0)) continue;

@@ -1,19 +1,22 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { getEventListeners } from "node:events";
-import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   AppServerError,
+  assertProbeRootSymlinkContainment,
   CodexAppServerClient,
   FakeAppServerHarness,
   ProbeCoordinator,
   ProcessJsonRpcTransport,
   createMemoryTransportPair,
   decideProbeApproval,
+  probeItemViolation,
   ProtocolEventLedger,
 } from "../../packages/codex-app-server/dist/index.js";
 import { createRepositorySnapshot } from "../../packages/domain/dist/index.js";
@@ -66,7 +69,7 @@ function snapshot(repositoryPath) {
     task: "Implement the fixture change",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.1",
+    promptTripwireVersion: "0.1.2",
     createdAt: "2026-07-14T00:00:00.000Z",
   });
 }
@@ -424,7 +427,7 @@ test("AC-019: a duplicate approval request is answered twice but recorded once",
 });
 
 test("AC-002: network, interpreters, builds, tests, packages, and writes are denied", () => {
-  const root = "/tmp/prompt-tripwire-policy-root";
+  const root = tmpdir();
   const base = {
     threadId: "thread_1",
     turnId: "turn_1",
@@ -443,6 +446,23 @@ test("AC-002: network, interpreters, builds, tests, packages, and writes are den
     root,
   );
   assert.equal(safeRelativeRead.observation.decision, "accept_static_read");
+  const safeAbsoluteRead = decideProbeApproval(
+    2,
+    "item/commandExecution/requestApproval",
+    {
+      ...base,
+      commandActions: [
+        {
+          type: "read",
+          command: `cat ${join(root, "README.md")}`,
+          path: join(root, "README.md"),
+          name: "README.md",
+        },
+      ],
+    },
+    root,
+  );
+  assert.equal(safeAbsoluteRead.observation.decision, "accept_static_read");
 
   const deniedCommands = [
     "python3 inspect.py",
@@ -453,7 +473,7 @@ test("AC-002: network, interpreters, builds, tests, packages, and writes are den
   ];
   for (const command of deniedCommands) {
     const decision = decideProbeApproval(
-      2,
+      3,
       "item/commandExecution/requestApproval",
       { ...base, commandActions: [{ type: "unknown", command }] },
       root,
@@ -461,7 +481,7 @@ test("AC-002: network, interpreters, builds, tests, packages, and writes are den
     assert.equal(decision.observation.decision, "decline");
   }
   const networkExpansion = decideProbeApproval(
-    3,
+    4,
     "item/commandExecution/requestApproval",
     {
       ...base,
@@ -472,7 +492,7 @@ test("AC-002: network, interpreters, builds, tests, packages, and writes are den
   );
   assert.equal(networkExpansion.observation.reasonCode, "permission_or_network_expansion");
   const outsideRead = decideProbeApproval(
-    4,
+    5,
     "item/commandExecution/requestApproval",
     {
       ...base,
@@ -483,8 +503,492 @@ test("AC-002: network, interpreters, builds, tests, packages, and writes are den
     root,
   );
   assert.equal(outsideRead.observation.decision, "decline");
-  const fileWrite = decideProbeApproval(5, "item/fileChange/requestApproval", base, root);
+  const parentSegmentRead = decideProbeApproval(
+    6,
+    "item/commandExecution/requestApproval",
+    {
+      ...base,
+      commandActions: [
+        {
+          type: "read",
+          command: "cat src/../README.md",
+          path: "src/../README.md",
+          name: "README.md",
+        },
+      ],
+    },
+    root,
+  );
+  assert.equal(parentSegmentRead.observation.decision, "decline");
+  assert.equal(parentSegmentRead.observation.reasonCode, "unsafe_action");
+  const fileWrite = decideProbeApproval(7, "item/fileChange/requestApproval", base, root);
   assert.equal(fileWrite.observation.decision, "decline");
+});
+
+test("AC-002: structured static reads reject shell ambiguity and command/action mismatches", () => {
+  const root = tmpdir();
+  const base = {
+    threadId: "thread_untrusted_action",
+    turnId: "turn_untrusted_action",
+    itemId: "item_untrusted_action",
+    cwd: root,
+  };
+  const read = (command, path, extra = {}) => ({
+    ...base,
+    ...extra,
+    commandActions: [{ type: "read", command, path, name: path }],
+  });
+  const denied = [
+    read("cat -- -", "-"),
+    read("head -n 10 -- -", "-"),
+    read("tail -n 10 -- -", "-"),
+    read("wc -- -", "-"),
+    read("sed -n '1p' -", "-"),
+    read("cat ~/.ssh/id_rsa", "~/.ssh/id_rsa"),
+    read("cat $HOME/.ssh/id_rsa", "$HOME/.ssh/id_rsa"),
+    read("cat ${HOME}/.ssh/id_rsa", "${HOME}/.ssh/id_rsa"),
+    read("cat $(pwd)/README.md", "$(pwd)/README.md"),
+    read("cat `pwd`/README.md", "`pwd`/README.md"),
+    read("cat *.md", "*.md"),
+    read("cat {README,LICENSE}.md", "{README,LICENSE}.md"),
+    read("cat README.md > captured.txt", "README.md"),
+    read("cat README.md; curl https://example.invalid", "README.md"),
+    read("sed -i '' '1s/a/b/' README.md", "README.md"),
+    read("cat package.json", "README.md"),
+    read("cat README.md", "README.md", { command: "curl https://example.invalid" }),
+    {
+      ...base,
+      commandActions: [{ type: "search", command: "rg TODO -", path: "-", query: "TODO" }],
+    },
+    {
+      ...base,
+      commandActions: [
+        {
+          type: "search",
+          command: "rg --pre 'sh -c evil' TODO .",
+          path: ".",
+          query: "TODO",
+        },
+      ],
+    },
+    {
+      ...base,
+      commandActions: [
+        {
+          type: "listFiles",
+          command: "find . -exec cat README.md +",
+          path: ".",
+        },
+      ],
+    },
+    {
+      ...base,
+      commandActions: [
+        { type: "search", command: "cat README.md", path: "README.md", query: "TODO" },
+      ],
+    },
+  ];
+  for (const request of denied) {
+    const decision = decideProbeApproval(1, "item/commandExecution/requestApproval", request, root);
+    assert.equal(decision.observation.decision, "decline", JSON.stringify(request.commandActions));
+    assert.equal(decision.observation.reasonCode, "unsafe_action");
+  }
+  const ambiguousCwd = decideProbeApproval(
+    2,
+    "item/commandExecution/requestApproval",
+    read("cat README.md", "README.md", { cwd: `${root}/$HOME` }),
+    root,
+  );
+  assert.equal(ambiguousCwd.observation.decision, "decline");
+  assert.equal(ambiguousCwd.observation.reasonCode, "outside_probe_root");
+
+  assert.match(
+    probeItemViolation(
+      {
+        id: "item_observed_mismatch",
+        type: "commandExecution",
+        status: "completed",
+        command: "curl https://example.invalid",
+        cwd: root,
+        commandActions: [
+          { type: "read", command: "cat README.md", path: "README.md", name: "README.md" },
+        ],
+      },
+      root,
+    ),
+    /^unsafe_command_observed:unsafe_action:/u,
+  );
+
+  for (const item of [
+    {
+      id: "item_observed_stdin_read",
+      type: "commandExecution",
+      status: "completed",
+      command: "cat -- -",
+      cwd: root,
+      commandActions: [{ type: "read", command: "cat -- -", path: "-", name: "-" }],
+    },
+    {
+      id: "item_observed_stdin_search",
+      type: "commandExecution",
+      status: "completed",
+      command: "rg TODO -",
+      cwd: root,
+      commandActions: [{ type: "search", command: "rg TODO -", path: "-", query: "TODO" }],
+    },
+  ]) {
+    assert.match(
+      probeItemViolation(item, root),
+      /^unsafe_command_observed:unsafe_action:/u,
+      item.command,
+    );
+  }
+});
+
+test("AC-002: bounded cat, read, search, and listing commands remain allowed", async () => {
+  const root = await mkdtemp(join(tmpdir(), "prompt-tripwire-safe-probe-"));
+  await mkdir(join(root, "src"));
+  await writeFile(join(root, "README.md"), "# Safe fixture\n");
+  await writeFile(join(root, "src", "safe.ts"), "// TODO: safe\n");
+  const base = {
+    threadId: "thread_static_read",
+    turnId: "turn_static_read",
+    itemId: "item_static_read",
+    cwd: root,
+  };
+  const allowed = [
+    {
+      ...base,
+      command: "cat README.md",
+      commandActions: [
+        { type: "read", command: "cat README.md", path: "README.md", name: "README.md" },
+      ],
+    },
+    {
+      ...base,
+      commandActions: [
+        {
+          type: "read",
+          command: "head -n 20 README.md",
+          path: "README.md",
+          name: "README.md",
+        },
+      ],
+    },
+    {
+      ...base,
+      commandActions: [
+        {
+          type: "read",
+          command: "sed -n 1,80p README.md",
+          path: "README.md",
+          name: "README.md",
+        },
+      ],
+    },
+    {
+      ...base,
+      commandActions: [
+        { type: "search", command: "rg -n 'TODO.*safe' src", path: "src", query: "TODO.*safe" },
+      ],
+    },
+    {
+      ...base,
+      commandActions: [{ type: "listFiles", command: "ls -la src", path: "src" }],
+    },
+    {
+      ...base,
+      commandActions: [
+        {
+          type: "listFiles",
+          command: "rg --files -g '*.ts' src",
+          path: "src",
+        },
+      ],
+    },
+    {
+      ...base,
+      commandActions: [
+        {
+          type: "listFiles",
+          command: "find src -maxdepth 2 -type f -name '*.ts' -print",
+          path: "src",
+        },
+      ],
+    },
+  ];
+  try {
+    for (const request of allowed) {
+      const decision = decideProbeApproval(
+        1,
+        "item/commandExecution/requestApproval",
+        request,
+        root,
+      );
+      assert.equal(
+        decision.observation.decision,
+        "accept_static_read",
+        JSON.stringify(request.commandActions),
+      );
+      assert.equal(decision.observation.reasonCode, "static_read");
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("AC-002: protected content is unreadable while list-only inspection remains bounded", async () => {
+  const root = await mkdtemp(join(tmpdir(), "prompt-tripwire-protected-probe-"));
+  const base = {
+    threadId: "thread_protected",
+    turnId: "turn_protected",
+    itemId: "item_protected",
+    cwd: root,
+  };
+  await mkdir(join(root, ".ssh"));
+  await mkdir(join(root, "fixtures"));
+  await mkdir(join(root, "hidden-only"));
+  await mkdir(join(root, "safe"));
+  await mkdir(join(root, "src"));
+  await mkdir(join(root, "vault"));
+  await writeFile(join(root, ".env"), "SECRET=redacted\n");
+  await writeFile(join(root, ".ssh", "id_rsa"), "redacted\n");
+  await writeFile(join(root, "fixtures", "test.key"), "redacted\n");
+  await writeFile(join(root, "hidden-only", ".env.local"), "SECRET=redacted\n");
+  await writeFile(join(root, "src", "safe.ts"), "export const safe = true;\n");
+  await writeFile(join(root, "vault", "secret.key"), "SECRET=redacted\n");
+  await symlink(join(root, ".env"), join(root, "apparently-safe-link"));
+  await symlink(join(root, "vault"), join(root, "safe", "linked"));
+  try {
+    assert.doesNotThrow(() => assertProbeRootSymlinkContainment(root));
+    const directReads = [".env", ".ssh/id_rsa", "fixtures/test.key", "apparently-safe-link"];
+    for (const path of directReads) {
+      const decision = decideProbeApproval(
+        1,
+        "item/commandExecution/requestApproval",
+        {
+          ...base,
+          commandActions: [{ type: "read", command: `cat ${path}`, path, name: path }],
+        },
+        root,
+      );
+      assert.equal(decision.observation.decision, "decline", path);
+      assert.equal(decision.observation.reasonCode, "unsafe_action");
+    }
+
+    const recursiveSearches = [
+      {
+        command: "rg SECRET .",
+        path: ".",
+        query: "SECRET",
+      },
+      {
+        command: "rg --hidden --no-ignore SECRET hidden-only",
+        path: "hidden-only",
+        query: "SECRET",
+      },
+      {
+        command: "rg -g '.env' SECRET .",
+        path: ".",
+        query: "SECRET",
+      },
+      {
+        command: "rg --glob=.env.local SECRET hidden-only",
+        path: "hidden-only",
+        query: "SECRET",
+      },
+      {
+        command: "rg -L SECRET safe",
+        path: "safe",
+        query: "SECRET",
+      },
+      {
+        command: "rg --follow SECRET safe",
+        path: "safe",
+        query: "SECRET",
+      },
+    ];
+    for (const action of recursiveSearches) {
+      const decision = decideProbeApproval(
+        2,
+        "item/commandExecution/requestApproval",
+        { ...base, commandActions: [{ type: "search", ...action }] },
+        root,
+      );
+      assert.equal(decision.observation.decision, "decline", action.command);
+      assert.equal(decision.observation.reasonCode, "unsafe_action");
+    }
+
+    assert.match(
+      probeItemViolation(
+        {
+          id: "item_observed_following_search",
+          type: "commandExecution",
+          status: "completed",
+          command: "rg -L SECRET safe",
+          cwd: root,
+          commandActions: [
+            { type: "search", command: "rg -L SECRET safe", path: "safe", query: "SECRET" },
+          ],
+        },
+        root,
+      ),
+      /^unsafe_command_observed:unsafe_action:/u,
+    );
+
+    const boundedContentSearches = [
+      { command: "rg safe src/safe.ts", path: "src/safe.ts", query: "safe" },
+      { command: "rg SECRET hidden-only", path: "hidden-only", query: "SECRET" },
+      {
+        command: "rg -g '!.env.local' SECRET hidden-only",
+        path: "hidden-only",
+        query: "SECRET",
+      },
+    ];
+    for (const action of boundedContentSearches) {
+      const decision = decideProbeApproval(
+        3,
+        "item/commandExecution/requestApproval",
+        { ...base, commandActions: [{ type: "search", ...action }] },
+        root,
+      );
+      assert.equal(decision.observation.decision, "accept_static_read", action.command);
+    }
+
+    const listOnly = [
+      { type: "listFiles", command: "ls -la .ssh", path: ".ssh" },
+      { type: "listFiles", command: "find . -maxdepth 3 -type f -print", path: "." },
+      { type: "listFiles", command: "rg --files --hidden --no-ignore .", path: "." },
+    ];
+    for (const action of listOnly) {
+      const decision = decideProbeApproval(
+        4,
+        "item/commandExecution/requestApproval",
+        { ...base, commandActions: [action] },
+        root,
+      );
+      assert.equal(decision.observation.decision, "accept_static_read", action.command);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("AC-002: static reads resolve symlinks and reject repository escape", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "prompt-tripwire-probe-symlink-"));
+  const root = join(parent, "repository");
+  const outside = join(parent, "outside");
+  await mkdir(root);
+  await mkdir(outside);
+  await writeFile(join(root, "inside.txt"), "inside\n");
+  await writeFile(join(outside, "secret.txt"), "outside\n");
+  await symlink(join(root, "inside.txt"), join(root, "inside-link"));
+  assert.doesNotThrow(() => assertProbeRootSymlinkContainment(root));
+  await symlink(outside, join(root, "outside-directory-link"));
+  const parentTraversalCwd = decideProbeApproval(
+    1,
+    "item/commandExecution/requestApproval",
+    {
+      threadId: "thread_parent_traversal",
+      turnId: "turn_parent_traversal",
+      itemId: "item_parent_traversal",
+      cwd: `${root}/outside-directory-link/..`,
+      commandActions: [{ type: "search", command: "rg TODO", path: null, query: "TODO" }],
+    },
+    root,
+  );
+  assert.equal(parentTraversalCwd.observation.decision, "decline");
+  assert.equal(parentTraversalCwd.observation.reasonCode, "outside_probe_root");
+  await unlink(join(root, "outside-directory-link"));
+  await symlink(join(outside, "secret.txt"), join(root, "outside-link"));
+  try {
+    assert.throws(
+      () => assertProbeRootSymlinkContainment(root),
+      (error) => error instanceof AppServerError && error.code === "PROBE_CONTAINMENT_VIOLATION",
+    );
+    const request = (path) => ({
+      threadId: "thread_symlink",
+      turnId: "turn_symlink",
+      itemId: `item_${path}`,
+      cwd: root,
+      commandActions: [{ type: "read", command: `cat ${path}`, path, name: path }],
+    });
+    assert.equal(
+      decideProbeApproval(1, "item/commandExecution/requestApproval", request("inside-link"), root)
+        .observation.decision,
+      "accept_static_read",
+    );
+    const escaped = decideProbeApproval(
+      2,
+      "item/commandExecution/requestApproval",
+      request("outside-link"),
+      root,
+    );
+    assert.equal(escaped.observation.decision, "decline");
+    assert.equal(escaped.observation.reasonCode, "unsafe_action");
+    await unlink(join(root, "outside-link"));
+    await symlink(join(outside, "missing.txt"), join(root, "broken-link"));
+    assert.throws(
+      () => assertProbeRootSymlinkContainment(root),
+      (error) => error instanceof AppServerError && error.code === "PROBE_CONTAINMENT_VIOLATION",
+    );
+  } finally {
+    await rm(parent, { recursive: true, force: true });
+  }
+});
+
+test("AC-PLUG-004: child App Server inherits the guard and Plugin re-entry is blocked", async () => {
+  const root = await mkdtemp(join(tmpdir(), "prompt-tripwire-reentry-child-"));
+  const codex = join(root, "codex");
+  const marker = join(root, "result.txt");
+  const adapter = fileURLToPath(
+    new URL(
+      "../../plugins/prompt-tripwire/skills/preflight/scripts/run_preflight.mjs",
+      import.meta.url,
+    ),
+  );
+  await writeFile(
+    codex,
+    `#!/usr/bin/env node
+import { spawnSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
+if (process.argv[2] === "--version") {
+  process.stdout.write("codex-cli 0.144.4\\n");
+  process.exit(0);
+}
+const result = spawnSync(process.execPath, [${JSON.stringify(adapter)}, "--help"], {
+  encoding: "utf8",
+  env: process.argv.includes('shell_environment_policy.set={PROMPT_TRIPWIRE_PLUGIN_REENTRY="1"}')
+    ? { PATH: process.env.PATH, PROMPT_TRIPWIRE_PLUGIN_REENTRY: "1" }
+    : { PATH: process.env.PATH },
+});
+writeFileSync(${JSON.stringify(marker)}, [String(result.status), result.stdout, result.stderr].join("\\n"), { mode: 0o600 });
+`,
+    { mode: 0o700 },
+  );
+
+  const previous = process.env.PROMPT_TRIPWIRE_PLUGIN_REENTRY;
+  process.env.PROMPT_TRIPWIRE_PLUGIN_REENTRY = "1";
+  let transport;
+  try {
+    transport = ProcessJsonRpcTransport.start({ cwd: root, codexPath: codex });
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      try {
+        await access(marker);
+        break;
+      } catch {
+        await new Promise((resolveTimer) => setTimeout(resolveTimer, 10));
+      }
+    }
+    const output = await readFile(marker, "utf8");
+    assert.match(output, /^1\n/u);
+    assert.match(output, /REENTRY_BLOCKED/u);
+  } finally {
+    if (previous === undefined) delete process.env.PROMPT_TRIPWIRE_PLUGIN_REENTRY;
+    else process.env.PROMPT_TRIPWIRE_PLUGIN_REENTRY = previous;
+    await transport?.close();
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("runtime refuses an unverified Codex version before spawning App Server", () => {
@@ -529,7 +1033,7 @@ async function createPreparedRepository() {
     task: "Implement the fixture change",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.1",
+    promptTripwireVersion: "0.1.2",
     effectiveConfig: { probeCount: 3 },
     createdAt: "2026-07-14T00:00:00.000Z",
   });
@@ -585,6 +1089,47 @@ test("AC-001/AC-002: coordinator isolates three probes and cleans every worktree
     assert.equal(git(repository, ["status", "--porcelain=v1"]), "");
   } finally {
     await rm(repository, { recursive: true, force: true });
+  }
+});
+
+test("AC-002: an external tracked symlink blocks the batch before any probe thread", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "prompt-tripwire-coordinator-symlink-"));
+  const repository = join(parent, "repository");
+  const outside = join(parent, "outside.txt");
+  await mkdir(repository);
+  await writeFile(join(repository, "README.md"), "# Fixture\n");
+  await writeFile(outside, "outside\n");
+  await symlink(outside, join(repository, "outside-link"));
+  git(repository, ["init", "-b", "main"]);
+  git(repository, ["config", "user.email", "fixture@example.invalid"]);
+  git(repository, ["config", "user.name", "PromptTripwire Fixture"]);
+  git(repository, ["add", "."]);
+  git(repository, ["commit", "-m", "fixture with external symlink"]);
+  const prepared = await prepareRepositorySnapshot({
+    repositoryPath: repository,
+    task: "Inspect the fixture without changing it",
+    model: { id: "gpt-5.4", reasoningEffort: "high" },
+    codexVersion: "0.144.4",
+    promptTripwireVersion: "0.1.2",
+    effectiveConfig: { probeCount: 3 },
+    createdAt: "2026-07-14T00:00:00.000Z",
+  });
+  const runner = new ConfigurableRunner();
+  const before = git(repository, ["status", "--porcelain=v1"]);
+  try {
+    const result = await new ProbeCoordinator(runner).run({ prepared });
+    assert.equal(result.blocked, true);
+    assert.equal(result.degraded, false);
+    assert.equal(result.blockingReason, "PROBE_CONTAINMENT_VIOLATION");
+    assert.equal(result.plans.length, 0);
+    assert.equal(runner.calls.length, 0);
+    assert.ok(
+      result.attempts.every((attempt) => attempt.errorCode === "PROBE_CONTAINMENT_VIOLATION"),
+    );
+    assert.ok(result.worktrees.every((entry) => entry.cleanup.success));
+    assert.equal(git(repository, ["status", "--porcelain=v1"]), before);
+  } finally {
+    await rm(parent, { recursive: true, force: true });
   }
 });
 

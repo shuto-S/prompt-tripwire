@@ -74,7 +74,12 @@ Owns process lifecycle, JSON-RPC IDs, initialization, thread/turn calls, subscri
 
 ### Probe coordinator
 
-Starts three independent threads with identical inputs and read-only policies, collects authoritative completed plan items, validates plan artifacts, applies timeout/retry behavior, and records degradation.
+Materializes the disposable probe worktrees and performs a fail-closed canonical
+symlink audit before starting any probe thread. It then starts three independent
+threads with identical inputs and read-only policies, collects authoritative
+completed plan items, validates plan artifacts, applies timeout/retry behavior,
+and records degradation. A symlink-containment failure blocks the whole batch
+and is not retried or reduced to a two-probe degraded result.
 
 ### GPT-5.6 comparator
 
@@ -84,7 +89,14 @@ The App Server process starts outside the target repository. Each comparison get
 
 ### Deterministic policy engine
 
-Normalizes model candidates, adds mandatory decisions, denies prohibited actions, suppresses non-material differences, and produces ordered decision points. It is a pure, exhaustively tested module.
+Normalizes model candidates, evaluates the normalized original task as
+first-class evidence alongside every validated plan, adds mandatory decisions,
+denies prohibited actions, suppresses non-material differences, and produces
+ordered decision points. Task-only evidence remains distinguishable and never
+claims probe support. The pure, exhaustively tested module also recognizes only
+whole-value, unambiguous dependency no-change declarations; contrast clauses
+remain eligible for positive action matching. Contract previews identify this
+behavior as `deterministic-v2`.
 
 ### Contract service
 
@@ -96,7 +108,15 @@ Creates a disposable worktree, launches the approved Codex turn, resolves approv
 
 ### Local UI service
 
-Exposes only review/run data needed by the UI. It binds to `127.0.0.1` or `::1`, requires a high-entropy per-run capability token, uses restrictive CORS/CSP, and has no remote-listen option in the MVP.
+Exposes only review/run data needed by the UI. It binds to `127.0.0.1` or `::1`,
+requires a high-entropy per-run capability token, uses restrictive CORS/CSP,
+and has no remote-listen option in the MVP. Its listener and capability are
+bounded to reviewable state: terminal/non-reviewable state, archive, or 30
+minutes with neither authenticated activity nor an authenticated SSE stream
+closes the server without mutating the persisted run or inferring approval.
+Live issuance also advances a per-run, non-secret SQLite generation lease so a
+new listener deterministically supersedes an older listener in another local
+process without persisting either listener's bearer token.
 
 ### Codex Plugin adapter
 
@@ -109,6 +129,25 @@ creating a file in the target checkout. The script only exposes
 CLI/UI operations owned by the controller. It checks macOS arm64, the pinned
 runtime, and the existing Codex CLI login before delegation, and propagates a
 deterministic re-entry environment flag to child PromptTripwire processes.
+Propagation is deliberately two-stage. The adapter sets
+`PROMPT_TRIPWIRE_PLUGIN_REENTRY=1`; the App Server transport retains only that
+non-secret sentinel in its minimal process environment and conditionally adds
+`shell_environment_policy.set={PROMPT_TRIPWIRE_PLUGIN_REENTRY="1"}` so commands
+spawned by App Server observe it despite
+`shell_environment_policy.inherit=none`. Normal non-Plugin launches add neither
+the process-environment exception nor the child override.
+
+The adapter itself starts an authenticated nested `codex app-server`. A
+restrictive shell sandbox around the calling Codex tool command can block that
+child's model-service request before PromptTripwire's own App Server policies
+apply. The Skill therefore requests the caller's normal command permission to
+run only the adapter outside that outer shell sandbox when necessary. This is
+an outer process-launch boundary, not a PromptTripwire review or approval
+boundary: the nested App Server still starts through the same transport, the
+probe/comparator/executor sandbox and tool policies remain unchanged, and the
+two-stage re-entry guard remains mandatory. A denied permission stops the
+flow. A sandboxed `INSUFFICIENT_VALID_PROBES: request failed` symptom permits
+at most one retry through the normal caller permission path.
 
 V1 deliberately does not add hooks, MCP, a hosted service, npm distribution,
 or a second runtime. The macOS archive co-distributes the adapter beside the
@@ -124,7 +163,7 @@ CLI, policy, contract, containment, and report paths as the source of truth.
 ### 4.1 Startup
 
 1. Resolve and version-check the `codex` executable.
-2. Spawn `codex app-server` from an empty disposable runtime directory with stdio pipes and a minimal environment; rely only on the existing Codex CLI login.
+2. Spawn `codex app-server` from an empty disposable runtime directory with stdio pipes and a minimal environment; rely only on the existing Codex CLI login. If and only if the incoming process has `PROMPT_TRIPWIRE_PLUGIN_REENTRY=1`, preserve that sentinel and add the explicit child setting `shell_environment_policy.set={PROMPT_TRIPWIRE_PLUGIN_REENTRY="1"}` while keeping `shell_environment_policy.inherit=none`.
 3. Send `initialize` with `clientInfo.name = "prompt_tripwire"`.
 4. Send `initialized`.
 5. Use only methods and fields present in the normal 0.144.4 schema; never opt into `experimentalApi` for P0.
@@ -145,6 +184,33 @@ Each probe uses a separate `thread/start`, not `thread/fork`, to avoid shared mo
 - plan-output contract.
 
 Probe turns use `approvalPolicy: "untrusted"`. The client declines command, file-change, and permission requests outside the bounded static-inspection policy. It never uses standalone `command/exec` for probing: the 0.144.4 spike showed that read-only sandboxing prevents writes and network but does not by itself prevent all interpreter execution.
+
+Immediately before `thread/start`, the coordinator walks each materialized
+worktree without following symlinked directories. Every symlink must resolve to
+a canonical target under the canonical probe root; broken, external, or
+unresolvable links produce `PROBE_CONTAINMENT_VIOLATION` and block all plan
+artifacts for the batch. At every command approval, the adapter independently
+resolves the canonical root, CWD, nearest existing ancestor, and structured
+action target before accepting a static read. This per-action check covers
+new/nonexistent suffixes and filesystem changes after the pre-thread audit;
+shell-expanded or ambiguous CWD/path text, explicit `..` segments, and
+absolute-path escape are rejected before canonical matching, and missing
+canonical evidence denies the action. The adapter then tokenizes the action's
+actual command without expansion, requires a single allowlisted static-read
+program and bounded flags, and checks that its command operands match the
+structured action type/path. Compound/redirection syntax, interpreter wrappers,
+the `-` standard-input sentinel, executable read hooks such as `rg --pre` and
+symlink-following search flags such as `rg -L`/`--follow`, `find -exec`, and
+semantic mismatch are denied. Direct content reads check default secret-like patterns against both
+the lexical and canonical target. Before a recursive `rg`, the adapter walks its
+effective target and denies the search if it can reach protected content;
+hidden entries are considered reachable when the command uses `--hidden` or a
+positive `--glob`/`-g` inclusion, while visible protected key/certificate paths
+always block recursive content search. Negative-only globs do not broaden
+hidden reachability. `listFiles` remains a names-and-metadata-only class and may
+enumerate protected path names without granting content access. App Server may
+emit an absolute structured action path such as `${cwd}/README.md`; it is
+accepted only when canonical resolution keeps it inside the probe root.
 
 The adapter treats the final completed plan item or final structured agent output as authoritative. Deltas are for UI progress only.
 
@@ -195,6 +261,27 @@ The policy engine orders blocking decisions without a numeric risk score:
 
 Within a category, decisions with more affected components appear first. Stable tie-breaking uses the canonical decision ID so repeat analysis does not shuffle the UI.
 
+`deterministic-v2` scans the original task with action-oriented patterns before
+merging plan-derived blockers. A task trigger is stored as `task:normalized`; it
+is merged with a blocker of the same trigger when plan evidence exists, but an
+otherwise task-only blocker carries an empty probe-support list. This backstops
+plan omission without presenting the task as independent probe consensus.
+Dependency matching distinguishes positive add/install/update/upgrade/replace/
+remove/change intent from whole-field no-change declarations. Exact
+dependency-free, no-new-dependency, unchanged/preserved, and supported Japanese
+forms are suppressed only when they contain no contrast clause.
+
+External-effect task matching is action-and-target oriented. Bounded English
+and Japanese forms cover repository archive/rename, issue transfer, S3 artifact
+synchronization, and Slack notification without treating those service names as
+mutations on their own. Release publication requires an actionable release
+verb; download/fetch/retrieve of a GitHub release artifact contributes network
+evidence only, while local inspect/verify/test wording contributes neither
+network nor publication evidence. Shell-free `commands` fields are tokenized
+and passed through the same command-class classifier used by the policy
+boundary. Ambiguous shell syntax is unknown, and actual path/config/output
+operands are checked for absolute paths, parent traversal, and protected targets.
+
 Compatibility findings from independent probes are retained as one deterministic all-or-none blocker. Explicit statements that compatibility is preserved are not impacts. The grouped blocker keeps every remaining description, component, probe, and evidence reference visible; selecting it accepts the whole disclosed set and never removes the normal P0 runtime boundaries. This avoids paraphrase-amplified question counts without using model similarity to suppress a deterministic finding.
 
 ## 7. Enforcement model
@@ -218,8 +305,8 @@ The system must distinguish “prevented,” “declined before execution,” �
 
 Matching is fail-closed.
 
-- Paths are normalized to repository-relative POSIX form after resolving symlinks.
-- `..`, absolute-path escape, case-folding ambiguity, and symlink escape are denied.
+- Probe worktrees pass a full pre-thread symlink audit; every link must resolve under the canonical root. Each structured static-read action then canonicalizes its root, CWD, and path independently, using the nearest existing ancestor for a nonexistent suffix.
+- Paths are normalized to repository-relative POSIX form after canonical resolution. Explicit `..` segments, absolute-path escape, case-folding ambiguity, broken/unresolved links, missing resolution evidence, and canonical symlink escape are denied. A structured absolute probe-action path is permitted only when canonical resolution proves it is inside the probe root; internal symlinks are allowed only while their resolved targets remain inside the root.
 - Allowed path patterns and protected paths are evaluated with protected paths taking precedence.
 - Commands are parsed from App Server action metadata when available; raw shell-string prefix matching is insufficient.
 - Compound commands are split into actions and every action must be allowed.
@@ -251,6 +338,46 @@ GET  /api/runs/:id/report
 
 The browser currently uses the aggregate `GET /api/runs/:id` response rather than fetching the decision and contract resources serially. Every API request, including the fetch-based SSE stream, requires the per-run bearer capability. Mutations additionally require the exact loopback Origin, JSON content type, expected run version, and an idempotency key. The server rejects a mismatched Host or run ID, returns no wildcard CORS headers, and never places the capability in a query string. The CLI supplies it once in a URL fragment; the client removes that fragment immediately after bootstrap.
 
+The live server polls the persisted run lifecycle while it is open. It remains
+available only for `needs_review`, `ready_for_approval`, or `paused`, and closes
+on any other state, archive, controller/run loss, or 30 minutes since the last
+authenticated API request when no authenticated SSE response is active. Active
+SSE prevents idle closure; unauthenticated requests do not refresh the timer.
+Closure is idempotent, ends SSE responses, resolves the CLI wait, and revokes the
+in-memory capability. It performs no decision or state mutation, so reopening a
+still-reviewable run creates a fresh listener and capability rather than
+recovering or inferring approval from the old one. After bind and the second
+lifecycle check, live issuance atomically increments the run's persisted,
+non-secret generation lease. An older process detects the mismatch on its next
+authenticated request or bounded lifecycle poll, returns `410
+CAPABILITY_REVOKED` when still reachable, and closes. Only the random bearer
+token remains in process memory.
+
+Live startup checks reviewability before and after loopback bind. API routing
+checks the persisted boundary before serving data; mutation routes repeat that
+check after reading the size-bounded body within a five-second deadline and
+immediately before their synchronous controller call. Review persistence
+operations invoked by the UI repeat the unarchived and current-generation checks
+inside `BEGIN IMMEDIATE`, which gives archive, listener replacement, and review
+mutation a deterministic database ordering even across local processes.
+The final blocking answer uses one outcome transaction: it writes idempotency and
+human-decision provenance, resolves the decision, creates and hash-validates the
+next immutable draft contract, and transitions to `ready_for_approval`. A
+`_cancel` or `_rerun` answer uses the same boundary but atomically transitions to
+`cancelled` without a contract. Generation or version failure rolls back every
+part of either outcome; contract approval remains a later explicit transaction.
+Because that outcome is derived by the controller, it is excluded from the
+client request fingerprint. A v0.1.1 final-answer idempotency key therefore
+remains replayable after upgrade, while a changed decision payload still
+conflicts.
+Generation issuance itself changes no run, decision, contract, or approval
+record. Lifecycle closure first revokes the
+capability and allows only a short response grace, then closes all remaining
+connections so an incomplete authenticated POST cannot keep the listener or CLI
+wait alive.
+SSE computes its initial event before sending headers, so concurrent run loss
+returns a bounded error instead of attempting a second response.
+
 The terminal renderer prints stable decision/option IDs and complete select, free-form, defer, and cancel commands for each visible card. It does not require a database query to translate a rendered option into a mutation.
 
 Recorded judge replay uses the same loopback/capability controls but marks every aggregate response with `mode: "recorded"` and rejects every POST with `RECORDED_REPLAY_READ_ONLY`. Its controller state is generated in a disposable private directory from sanitized bundled values, never from a target repository. The UI shows a persistent recorded/read-only banner and disables decision, approval, and cancellation controls.
@@ -274,10 +401,11 @@ Conceptual tables:
 - `events`
 - `deviations`
 - `reports`
+- `review_capability_leases`
 
-Large sanitized artifacts are stored as user-private files referenced by content hash. Database writes for state transition, event ingestion, and approval are transactional.
+Large sanitized artifacts are stored as user-private files referenced by content hash. Database writes for state transition, event ingestion, decision resolution, contract creation, and approval are transactional. Final-answer resolution and its ready-or-cancel outcome share one transaction; approval does not.
 
-The local controller uses one defensive `DatabaseSync` connection per process. Optimistic writes match the persisted run version, and each mutating retry key stores its operation, canonical request fingerprint, and original result in the same transaction as the state change. Reusing a key for different input fails closed. On startup, persisted `running` records pass through `pausing` to `paused` with `CONTROLLER_RESTART`; review, approved, paused, failed, and stale states are never auto-launched. Report and log payloads pass the deterministic sanitizer before storage, while immutable snapshots and contracts are hash-verified on both write and read.
+The local controller uses one defensive `DatabaseSync` connection per process. Optimistic writes match the persisted run version, and each mutating retry key stores its operation, canonical request fingerprint, and original result in the same transaction as the state change. Reusing a key for different input fails closed. A non-secret per-run review generation coordinates live listeners across those connections; bearer capabilities are never stored. On startup, persisted `running` records pass through `pausing` to `paused` with `CONTROLLER_RESTART`; review, approved, paused, failed, and stale states are never auto-launched. Report and log payloads pass the deterministic sanitizer before storage, while immutable snapshots and contracts are hash-verified on both write and read.
 
 Default roots:
 
@@ -321,7 +449,7 @@ docs/
 
 The domain and policy packages must not import UI, process-spawning, filesystem, or network modules.
 
-The macOS arm64 release archive materializes only compiled PromptTripwire JavaScript, bundled UI assets, the four third-party runtime packages required by those outputs, and the thin Skill/marketplace adapter. Workspace symlinks and development dependencies are not required at judge runtime. A shell launcher checks platform and Node version before starting the compiled CLI; the CLI retains the exact Codex/schema compatibility gate. Plain `install.sh` remains runtime-only. `install.sh --with-codex-plugin` additionally verifies Git, Codex 0.144.4, and its existing login before registering the versioned install root as `prompt-tripwire-local`; it never invokes product workflow commands.
+The macOS arm64 release archive materializes only compiled PromptTripwire JavaScript, bundled UI assets, the four third-party runtime packages required by those outputs, and the thin Skill/marketplace adapter. Workspace symlinks, demo media, and development dependencies are not required at judge runtime. A shell launcher checks platform and Node version before starting the compiled CLI; the CLI retains the exact Codex/schema compatibility gate. Plain `install.sh` remains runtime-only. `install.sh --with-codex-plugin` additionally verifies Git, Codex 0.144.4, and its existing login before registering the versioned install root as `prompt-tripwire-local`; it never invokes product workflow commands. Deterministic archive metadata includes source commit, dirty state, source epoch, and optional release tag. A tag build is accepted only when the tree is clean, the matching version tag resolves to `HEAD`, and the source epoch is the commit timestamp; the independent verifier checks that provenance, the checksum, and the archive-size ceiling again.
 
 ## 13. Implementation sequence
 
@@ -346,7 +474,7 @@ The 2026-07-14 macOS/arm64 spike against `codex-cli 0.144.4` established:
 - `untrusted` command and file-change requests can be declined before execution;
 - `approvalPolicy: "never"` can apply a contained file change before `turn/diff/updated`, so diff monitoring is detective;
 - standalone read-only `command/exec` prevented writes/network but allowed an interpreter version command, so sandbox mode is not a command policy;
-- `shell_environment_policy.inherit=none` excluded a synthetic App Server environment canary from child commands;
+- `shell_environment_policy.inherit=none` excluded a synthetic App Server environment canary from child commands; Plugin-originated runs retain only the non-secret re-entry sentinel and inject its exact value through `shell_environment_policy.set`, so an App Server child also fails recursive Plugin invocation without inheriting the caller environment;
 - granular permission approval requires the experimental capability despite appearing in the normal schema;
 - duplicate events are idempotent, while completion-before-start and disconnect fixtures fail closed.
 

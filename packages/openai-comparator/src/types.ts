@@ -69,6 +69,7 @@ export interface ComparePlansResult {
 }
 
 export interface ReviewBundle {
+  readonly task: string;
   readonly candidate: ComparisonCandidate;
   readonly decisions: readonly DecisionPoint[];
   readonly plans: readonly PlanArtifact[];
