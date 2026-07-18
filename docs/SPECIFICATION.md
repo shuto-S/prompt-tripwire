@@ -390,6 +390,15 @@ For a high-impact operational effect, the implementation-only option must state 
 
 High-impact decisions have no preselected default. Keyboard operation, visible focus, semantic headings, labels, and screen-reader status updates are P0 requirements.
 
+The browser UI provides Japanese and English presentation chrome. It selects
+Japanese when the browser's preferred language is Japanese, otherwise English,
+and exposes a visible `日本語 / English` switch whose choice is retained for the
+current loopback origin. Switching language changes only display labels,
+status announcements, and exact PromptTripwire-owned templates. Snapshot-bound
+task text, model-authored decisions, repository evidence, contract content,
+identifiers, and mutation payloads remain unchanged and are shown in their
+source language when no exact product template exists.
+
 The review sequence is:
 
 1. Task and snapshot summary.
@@ -588,7 +597,7 @@ See `SECURITY.md` for the threat model and known limits.
 | FR-004 | P0 | Validate each probe against the canonical plan schema. |
 | FR-005 | P0 | Use GPT-5.6 Structured Outputs to extract consensus, divergence, and unknowns. |
 | FR-006 | P0 | Apply `deterministic-v2` confirmation and denial rules to the original task and validated plans after model comparison, preserving evidence provenance and unambiguous dependency no-change semantics. |
-| FR-007 | P0 | Render decisions in the local UI and terminal fallback. |
+| FR-007 | P0 | Render decisions in the local UI and terminal fallback; provide Japanese/English browser chrome without translating or mutating contract-bound source content. |
 | FR-008 | P0 | Limit each review round to three cards without hiding remaining blockers. |
 | FR-009 | P0 | Create immutable, versioned execution contracts with content hashes. |
 | FR-010 | P0 | Reject stale contracts. |
@@ -641,7 +650,7 @@ See `SECURITY.md` for the threat model and known limits.
 | AC-012 | Amending a contract discards the partial execution worktree and restarts from the approved snapshot. |
 | AC-013 | A successful run reports real check commands and outcomes, final diff scope, thread/model IDs, decisions, and contract hash. |
 | AC-014 | No API key, token, full environment, raw reasoning, or secret fixture value appears in UI output, logs, reports, or exported artifacts. |
-| AC-015 | The Decision Inbox is operable by keyboard and announces probe, review, pause, and completion state changes to assistive technology. |
+| AC-015 | The Decision Inbox is operable by keyboard and announces probe, review, pause, and completion state changes to assistive technology. A Japanese browser locale selects Japanese chrome, the visible language switch updates the document language and every fixed control/state label, and neither language path preselects or records a decision. |
 | AC-016 | Killing and restarting the controller preserves paused/unapproved state and cannot accidentally launch execution. |
 | AC-017 | The local API listens only on loopback, rejects missing/invalid capability tokens and cross-origin mutations, loads no third-party runtime assets, and closes its capability on terminal/archive state or after 30 minutes with neither authenticated activity nor an active authenticated SSE connection without mutating or approving the run. |
 | AC-018 | One failed probe produces degraded/manual review, fewer than two valid probes block approval, and an unrecoverable GPT-5.6 schema/refusal failure cannot auto-approve. |

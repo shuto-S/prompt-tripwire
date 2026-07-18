@@ -113,6 +113,50 @@ test("AC-006/015: review shows three blockers plus remaining count and supports 
   }
 });
 
+test("AC-015: Decision Inbox follows Japanese locale and keeps an explicit language switch", async () => {
+  const fixture = await createReviewFixture({
+    decisionCount: 1,
+    runId: "run_ui_browser_japanese",
+  });
+  const server = await startReviewServer({
+    controller: fixture.controller,
+    runId: fixture.run.runId,
+    closeGraceMs: 5_000,
+  });
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ locale: "ja-JP" });
+  try {
+    await page.goto(server.url);
+    await page.getByRole("heading", { name: "確認が必要な判断" }).waitFor();
+    assert.equal(await page.locator("html").getAttribute("lang"), "ja");
+    assert.equal(await page.title(), "PromptTripwire 意思決定インボックス");
+    assert.equal(await page.getByText("影響：高", { exact: true }).count(), 1);
+    assert.equal(await page.getByText("破壊的操作", { exact: true }).count(), 1);
+    assert.equal(await page.getByRole("button", { name: "判断を記録" }).count(), 1);
+    assert.equal(await page.getByRole("button", { name: "実行をキャンセル" }).count(), 1);
+    assert.equal(await page.getByText(/契約に結び付いた原文で表示します/u).count(), 1);
+    assert.deepEqual(
+      await page.getByRole("radio").evaluateAll((items) => items.map((item) => item.checked)),
+      [false, false],
+    );
+
+    await page.getByRole("button", { name: "English" }).click();
+    await page.getByRole("heading", { name: "Decisions requiring review" }).waitFor();
+    assert.equal(await page.locator("html").getAttribute("lang"), "en");
+    assert.equal(await page.title(), "PromptTripwire Decision Inbox");
+
+    await page.goto(server.url);
+    await page.getByRole("heading", { name: "Decisions requiring review" }).waitFor();
+    assert.equal(await page.locator("html").getAttribute("lang"), "en");
+    assert.equal(fixture.controller.status(fixture.run.runId).run.state, "needs_review");
+  } finally {
+    await page.close();
+    await browser.close();
+    await server.close();
+    await fixture.close();
+  }
+});
+
 test("recorded replay is visibly labeled and cannot mutate review state", async () => {
   const fixture = await createReviewFixture({ decisionCount: 1, runId: "run_ui_browser_recorded" });
   const server = await startReviewServer({
