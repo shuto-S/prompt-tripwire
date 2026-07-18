@@ -15,6 +15,7 @@ type CloseListener = (event: JsonRpcTransportClose) => void;
 
 function minimalAppServerEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const allowed = [
+    "CODEX_HOME",
     "HOME",
     "LANG",
     "LC_ALL",
@@ -169,6 +170,10 @@ export class ProcessJsonRpcTransport implements JsonRpcTransport {
         "image_generation",
         "--disable",
         "multi_agent",
+        // The exact task may name the outer Plugin. Keep it as data without
+        // contributing installed Plugin instructions or Skills to this child.
+        "--disable",
+        "plugins",
         "--disable",
         "plugin_sharing",
         "--disable",

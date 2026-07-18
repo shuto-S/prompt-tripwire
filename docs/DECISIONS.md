@@ -366,6 +366,36 @@ metadata below `.git`. Neither is necessary planning evidence, and exposing it
 would weaken the existing protected-path boundary. Listing remains useful for
 repository navigation and does not grant content access.
 
+### D-035 — Preserve Plugin invocation text while isolating child App Server context
+
+**Decision:** Keep the exact original task, including an explicit
+`prompt-tripwire:preflight` invocation, in the snapshot and every planning
+input. Start every shared child Codex App Server 0.144.4 process with its stable
+`plugins` feature disabled before creating probe, comparison, or execution
+threads. Continue the two-stage `PROMPT_TRIPWIRE_PLUGIN_REENTRY` guard as a
+separate control. Do not claim that this disables standalone system, user, or
+repository Skills; their out-of-repository actions remain subject to the normal
+fail-closed containment boundary. Retain an explicitly set `CODEX_HOME` only in
+the minimal App Server process environment so a custom logged-in Codex home is
+used consistently, while `shell_environment_policy.inherit=none` keeps it out
+of child commands.
+
+For the pinned App Server's lossy search metadata, allow a basename-only
+`search.path` only when it uniquely names one explicit `rg` operand. Accept one
+or more explicit search paths only after canonical containment and
+protected-content checks succeed independently for every operand; one unsafe
+target rejects the full action.
+
+**Reason:** A live v0.1.3 Plugin invocation kept the correct task bytes, but the
+child App Server contributed the installed PromptTripwire Skill again and tried
+to read it outside the disposable repository before the adapter re-entry guard
+could run. Disabling Plugin contributions removes that pre-invocation discovery
+without changing the task or duplicating Plugin logic. The same pinned canary
+then exposed basename-only and multi-target structured search metadata for an
+otherwise bounded repository read. Validating every command operand restores
+that observed safe shape without trusting lossy metadata, weakening canonical
+containment, or allowing protected content.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage
@@ -374,7 +404,7 @@ repository navigation and does not grant content access.
 
 ### A-002 — Minimal child environment
 
-**Resolution:** Confirmed for 0.144.4. Start App Server with an explicit minimal process environment and `shell_environment_policy.inherit=none`. A synthetic App Server canary was absent from the child command. Every child receives the controller-owned isolated `ZDOTDIR`. For a Plugin-originated run only, retain the exact non-secret `PROMPT_TRIPWIRE_PLUGIN_REENTRY=1` sentinel in that process environment and inject the same value in the same `shell_environment_policy.set` map; do not widen general inheritance. Never persist a full environment dump.
+**Resolution:** Confirmed for 0.144.4. Start App Server with an explicit minimal process environment and `shell_environment_policy.inherit=none`. A synthetic App Server canary was absent from the child command. An explicitly set `CODEX_HOME` is retained only for App Server login/config lookup, not child commands. Every child receives the controller-owned isolated `ZDOTDIR`. For a Plugin-originated run only, retain the exact non-secret `PROMPT_TRIPWIRE_PLUGIN_REENTRY=1` sentinel in that process environment and inject the same value in the same `shell_environment_policy.set` map; do not widen general inheritance. Never persist a full environment dump.
 
 ### A-003 — Stable schema and minimum version
 
@@ -402,4 +432,4 @@ repository navigation and does not grant content access.
 
 ## Decision-change rule
 
-Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, or D-034 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.
+Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, D-034, or D-035 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.

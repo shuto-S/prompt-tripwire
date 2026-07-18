@@ -2,9 +2,9 @@
 
 Status: P0 implementation baseline verified
 
-Version: 0.1.5
+Version: 0.1.6
 
-Date: 2026-07-15
+Date: 2026-07-18
 
 Owner: shuto-S
 
@@ -150,6 +150,19 @@ non-Plugin invocation receives `ZDOTDIR` but does not inject the sentinel. The a
 requires the supported macOS arm64 runtime and the existing logged-in Codex
 CLI; it introduces no API-key or hosted-backend path.
 
+The exact task text, including the caller's explicit
+`prompt-tripwire:preflight` request, remains snapshot-bound input and is never
+stripped or rewritten before a child turn. Before any probe, comparison, or
+execution thread starts, the shared App Server process disables the pinned
+Codex `plugins` feature. This removes installed Plugin contributions, including
+the PromptTripwire Skill, from the child model context while retaining the task
+bytes as data. It is not represented as disabling standalone system, user, or
+repository Skills; if one of those attempts an out-of-repository read, the
+normal canonical containment boundary stops the probe. The re-entry sentinel
+remains a second deterministic control. A custom `CODEX_HOME`, when present,
+is forwarded only to the App Server process so it uses the same existing login;
+it is not inherited by App Server child commands.
+
 The thin adapter launches an authenticated nested `codex app-server`. If the
 calling Codex shell sandbox prevents that child from reaching the model
 service, the Skill may request the caller's normal command permission to run
@@ -218,7 +231,7 @@ PromptTripwire must not use “security expert,” “minimalist,” or similar 
 - Probe turns use normal-schema `approvalPolicy: "untrusted"`; PromptTripwire declines command, file-change, and permission requests outside the static-inspection policy.
 - Probe execution never uses App Server `command/exec`, because standalone command execution bypasses turn-level approval handling and read-only sandboxing alone does not classify interpreter, build, test, or package-manager intent.
 - Before any probe thread starts, PromptTripwire recursively audits the materialized worktree without following symlinked directories. Every symlink must resolve successfully to a canonical target inside that worktree; an external, broken, or otherwise unresolvable symlink fails the whole probe batch with `PROBE_CONTAINMENT_VIOLATION`, is not retried as an ordinary probe failure, and cannot degrade to two probes.
-- Every static-read approval treats the App Server action as untrusted and independently validates both its structured type/path and actual command. CWD and action paths containing shell expansion or ambiguous syntax (`~`, variables, command substitution, globs, or brace expansion), explicit `..` segments, and absolute-path escape are rejected before canonical matching. The command must be one allowlisted static-read program with bounded flags and operands that semantically match the structured action. Arbitrary shell/interpreter wrappers, compound syntax, redirection, the `-` standard-input sentinel, symlink-following search flags (`rg -L`/`--follow`), `rg --pre`, `find -exec`/write predicates, and type/path mismatch are denied. On macOS, PromptTripwire points `ZDOTDIR` at a fresh empty mode-`0700` directory before child commands start. The exact Codex App Server 0.144.4 process envelopes `/bin/zsh -c <structured-command>` and `/bin/zsh -lc <structured-command>` are then unwrapped only when they contain exactly one inner command whose fail-closed tokens equal the structured action; the inner command receives every normal static-read, path, and protected-content check. Direct reads of default protected/secret-like paths are denied by both lexical and canonical target, and a content search is approved only when a filesystem walk proves it cannot reach a protected file under the command's hidden-file semantics. `rg --hidden` and any positive `--glob`/`-g` inclusion are conservatively treated as hidden-file reachability; a negative-only glob does not expand it. List-only actions may expose repository-relative names and metadata, but never protected file contents. App Server may report a root-contained absolute structured action path, which is allowed only when its canonical target remains inside the probe root. Missing resolution evidence or a canonical target outside the probe root is denied. Internal symlinks whose canonical target remains inside the worktree are allowed.
+- Every static-read approval treats the App Server action as untrusted and independently validates both its structured type/path and actual command. CWD and action paths containing shell expansion or ambiguous syntax (`~`, variables, command substitution, globs, or brace expansion), explicit `..` segments, and absolute-path escape are rejected before canonical matching. The command must be one allowlisted static-read program with bounded flags and operands that semantically match the structured action. For the pinned App Server's lossy `search.path`, a basename is accepted only when it identifies exactly one explicit `rg` operand; every one of one or more operands is separately canonicalized and checked for repository containment and protected-content reachability. Arbitrary shell/interpreter wrappers, compound syntax, redirection, the `-` standard-input sentinel, symlink-following search flags (`rg -L`/`--follow`), `rg --pre`, `find -exec`/write predicates, and type/path mismatch are denied. On macOS, PromptTripwire points `ZDOTDIR` at a fresh empty mode-`0700` directory before child commands start. The exact Codex App Server 0.144.4 process envelopes `/bin/zsh -c <structured-command>` and `/bin/zsh -lc <structured-command>` are then unwrapped only when they contain exactly one inner command whose fail-closed tokens equal the structured action; the inner command receives every normal static-read, path, and protected-content check. Direct reads of default protected/secret-like paths are denied by both lexical and canonical target, and a content search is approved only when a filesystem walk proves it cannot reach a protected file under the command's hidden-file semantics. `rg --hidden` and any positive `--glob`/`-g` inclusion are conservatively treated as hidden-file reachability; a negative-only glob does not expand it. List-only actions may expose repository-relative names and metadata, but never protected file contents. App Server may report a root-contained absolute structured action path, which is allowed only when its canonical target remains inside the probe root. Missing resolution evidence or a canonical target outside the probe root is denied. Internal symlinks whose canonical target remains inside the worktree are allowed.
 - `.git` and every descendant are protected probe content paths even when they do not match a secret filename pattern. A list-only action may enumerate their names, but a planning probe cannot read Git administrative contents or the disposable worktree's absolute gitdir pointer.
 - Started, completed, and failed command/file items plus aggregate diffs are still inspected; only explicitly declined items are non-executed. If an unexpected local action was not presented for approval, it is treated as a deviation detected inside the disposable worktree, not described as prevented.
 - Probe timeout defaults to five minutes and is configurable downward or upward.
@@ -593,7 +606,7 @@ See `SECURITY.md` for the threat model and known limits.
 | FR-022 | P2 | Add historical team policies and shared approvals. |
 | PLUG-FR-001 | P1 | Expose an explicit `prompt-tripwire` Plugin Skill that delegates to the existing CLI with the exact task and repository snapshot. |
 | PLUG-FR-002 | P1 | Stop for human review and never select a decision or approve a contract automatically. |
-| PLUG-FR-003 | P1 | Fail closed for unsupported platform, missing runtime/login, dirty-choice ambiguity, deterministic re-entry propagated through both the App Server process and its explicit child shell environment, and denied caller command permission; retry a sandboxed nested-App-Server request failure at most once without relaxing inner boundaries. |
+| PLUG-FR-003 | P1 | Preserve the exact task while disabling Plugin contributions in every child App Server; fail closed for unsupported platform, missing runtime/login, dirty-choice ambiguity, deterministic re-entry propagated through both the App Server process and its explicit child shell environment, and denied caller command permission; retry a sandboxed nested-App-Server request failure at most once without relaxing inner boundaries. |
 | PLUG-FR-004 | P1 | Validate Plugin metadata and Skill packaging with executable manifest, marketplace, smoke, and package-content checks. |
 | PLUG-FR-005 | P1 | Co-distribute the thin Plugin adapter in the macOS arm64 archive and provide idempotent, user-local, one-command Plugin install and targeted uninstall without changing other marketplaces or Plugins. |
 
@@ -615,7 +628,7 @@ See `SECURITY.md` for the threat model and known limits.
 | ID | Acceptance criterion |
 |---|---|
 | AC-001 | Given a clean fixture repository and task, `inspect` produces three schema-valid plan artifacts with distinct thread IDs and the same snapshot/task hashes. |
-| AC-002 | Before any probe thread starts, an external, broken, or unresolvable worktree symlink fails the whole batch while an internal symlink remains usable; each static-read action also resolves CWD/path canonically. Attempted target writes, network access, interpreters, builds, tests, package-manager commands, and canonical path escapes are denied, and the original checkout remains byte-for-byte unchanged. |
+| AC-002 | Before any probe thread starts, an external, broken, or unresolvable worktree symlink fails the whole batch while an internal symlink remains usable; each static-read action also resolves CWD/path canonically. A bounded multi-target `rg` validates every explicit operand and the pinned basename-only metadata shape; attempted target writes, protected or outside targets, network access, interpreters, builds, tests, package-manager commands, and canonical path escapes are denied, and the original checkout remains byte-for-byte unchanged. |
 | AC-003 | A fixture where plans differ on persistent deletion shows a decision card with alternatives, effects, probe support, and repository evidence. |
 | AC-004 | A deploy, migration apply, secret/permission change, or remote write requested by the original task or present in unanimous plans still requires explicit confirmation under `deterministic-v2`; task-only evidence is labeled as task evidence and does not claim probe support. |
 | AC-005 | Equivalent plans with no policy triggers produce a contract preview without a blocking decision; unambiguous dependency no-change expressions and negated operational instructions do not create false blockers, while a later positive contrast clause still does. |
@@ -636,7 +649,7 @@ See `SECURITY.md` for the threat model and known limits.
 | AC-PLUG-001 | The repo marketplace installs the `PromptTripwire` Plugin and exposes its `preflight` Skill to an explicit Codex task. |
 | AC-PLUG-002 | Plugin inspect leaves the target checkout's `git status --short` unchanged and returns a compact run summary or Decision Inbox next step. |
 | AC-PLUG-003 | No Skill or caller Codex path auto-approves a contract; approval remains an explicit human action. |
-| AC-PLUG-004 | The adapter propagates the exact deterministic re-entry guard through the PromptTripwire child, the minimal App Server process environment, and `shell_environment_policy.set`; a child Codex process observes it and recursive invocation is blocked without broad environment inheritance. |
+| AC-PLUG-004 | The exact Plugin invocation text reaches the snapshot unchanged; every child App Server disables Plugin contributions before thread creation, while the adapter also propagates the deterministic re-entry guard through the PromptTripwire child, the minimal App Server process environment, and `shell_environment_policy.set`. The PromptTripwire Skill is absent from the child Plugin context, a child process observes the guard, and recursive invocation is blocked without broad environment inheritance. |
 | AC-PLUG-005 | API-key-free macOS arm64 runtime/login checks, unsupported-platform errors, manifest/marketplace/frontmatter validation, and package-content scans pass; a caller-sandbox request failure yields a sanitized permission hint, denial stops safely, and any permission-path retry is limited to one without removing the re-entry guard. |
 | AC-PLUG-006 | The release installer installs and verifies the runtime plus enabled `prompt-tripwire@prompt-tripwire-local` Plugin idempotently; targeted uninstall removes only that Plugin, its owned marketplace registration, and its user-local files. |
 

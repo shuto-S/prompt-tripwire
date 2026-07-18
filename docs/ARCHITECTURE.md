@@ -138,6 +138,17 @@ spawned by App Server observe it despite
 controller-owned isolated `ZDOTDIR`; normal non-Plugin launches add no re-entry
 process-environment exception or sentinel override.
 
+The shared App Server transport also starts with the pinned `plugins` feature
+disabled before any probe, comparison, or execution thread is created. The
+outer task remains byte-for-byte unchanged, but installed Plugin instructions
+and bundled Skills are not contributed to the child model context. This is not
+an all-Skills switch: standalone system, user, and repository Skills can remain
+discoverable, and any resulting repository-external read still fails the normal
+probe containment checks. The re-entry sentinel remains defense in depth. The
+minimal App Server process environment may retain `CODEX_HOME` so custom local
+Codex login state matches the adapter's login check; child shell commands still
+inherit none of it.
+
 The adapter itself starts an authenticated nested `codex app-server`. A
 restrictive shell sandbox around the calling Codex tool command can block that
 child's model-service request before PromptTripwire's own App Server policies
@@ -164,7 +175,7 @@ CLI, policy, contract, containment, and report paths as the source of truth.
 ### 4.1 Startup
 
 1. Resolve and version-check the `codex` executable.
-2. Spawn `codex app-server` from an empty disposable runtime directory with stdio pipes and a minimal environment; rely only on the existing Codex CLI login. Create an empty mode-`0700` zsh startup directory under that root and always pass it as `ZDOTDIR` through `shell_environment_policy.set` while keeping `shell_environment_policy.inherit=none`. If and only if the incoming process has `PROMPT_TRIPWIRE_PLUGIN_REENTRY=1`, preserve that sentinel and add its exact child setting to the same map.
+2. Spawn `codex app-server` from an empty disposable runtime directory with stdio pipes, the pinned `plugins` feature disabled, and a minimal environment; rely only on the existing Codex CLI login. Retain `CODEX_HOME` only for App Server authentication/config lookup when the caller set it. Create an empty mode-`0700` zsh startup directory under that root and always pass it as `ZDOTDIR` through `shell_environment_policy.set` while keeping `shell_environment_policy.inherit=none`. If and only if the incoming process has `PROMPT_TRIPWIRE_PLUGIN_REENTRY=1`, preserve that sentinel and add its exact child setting to the same map. Neither `CODEX_HOME` nor any general caller variable is inherited by child shell commands.
 3. Send `initialize` with `clientInfo.name = "prompt_tripwire"`.
 4. Send `initialized`.
 5. Use only methods and fields present in the normal 0.144.4 schema; never opt into `experimentalApi` for P0.
@@ -199,7 +210,11 @@ absolute-path escape are rejected before canonical matching, and missing
 canonical evidence denies the action. The adapter then tokenizes the action's
 actual command without expansion, requires a single allowlisted static-read
 program and bounded flags, and checks that its command operands match the
-structured action type/path. Codex App Server 0.144.4 on macOS reports these
+structured action type/path. For `search`, App Server 0.144.4 can reduce the
+structured path to one operand's basename. That lossy representation is
+accepted only when the basename uniquely identifies an explicit command
+operand; every one of one or more `rg` paths is independently canonicalized and
+checked for containment and protected-content reachability. Codex App Server 0.144.4 on macOS reports these
 items through exact `/bin/zsh -c <structured-command>` or
 `/bin/zsh -lc <structured-command>` process envelopes. The transport first sets
 `ZDOTDIR` to a fresh empty mode-`0700` directory inside its disposable runtime

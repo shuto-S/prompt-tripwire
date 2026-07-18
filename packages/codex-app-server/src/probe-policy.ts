@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 
 import { isSecretLikePath } from "@prompt-tripwire/policy";
 
@@ -544,10 +544,10 @@ function listCommandPath(tokens: readonly string[]): string | null | undefined {
   return path;
 }
 
-function searchCommandPath(
+function searchCommandPaths(
   tokens: readonly string[],
   expectedQuery: string | null | undefined,
-): string | null | undefined {
+): readonly string[] | undefined {
   const [program, ...arguments_] = tokens;
   if (program !== "rg") return undefined;
   const booleanOptions = new Set([
@@ -655,8 +655,33 @@ function searchCommandPath(
   const query = optionPattern ?? operands.shift();
   if (query === undefined || expectedQuery === null || expectedQuery === undefined)
     return undefined;
-  if (query !== expectedQuery || operands.length > 1) return undefined;
-  return operands[0] ?? null;
+  if (query !== expectedQuery) return undefined;
+  return operands;
+}
+
+function searchActionPathMatches(
+  root: string,
+  cwd: string,
+  actionPath: string | null | undefined,
+  commandPaths: readonly string[],
+): boolean {
+  if (commandPaths.length === 0) return actionPathMatches(root, cwd, actionPath, null);
+  if (actionPath === null || actionPath === undefined) return false;
+  const actionTarget = canonicalTarget(root, cwd, actionPath);
+  if (actionTarget === null) return false;
+
+  const commandTargets = commandPaths.map((path) => ({
+    path,
+    target: canonicalTarget(root, cwd, path),
+  }));
+  if (commandTargets.some(({ target }) => target === null)) return false;
+  if (commandTargets.some(({ target }) => target === actionTarget)) return true;
+
+  // Codex App Server 0.144.4 can report only the basename of one operand in
+  // Search action.path. Keep that pinned lossy shape narrow: the basename must
+  // identify exactly one independently contained command operand.
+  if (actionPath !== basename(actionPath)) return false;
+  return commandTargets.filter(({ path }) => basename(path) === actionPath).length === 1;
 }
 
 export function assertProbeRootSymlinkContainment(root: string): void {
@@ -729,10 +754,25 @@ function safeAction(
   if (actionTokens === null) return false;
   if (!actualCommandMatchesAction(actualCommand, actionTokens)) return false;
 
+  if (action.type === "search") {
+    const commandPaths = searchCommandPaths(actionTokens, action.query);
+    if (
+      commandPaths === undefined ||
+      commandPaths.some((path) => path === "-") ||
+      !searchActionPathMatches(root, cwd, action.path, commandPaths)
+    ) {
+      return false;
+    }
+    const includeHidden = searchCanIncludeHiddenFiles(actionTokens);
+    const requestedPaths = commandPaths.length === 0 ? [null] : commandPaths;
+    return requestedPaths.every(
+      (path) => !searchCanReachProtectedContent(root, cwd, path, includeHidden),
+    );
+  }
+
   let commandPath: string | null | undefined;
   if (action.type === "read") commandPath = readCommandPath(actionTokens);
-  else if (action.type === "listFiles") commandPath = listCommandPath(actionTokens);
-  else commandPath = searchCommandPath(actionTokens, action.query);
+  else commandPath = listCommandPath(actionTokens);
   if (
     commandPath === undefined ||
     commandPath === "-" ||
@@ -742,14 +782,6 @@ function safeAction(
   }
   if (action.type === "read") {
     return !isProtectedActionPath(root, cwd, action.path);
-  }
-  if (action.type === "search") {
-    return !searchCanReachProtectedContent(
-      root,
-      cwd,
-      commandPath,
-      searchCanIncludeHiddenFiles(actionTokens),
-    );
   }
   // listFiles may expose repository-relative names and metadata, but never file
   // contents. Keeping that boundary makes protected paths discoverable enough

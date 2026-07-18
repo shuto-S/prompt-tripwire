@@ -41,6 +41,7 @@ Repository text, model output, tool requests, App Server events, local HTTP requ
 |---|---|---|
 | Probe modifies user's work | Probes use a read-only temporary worktree; original checkout is never CWD | Sandbox/platform defects remain possible |
 | Prompt injection in repository instructions | Trusted-repository scope, no network, no project scripts, bounded static inspection, explicit instruction/evidence provenance | Tracked malicious content can still influence model output |
+| Explicit Plugin invocation is rediscovered by a child Codex thread | Preserve the task as data but disable Plugin contributions at App Server process startup; retain the re-entry sentinel and repository boundary | Standalone non-Plugin Skills remain discoverable and fail closed if they request out-of-repository reads |
 | Secret exposure to model or logs | Snapshot tracked files only, deny common secret paths, minimal environment, redaction, no environment dumps or raw reasoning | A tracked secret in an allowed source file can still be read |
 | Command injection | Structured command actions, allowlisted static commands in probes, deny unknown/compound execution | Parser or App Server metadata mismatch |
 | Symlink/path escape | Audit every materialized link before a probe thread, canonicalize root/CWD/action paths per approval, deny broken/external/unresolved links, preserve protected path precedence and disposable roots | Platform-specific filesystem races remain between checks |
@@ -70,6 +71,15 @@ The probe process:
 - has CPU/time/output limits;
 - cannot access arbitrary home-directory paths;
 - persists sanitized summaries, not full shell output by default.
+
+Every shared child App Server starts with the pinned `plugins` feature disabled,
+so an explicit Plugin name retained in the task does not re-inject installed
+Plugin instructions or bundled Skills into planning, comparison, or execution.
+This does not disable standalone system, user, or repository Skills. Their
+attempts remain untrusted and cannot expand repository reads past the canonical
+probe boundary. `CODEX_HOME`, when explicitly present, is retained only in the
+App Server process so the same existing login is used; it is excluded from
+App Server child commands by `shell_environment_policy.inherit=none`.
 
 Before any probe thread starts, the coordinator walks the materialized worktree
 without following symlinked directories. Every symlink must resolve to a
@@ -107,6 +117,12 @@ but cannot return their contents. This check has the same filesystem race limit
 as other per-action canonical checks. Because App Server can emit an absolute
 structured action path, a root-contained absolute path is accepted only after
 canonical containment succeeds.
+
+For the pinned App Server's `search.path` metadata, a basename-only value is
+accepted only when it uniquely identifies one explicit `rg` operand. Every
+explicit search operand is canonicalized and checked separately; one external,
+ambiguous, protected, or protected-content-reachable target rejects the whole
+command.
 
 If the platform cannot enforce these properties, probing must stop with an actionable error.
 
@@ -237,6 +253,12 @@ Any Plugin invocation under that flag fails with `REENTRY_BLOCKED`, including
 one attempted by the child Codex thread. Missing runtime/login, unsupported
 platform, stale/dirty choices, and other CLI failures remain fail-closed. V1
 adds no hook, MCP server, hosted backend, or remote write authority.
+
+Before any child thread starts, the shared transport disables Plugin
+contributions while preserving the exact task text. This removes the installed
+PromptTripwire Skill from child Plugin context before the sentinel would be
+needed, and the sentinel remains a separate deterministic rejection layer. The
+control is deliberately not described as disabling all Skills.
 
 The caller's shell sandbox is a separate outer boundary from PromptTripwire's
 App Server restrictions. Because the thin adapter must start an authenticated

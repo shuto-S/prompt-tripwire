@@ -86,13 +86,23 @@ Consequences:
 
 ## Child environment
 
-The App Server process receives only `HOME`, locale, user, shell, terminal, temporary-directory, and `PATH` variables needed to locate the pinned CLI and existing authentication. It is started with:
+The App Server process receives only `HOME`, optional `CODEX_HOME`, locale,
+user, shell, terminal, temporary-directory, and `PATH` variables needed to
+locate the pinned CLI and existing authentication. It is started with:
 
 ```text
 shell_environment_policy.inherit=none
 ```
 
 A synthetic canary present in the App Server process was absent from a sandboxed child command. The spike never dumps the environment. Explicit per-command environment overrides remain prohibited unless a future contract names them.
+
+A 2026-07-18 follow-up against the same 0.144.4 binary also compared Plugin
+context with and without `--disable plugins`. The flag removed the installed
+PromptTripwire Plugin contribution and bundled `preflight` Skill while
+preserving the literal invocation text in the task. A live API-key-free planning
+probe then completed with repository-contained static reads and no approval
+request. Standalone system and user Skills remained discoverable, so this is
+recorded as Plugin-contribution isolation rather than a global Skill switch.
 
 ## Assumption resolution
 
