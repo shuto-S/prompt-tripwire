@@ -82,7 +82,10 @@ for (const path of currentFiles) {
   violations.push(...scan(path, bytes.toString("utf8"), "working-tree"));
 }
 
-const revisions = command(["rev-list", "--all"]).split("\n").filter(Boolean);
+// Review every revision that can ship from the current branch, a tag, or a
+// fetched remote ref. Unpublished sibling scratch branches are not submission
+// content and must not make an otherwise clean release checkout non-reproducible.
+const revisions = command(["rev-list", "HEAD", "--tags", "--remotes"]).split("\n").filter(Boolean);
 for (const revision of revisions) {
   const paths = command(["ls-tree", "-r", "--name-only", "-z", revision])
     .split("\0")
