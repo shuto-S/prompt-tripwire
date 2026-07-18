@@ -51,7 +51,11 @@ Description:
 > gpt-5.6-sol planning probes, and a tool-free gpt-5.6-terra comparator.
 >
 > Repository: https://github.com/shuto-S/prompt-tripwire
-> Release: v0.1.2 for macOS arm64
+> Release (macOS arm64): https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.3
 >
 > No separate OPENAI_API_KEY is required. PromptTripwire reuses the logged-in
 > Codex CLI / App Server session and never auto-approves human decisions.
+
+The video itself remains the disclosed v0.1.2 capture described above. The
+Release line points viewers to the v0.1.3 compatibility and safety patch they
+should install; it does not represent the footage as a v0.1.3 recording.
