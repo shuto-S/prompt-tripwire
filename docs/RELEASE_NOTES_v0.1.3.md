@@ -4,9 +4,10 @@ Compatibility and probe-boundary patch release for macOS arm64. v0.1.3 keeps
 the v0.1.2 CLI, Controller, Codex Plugin, policy, contract, worktree containment,
 Decision Inbox, and report architecture unchanged.
 
-**Status:** release candidate. The public Release URL, archive checksum, and
-anonymous-download verification are pending and must not be cited as completed
-until the tagged artifact has passed the release checklist below.
+Release URL:
+`https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.3`. Verify the
+archive only with the `SHA256SUMS.txt` published on that same Release; earlier
+release checksums do not apply.
 
 ## Fixed
 
@@ -79,7 +80,7 @@ Targeted uninstall:
 
 ## Verification
 
-Release preparation must pass:
+Source and tagged release preparation must pass:
 
 ```sh
 npm run check
@@ -87,12 +88,8 @@ npm run package:macos-arm64
 npm run verify:release
 ```
 
-The public artifact must additionally be downloaded anonymously, checksum
-verified, installed into an isolated prefix with the Plugin enabled, exercised
-without API-key environment variables through inspect, human approval,
-contained execution, report, and targeted uninstall, and confirmed not to
-change the source checkout.
-
-Only after those checks pass should the predictable Release URL
-`https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.3` replace the
-pending placeholder in README, Judge Guide, YouTube, and Devpost copy.
+After publication, the public artifact must additionally be downloaded
+anonymously, checksum verified, installed into an isolated prefix with the
+Plugin enabled, exercised without API-key environment variables through
+inspect, human approval, contained execution, report, and targeted uninstall,
+and confirmed not to change the source checkout.

@@ -1,6 +1,6 @@
 # PromptTripwire judge guide
 
-PromptTripwire is a local-first preflight and execution gate for Codex. This guide targets the compiled v0.1.3 macOS arm64 patch release candidate; judges do not need the TypeScript source tree or a source build. After the candidate passes its release gates and is published, download the archive and `SHA256SUMS.txt` from the [v0.1.3 GitHub Release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.3). The public v0.1.2 release remains historical evidence until v0.1.3 publication is complete.
+PromptTripwire is a local-first preflight and execution gate for Codex. This guide targets the compiled v0.1.3 macOS arm64 patch release; judges do not need the TypeScript source tree or a source build. Download the archive and `SHA256SUMS.txt` from the [v0.1.3 GitHub Release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.3). The public v0.1.2 release remains immutable historical evidence and must not be substituted for the v0.1.3 judge artifact.
 
 v0.1.3 preserves the v0.1.2 product flow and adds compatibility and fail-closed
 hardening for the pinned Codex App Server: exact `/bin/zsh -c` and
