@@ -88,6 +88,7 @@ export class FakeAppServerHarness {
         turnId,
         itemId: `late_command_${turnId}`,
         cwd,
+        command: "cat README.md",
         commandActions: [
           {
             type: "read",
@@ -194,6 +195,7 @@ export class FakeAppServerHarness {
           turnId,
           itemId: `command_${turnId}`,
           cwd,
+          command: "sed -n 1,80p README.md",
           commandActions: [
             {
               type: "read",
@@ -218,6 +220,7 @@ export class FakeAppServerHarness {
           turnId,
           itemId: `command_${turnId}`,
           cwd,
+          command: "npm test",
           commandActions: [{ type: "unknown", command: "npm test" }],
         },
         () => {

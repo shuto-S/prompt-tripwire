@@ -325,6 +325,47 @@ would collapse two unrelated trust boundaries. A narrow, visible, one-retry
 path preserves usability without weakening PromptTripwire's internal safety
 model or introducing another credential route.
 
+### D-033 — Normalize only the pinned App Server's exact macOS command envelopes
+
+**Decision:** When Codex App Server 0.144.4 reports a planning command item as
+`/bin/zsh -c <structured-command>` or `/bin/zsh -lc <structured-command>`, treat
+only those exact three-token process envelopes as the pinned launcher shape. Before
+starting App Server, create a fresh empty mode-`0700` directory inside its
+disposable runtime root and pass it as the child `ZDOTDIR` through the existing
+deny-by-default shell environment policy. Tokenize the single inner command
+again and require its tokens to equal the structured
+`CommandAction.command` before the existing command-class, flag, operand,
+canonical-path, protected-content, and network checks run. Continue to deny
+every other shell path, shell flag, extra argument, malformed inner command,
+compound command, and structured/actual command mismatch.
+An approval request with a missing or null actual command is denied. Started,
+completed, and failed command/file items are validated; only an explicitly
+declined item is treated as non-executed.
+
+**Reason:** The release-candidate live Plugin check showed App Server wrapping a
+safe structured `listFiles` action (`ls`) in both `/bin/zsh -c ls` and
+`/bin/zsh -lc ls` forms. Comparing those outer argv directly to `ls` rejected
+every planning probe even though the documented structured action and inner
+command were safe. Pinned, exact envelope normalization restores the intended
+action policy without trusting an arbitrary command string: both representations
+must agree and the inner command receives the same fail-closed validation as a
+direct command. Isolating `ZDOTDIR` prevents the accepted zsh process envelope
+from loading user startup files outside that validated inner command.
+Root-owned global zsh startup files remain part of the supported host trust
+boundary.
+
+### D-034 — Keep Git administrative metadata out of probe content reads
+
+**Decision:** Treat `.git` and every descendant as a protected planning-probe
+content path under both lexical and canonical checks. Continue to allow the
+`listFiles` class to enumerate Git metadata names without reading their content.
+
+**Reason:** A disposable worktree stores `.git` as a file containing an absolute
+gitdir pointer, and a normal checkout can store remote configuration or helper
+metadata below `.git`. Neither is necessary planning evidence, and exposing it
+would weaken the existing protected-path boundary. Listing remains useful for
+repository navigation and does not grant content access.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage
@@ -333,7 +374,7 @@ model or introducing another credential route.
 
 ### A-002 — Minimal child environment
 
-**Resolution:** Confirmed for 0.144.4. Start App Server with an explicit minimal process environment and `shell_environment_policy.inherit=none`. A synthetic App Server canary was absent from the child command. For a Plugin-originated run only, retain the exact non-secret `PROMPT_TRIPWIRE_PLUGIN_REENTRY=1` sentinel in that process environment and inject the same value with `shell_environment_policy.set`; do not widen general inheritance. Never persist a full environment dump.
+**Resolution:** Confirmed for 0.144.4. Start App Server with an explicit minimal process environment and `shell_environment_policy.inherit=none`. A synthetic App Server canary was absent from the child command. Every child receives the controller-owned isolated `ZDOTDIR`. For a Plugin-originated run only, retain the exact non-secret `PROMPT_TRIPWIRE_PLUGIN_REENTRY=1` sentinel in that process environment and inject the same value in the same `shell_environment_policy.set` map; do not widen general inheritance. Never persist a full environment dump.
 
 ### A-003 — Stable schema and minimum version
 
@@ -361,4 +402,4 @@ model or introducing another credential route.
 
 ## Decision-change rule
 
-Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, or D-032 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.
+Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, or D-034 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.

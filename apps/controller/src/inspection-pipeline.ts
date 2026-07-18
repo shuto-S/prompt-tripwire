@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, rm } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -208,8 +208,11 @@ export class DefaultInspectionPort implements InspectionPort {
     let client: CodexAppServerClient | null = null;
     try {
       await chmod(runtimeRoot, 0o700);
+      const shellStartupDirectory = join(runtimeRoot, "zsh-startup");
+      await mkdir(shellStartupDirectory, { mode: 0o700 });
       const transport = ProcessJsonRpcTransport.start({
         cwd: runtimeRoot,
+        shellStartupDirectory,
         ...(this.options.codexPath === undefined ? {} : { codexPath: this.options.codexPath }),
       });
       client = new CodexAppServerClient(transport);

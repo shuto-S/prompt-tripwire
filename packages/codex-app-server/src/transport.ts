@@ -1,4 +1,5 @@
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { lstatSync, readdirSync, realpathSync, statSync } from "node:fs";
 
 import { redactText } from "@prompt-tripwire/policy";
 
@@ -8,8 +9,6 @@ import type { JsonRpcTransport, JsonRpcTransportClose } from "./types.js";
 export const REQUIRED_CODEX_VERSION = "0.144.4";
 const MAX_JSON_LINE_BYTES = 2 * 1024 * 1024;
 const PLUGIN_REENTRY_ENV = "PROMPT_TRIPWIRE_PLUGIN_REENTRY";
-const PLUGIN_REENTRY_SHELL_CONFIG =
-  'shell_environment_policy.set={PROMPT_TRIPWIRE_PLUGIN_REENTRY="1"}';
 
 type MessageListener = (message: unknown) => void;
 type CloseListener = (event: JsonRpcTransportClose) => void;
@@ -40,6 +39,39 @@ function minimalAppServerEnvironment(source: NodeJS.ProcessEnv = process.env): N
   return result;
 }
 
+function isolatedShellStartupDirectory(path: string): string {
+  if (/[\0\r\n]/u.test(path)) {
+    throw new AppServerError(
+      "PROTOCOL_VALIDATION_FAILED",
+      "The isolated shell startup directory path was invalid.",
+    );
+  }
+  try {
+    if (lstatSync(path).isSymbolicLink()) throw new Error("symlink shell startup directory");
+    const canonical = realpathSync(path);
+    const metadata = statSync(canonical);
+    if (!metadata.isDirectory() || (metadata.mode & 0o077) !== 0) {
+      throw new Error("unsafe shell startup directory permissions");
+    }
+    if (readdirSync(canonical).length !== 0) {
+      throw new Error("nonempty shell startup directory");
+    }
+    return canonical;
+  } catch (error) {
+    throw new AppServerError(
+      "PROTOCOL_VALIDATION_FAILED",
+      "The isolated shell startup directory was unavailable.",
+      { cause: error },
+    );
+  }
+}
+
+function shellEnvironmentConfig(zDotDir: string, pluginReentry: boolean): string {
+  const values = [`ZDOTDIR=${JSON.stringify(zDotDir)}`];
+  if (pluginReentry) values.push(`${PLUGIN_REENTRY_ENV}="1"`);
+  return `shell_environment_policy.set={${values.join(",")}}`;
+}
+
 export function detectedCodexVersion(codexPath = "codex"): string {
   const result = spawnSync(codexPath, ["--version"], {
     encoding: "utf8",
@@ -68,6 +100,7 @@ export interface ProcessTransportOptions {
   readonly codexPath?: string;
   readonly cwd: string;
   readonly detectedVersion?: () => string;
+  readonly shellStartupDirectory: string;
 }
 
 export class ProcessJsonRpcTransport implements JsonRpcTransport {
@@ -103,8 +136,13 @@ export class ProcessJsonRpcTransport implements JsonRpcTransport {
     const codexPath = options.codexPath ?? "codex";
     assertCodexVersion((options.detectedVersion ?? (() => detectedCodexVersion(codexPath)))());
     const environment = minimalAppServerEnvironment();
-    const shellEnvironmentArgs =
-      environment[PLUGIN_REENTRY_ENV] === "1" ? ["-c", PLUGIN_REENTRY_SHELL_CONFIG] : [];
+    const shellEnvironmentArgs = [
+      "-c",
+      shellEnvironmentConfig(
+        isolatedShellStartupDirectory(options.shellStartupDirectory),
+        environment[PLUGIN_REENTRY_ENV] === "1",
+      ),
+    ];
     const child = spawn(
       codexPath,
       [

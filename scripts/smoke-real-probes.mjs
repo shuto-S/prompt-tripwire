@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -53,9 +53,16 @@ async function createFixture() {
 async function main() {
   const diagnosticOne = process.argv.includes("--diagnostic-one");
   const repository = await createFixture();
+  const runtimeRoot = await mkdtemp(join(tmpdir(), "prompt-tripwire-real-probe-runtime-"));
   let client = null;
   try {
-    const transport = ProcessJsonRpcTransport.start({ cwd: repository });
+    await chmod(runtimeRoot, 0o700);
+    const shellStartupDirectory = join(runtimeRoot, "zsh-startup");
+    await mkdir(shellStartupDirectory, { mode: 0o700 });
+    const transport = ProcessJsonRpcTransport.start({
+      cwd: runtimeRoot,
+      shellStartupDirectory,
+    });
     client = new CodexAppServerClient(transport);
     await client.initialize();
     const models = await client.listModels();
@@ -73,7 +80,7 @@ async function main() {
       task: "Add a --dry-run option that validates the NAME argument and explains what greeting would be printed without printing the greeting itself.",
       model: { id: selected.model, reasoningEffort },
       codexVersion: REQUIRED_CODEX_VERSION,
-      promptTripwireVersion: "0.1.2",
+      promptTripwireVersion: "0.1.3",
       effectiveConfig: { probeCount: 3, network: "deny" },
     });
     const result = await new ProbeCoordinator(client).run({
@@ -118,6 +125,7 @@ async function main() {
     assert.equal(evidence.originalCheckoutClean, true, "real probes changed the source checkout");
   } finally {
     if (client !== null) await client.close();
+    await rm(runtimeRoot, { recursive: true, force: true });
     await rm(repository, { recursive: true, force: true });
   }
 }

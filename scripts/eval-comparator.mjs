@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { chmod, mkdtemp, rm } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -29,7 +29,7 @@ function fixture(id, behaviors) {
     task: `Evaluate fixture ${id}: choose the material implementation behavior.`,
     model: { id: "gpt-5.6-sol", reasoningEffort: "low" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.2",
+    promptTripwireVersion: "0.1.3",
     createdAt: "2026-07-14T00:00:00.000Z",
   });
   const plans = behaviors.map((behavior, index) => {
@@ -101,7 +101,11 @@ async function main() {
   let client;
   try {
     await chmod(runtimeRoot, 0o700);
-    client = new CodexAppServerClient(ProcessJsonRpcTransport.start({ cwd: runtimeRoot }));
+    const shellStartupDirectory = join(runtimeRoot, "zsh-startup");
+    await mkdir(shellStartupDirectory, { mode: 0o700 });
+    client = new CodexAppServerClient(
+      ProcessJsonRpcTransport.start({ cwd: runtimeRoot, shellStartupDirectory }),
+    );
     await client.initialize();
     const available = new Map((await client.listModels()).map((model) => [model.id, model]));
     for (const model of MODELS) {
