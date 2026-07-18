@@ -1,6 +1,6 @@
 # OpenAI Build Week plan and compliance
 
-Status date: 2026-07-15
+Status date: 2026-07-18
 
 Official source: [OpenAI Build Week Official Rules](https://openai.devpost.com/rules)
 
@@ -16,10 +16,12 @@ The official rules remain the source of truth. This document is an implementatio
 
 ## 2. Current official requirements
 
-As of 2026-07-15, the rules state:
+As of 2026-07-18, the rules state:
 
 - Submission period: July 13, 2026 at 9:00 PT through July 21, 2026 at 17:00 PT.
 - Deadline in Japan: July 22, 2026 at 09:00 JST.
+- Free project access must remain available through the judging period ending
+  August 5, 2026 at 17:00 PT.
 - The project must be built with Codex and GPT-5.6 and fit one of four tracks.
 - It must install and run consistently as depicted.
 - The submission needs a text description and a public YouTube demo with audio under three minutes.
@@ -84,27 +86,45 @@ The selected target is a relocatable compiled/runtime macOS arm64 archive that d
 - an offline replay mode for UI exploration if live model limits occur, clearly labeled recorded and enforced read-only;
 - a live mode for judges to verify the real Codex/GPT-5.6 integration;
 - troubleshooting for permissions, API limits, and unsupported Codex versions.
+- deterministic archive metadata and a two-build reproducibility check;
+- transactional runtime-plus-Plugin install/upgrade with owned uninstall boundaries.
 
 Recorded replay may support judging reliability but cannot substitute for the working live project shown in the demo.
 
-## 7. Demo outline (target 165 seconds)
+## 7. Final local demo (172.862 seconds)
 
-1. **0–15s — Problem:** one confident Codex plan can hide an unmade product decision.
-2. **15–35s — Task:** run `tripwire inspect` on a repository task with deletion semantics.
-3. **35–65s — Real probes:** show three read-only Codex threads and identical snapshot/task hashes.
-4. **65–100s — Decision Inbox:** show one consequential disagreement, effects, and repository evidence.
-5. **100–120s — Contract:** choose an option and approve the generated boundary.
-6. **120–150s — Enforcement:** start Codex; show either a prohibited deviation being interrupted or a compliant execution completing.
-7. **150–165s — Report and stack:** show contract hash/audit record; state Codex and GPT-5.6 roles.
+The owned [v0.1.2 demo video](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4),
+[thumbnail](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-thumbnail.png), [English
+captions](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/demo/prompt-tripwire-v0.1.2-demo.en.srt), [live Decision Inbox
+capture](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/decision-inbox-v0.1.2-live.png), and [sanitized report
+capture](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/evidence-report-v0.1.2.png) are committed for review and
+offline playback. The video is 1920×1080 H.264 with AAC stereo audio and
+embedded English subtitles. Its 2:52.862 runtime is below the three-minute
+limit; the sidecar contains 74 cues with a measured maximum of 19.08 characters
+per second. The [demo notes](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/demo/README.md) record the media hash, narration,
+format, and evidence boundary.
 
-Keep full-plan comparisons, setup narration, and secondary features out of the video.
+The flow is:
+
+1. the hidden-decision problem and explicit Plugin invocation;
+2. three same-input, read-only Codex planning probes and the tool-free GPT-5.6 comparator;
+3. an actual API-key-free v0.1.2 Decision Inbox with one unresolved compatibility decision, no dependency blocker, and no human choice selected;
+4. an explicit transition to a separate safe-fixture run that a human approved earlier;
+5. its contract-bound isolated execution and passing required check;
+6. the sanitized report, thin Plugin architecture, re-entry guard, and supported baseline.
+
+The live inspect left the source checkout, HEAD, and worktree list unchanged.
+The later contract/execution/report footage is not represented as a continuation
+of that untouched Inbox. The public YouTube upload will become the primary demo
+after publication; the repository media remains a review fallback and is
+excluded from the judge release archive.
 
 ## 8. Submission checklist
 
 ### Product
 
 - [x] All P0 functional requirements implemented.
-- [x] AC-001 through AC-019 passing on the supported macOS build.
+- [ ] Re-run the complete v0.1.2 source and release gates after the final version bump.
 - [x] Real Codex App Server integration; no mocked core demo.
 - [x] Real GPT-5.6 Structured Outputs integration.
 - [x] Judge-ready install that does not require rebuilding.
@@ -115,7 +135,8 @@ Keep full-plan comparisons, setup narration, and secondary features out of the v
 
 - [x] Apache-2.0 selected as the project license for the public repository.
 - [x] README includes installation, supported platforms, test instructions, architecture summary, and Codex collaboration.
-- [x] Public repository verified anonymously; the current `v0.1.1` Release and macOS arm64 artifact are reachable without authentication.
+- [x] Public repository and historical `v0.1.1` Release verified anonymously.
+- [ ] Publish the verified `v0.1.2` macOS arm64 artifact and checksum, then verify both anonymously.
 - [x] Dated commits distinguish specification, implementation, and submission work.
 - [x] Dependency licenses and third-party assets reviewed.
 - [x] No secrets in Git history.
@@ -132,17 +153,28 @@ Keep full-plan comparisons, setup narration, and secondary features out of the v
 ### Submission
 
 - [x] English project description.
+- [x] A local v0.1.1 English demo draft with audio under three minutes was preserved separately from the v0.1.2 distribution source.
+- [x] Regenerate owned local demo media against v0.1.2.
 - [ ] Public YouTube video with audio under three minutes.
-- [ ] Video contains only owned or permitted assets and trademarks.
+- [x] Confirm the regenerated final video contains only owned or permitted assets and trademarks.
 - [ ] Repository URL and judge instructions verified from a clean machine/account.
 - [ ] Free, unrestricted judging access maintained through the judging period.
 - [ ] Devpost draft saved early and final submission completed before deadline.
 
 ## 9. Remaining submission actions
 
-- Public YouTube demo and owned submission media.
-- Final Devpost save/submit.
+- Complete the v0.1.2 verification gates and build the final reproducible archive/checksum.
+- Publish the v0.1.2 GitHub Release and verify the artifact, checksum, repository, and judge instructions from a clean account.
+- Upload the final video and English captions to public YouTube, then verify playback anonymously.
+- Replace the Devpost public video/release placeholders, save the draft, and final-submit.
 
-Publication evidence (2026-07-16 JST): repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0, release `v0.1.1` is live, and the unauthenticated release asset SHA-256 is `7a29de3241bab426b2e9b9edd84a6d6f01dd0fc1bf13d71da3927a4a83277f50`. The downloaded archive passed the complete 918-file release verification, including runtime-only, runtime-plus-Plugin, v0.1.0 upgrade, idempotency, targeted uninstall, fixture, replay, license, local-path, and secret checks.
+Historical publication evidence (2026-07-16 JST): repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0, release `v0.1.1` is live, and the unauthenticated release asset SHA-256 is `7a29de3241bab426b2e9b9edd84a6d6f01dd0fc1bf13d71da3927a4a83277f50`. The downloaded v0.1.1 archive passed its complete 918-file release verification, including runtime-only, runtime-plus-Plugin, v0.1.0 upgrade, idempotency, targeted uninstall, fixture, replay, license, local-path, and secret checks. This SHA verifies only v0.1.1 and must not be reused for v0.1.2.
 
-These do not block the product specification or local release candidate, but they must be closed before external publication and final submission.
+A final local v0.1.2 H.264/AAC English demo, caption/narration copy, thumbnail,
+and owned UI captures are now in `docs/demo/` and `docs/assets/demo/`. The live
+Inbox scene remains unresolved and unapproved; the separately disclosed later
+scenes use an earlier human-approved safe-fixture run. These files are present
+in the repository but intentionally excluded from the compact judge archive.
+They are local review evidence, not proof of public YouTube publication.
+
+These do not block the product specification or local v0.1.2 source preparation, but they must be closed before external publication and final submission.

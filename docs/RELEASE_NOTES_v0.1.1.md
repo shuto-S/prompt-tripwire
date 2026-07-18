@@ -56,4 +56,7 @@ archive does not require a TypeScript/source build.
   same-user local attackers.
 
 PromptTripwire source is licensed under Apache-2.0. Existing v0.1.0 evidence is
-retained as historical verification; v0.1.1 is the current judge distribution.
+retained as historical verification. v0.1.1 is now preserved as the published
+distribution that precedes the v0.1.2 release candidate; its public macOS arm64
+asset SHA-256 is
+`7a29de3241bab426b2e9b9edd84a6d6f01dd0fc1bf13d71da3927a4a83277f50`.

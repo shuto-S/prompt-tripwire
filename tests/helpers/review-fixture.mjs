@@ -43,16 +43,17 @@ function plan(snapshot, probeId) {
   };
 }
 
-function decision(index) {
+function decision(index, includeCancellationOption = false) {
+  const decisionId = `decision_${String(index + 1)}`;
   return {
-    decisionId: `decision_${String(index + 1)}`,
+    decisionId,
     category: "destructive",
     question: `How should persisted record group ${String(index + 1)} be deleted?`,
     reason: "The planning probes disagree about persistent deletion semantics.",
     impact: "high",
     options: [
       {
-        id: `decision_${String(index + 1)}_hard_delete`,
+        id: `${decisionId}_hard_delete`,
         label: "Delete immediately",
         description: "Remove the persisted records in the same operation.",
         effects: ["Permanent deletion", "No restore window"],
@@ -60,13 +61,25 @@ function decision(index) {
         evidenceRefs: ["evidence_probe_1"],
       },
       {
-        id: `decision_${String(index + 1)}_retain`,
+        id: `${decisionId}_retain`,
         label: "Retain for recovery",
         description: "Mark records deleted while retaining recovery data.",
         effects: ["Adds a recovery window", "Requires lifecycle handling"],
         supportedByProbeIds: ["probe_2", "probe_3"],
         evidenceRefs: ["evidence_probe_2", "evidence_probe_3"],
       },
+      ...(includeCancellationOption
+        ? [
+            {
+              id: `${decisionId}_cancel`,
+              label: "Cancel this run",
+              description: "Stop without creating an execution contract.",
+              effects: ["The run is cancelled", "No implementation begins"],
+              supportedByProbeIds: ["probe_1"],
+              evidenceRefs: ["evidence_probe_1"],
+            },
+          ]
+        : []),
     ],
     freeformAllowed: true,
     defaultOptionId: null,
@@ -76,7 +89,11 @@ function decision(index) {
   };
 }
 
-export async function createReviewFixture({ decisionCount = 1, runId = "run_ui" } = {}) {
+export async function createReviewFixture({
+  decisionCount = 1,
+  runId = "run_ui",
+  includeCancellationOption = false,
+} = {}) {
   const root = await mkdtemp(join(tmpdir(), "prompt-tripwire-ui-"));
   const store = new SqlitePersistence({
     databasePath: join(root, "prompt-tripwire.sqlite3"),
@@ -93,7 +110,7 @@ export async function createReviewFixture({ decisionCount = 1, runId = "run_ui" 
     task: "Implement an explicit persisted-record deletion policy",
     model: { id: "gpt-5.6-sol", reasoningEffort: "low" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.1",
+    promptTripwireVersion: "0.1.2",
     createdAt: CREATED_AT,
   });
   store.createRun({
@@ -139,7 +156,9 @@ export async function createReviewFixture({ decisionCount = 1, runId = "run_ui" 
     ],
     createdAt: CREATED_AT,
   });
-  const decisions = Array.from({ length: decisionCount }, (_, index) => decision(index));
+  const decisions = Array.from({ length: decisionCount }, (_, index) =>
+    decision(index, includeCancellationOption),
+  );
   store.saveDecisionPoints({
     runId,
     comparisonId: candidate.comparisonId,

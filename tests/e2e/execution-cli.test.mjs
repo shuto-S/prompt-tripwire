@@ -25,7 +25,7 @@ async function seedApprovedRun(repositoryPath, dataRoot) {
     task: "Run the approved CLI execution",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.1",
+    promptTripwireVersion: "0.1.2",
     dirtyChoice: "committed_only",
   });
   const store = new SqlitePersistence({
@@ -212,6 +212,7 @@ test("AC-010/AC-015 E2E: a paused run opens the Decision Inbox", async () => {
         reviewOpened = true;
         return {
           url: `http://127.0.0.1:43127/runs/${runId}#token=fixture`,
+          closed: new Promise(() => undefined),
           async close() {
             reviewClosed = true;
           },

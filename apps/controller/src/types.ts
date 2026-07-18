@@ -99,6 +99,7 @@ export interface AmendInput {
 
 export interface ControllerStatus {
   readonly run: RunRecord;
+  readonly archived: boolean;
   readonly eventCount: number;
   readonly hasReport: boolean;
 }
@@ -130,6 +131,8 @@ export interface DecideInput {
   readonly rationale?: string | null;
   readonly expectedVersion: number;
   readonly idempotencyKey: string;
+  readonly requireUnpinned?: boolean;
+  readonly reviewCapabilityGeneration?: number;
 }
 
 export interface DeferInput {
@@ -137,6 +140,8 @@ export interface DeferInput {
   readonly decisionId: string;
   readonly expectedVersion: number;
   readonly idempotencyKey: string;
+  readonly requireUnpinned?: boolean;
+  readonly reviewCapabilityGeneration?: number;
 }
 
 export interface ApproveInput {
@@ -144,16 +149,22 @@ export interface ApproveInput {
   readonly contractId: string;
   readonly expectedVersion: number;
   readonly idempotencyKey: string;
+  readonly requireUnpinned?: boolean;
+  readonly reviewCapabilityGeneration?: number;
 }
 
 export interface CancelInput {
   readonly runId: string;
   readonly expectedVersion: number;
   readonly idempotencyKey: string;
+  readonly requireUnpinned?: boolean;
+  readonly reviewCapabilityGeneration?: number;
 }
 
 export interface ReopenReviewInput {
   readonly runId: string;
   readonly expectedVersion: number;
   readonly idempotencyKey: string;
+  readonly requireUnpinned?: boolean;
+  readonly reviewCapabilityGeneration?: number;
 }

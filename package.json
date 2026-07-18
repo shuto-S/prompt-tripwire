@@ -1,6 +1,6 @@
 {
   "name": "prompt-tripwire",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "license": "Apache-2.0",
   "description": "Local-first preflight and execution gate for Codex",
@@ -38,6 +38,7 @@
     "eval:comparator": "npm run build && node scripts/eval-comparator.mjs",
     "smoke:real-probes": "npm run build && node scripts/smoke-real-probes.mjs",
     "package:macos-arm64": "npm run build && node scripts/package-macos-arm64.mjs",
+    "check:release-reproducibility": "node scripts/check-release-reproducibility.mjs",
     "verify:release": "node scripts/verify-release-artifact.mjs"
   },
   "devDependencies": {

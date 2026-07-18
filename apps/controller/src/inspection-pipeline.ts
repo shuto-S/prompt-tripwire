@@ -160,6 +160,7 @@ export class InspectionPipeline implements InspectionPort {
       createdAt,
     });
     const review = normalizeReview({
+      task: context.preparedSnapshot.snapshot.task,
       candidate,
       plans,
       model: actualModel,

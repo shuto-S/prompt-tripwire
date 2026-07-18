@@ -18,7 +18,7 @@ import {
   type SqlitePersistence,
 } from "@prompt-tripwire/persistence";
 
-import { ControllerError } from "./errors.js";
+import { ControllerError, InspectionRunError, isCanonicalInspectionRunId } from "./errors.js";
 import { withTimeout } from "./timeout.js";
 import type {
   ApproveInput,
@@ -183,7 +183,11 @@ export class LocalController {
       }
       return this.store.saveContractAndReady(runId, result.contract, comparing.version, this.now());
     } catch (error) {
-      this.failActiveRun(runId, errorCode(error));
+      const code = errorCode(error);
+      this.failActiveRun(runId, code);
+      if (isCanonicalInspectionRunId(runId)) {
+        throw new InspectionRunError(runId, code, error);
+      }
       throw error;
     }
   }
@@ -333,6 +337,10 @@ export class LocalController {
       runId: input.runId,
       expectedVersion: input.expectedVersion,
       cancelledAt: this.now(),
+      requireUnpinned: input.requireUnpinned === true,
+      ...(input.reviewCapabilityGeneration === undefined
+        ? {}
+        : { reviewCapabilityGeneration: input.reviewCapabilityGeneration }),
     });
     if (current.state === "running" || current.state === "pausing") {
       await this.options.executionPort?.interrupt(input.runId);
@@ -347,6 +355,10 @@ export class LocalController {
       runId: input.runId,
       expectedVersion: input.expectedVersion,
       reopenedAt: this.now(),
+      requireUnpinned: input.requireUnpinned === true,
+      ...(input.reviewCapabilityGeneration === undefined
+        ? {}
+        : { reviewCapabilityGeneration: input.reviewCapabilityGeneration }),
     });
   }
 
@@ -375,6 +387,7 @@ export class LocalController {
 
   status(runId: string): ControllerStatus {
     this.assertStarted();
+    const persisted = this.store.getRun(runId);
     let hasReport = true;
     try {
       this.store.getReport(runId);
@@ -383,10 +396,21 @@ export class LocalController {
       else throw error;
     }
     return {
-      run: this.store.getRun(runId).run,
+      run: persisted.run,
+      archived: persisted.retention.pinned,
       eventCount: this.store.listEvents(runId).length,
       hasReport,
     };
+  }
+
+  claimReviewCapability(runId: string): number {
+    this.assertStarted();
+    return this.store.claimReviewCapability(runId, this.now());
+  }
+
+  isReviewCapabilityCurrent(runId: string, generation: number): boolean {
+    this.assertStarted();
+    return this.store.isReviewCapabilityCurrent(runId, generation);
   }
 
   review(runId: string): ReviewResult {
@@ -418,9 +442,8 @@ export class LocalController {
 
   decide(input: DecideInput): RunRecord {
     this.assertStarted();
-    const decision = this.store
-      .listDecisionPoints(input.runId)
-      .find((item) => item.decisionId === input.decisionId);
+    const decisions = this.store.listDecisionPoints(input.runId);
+    const decision = decisions.find((item) => item.decisionId === input.decisionId);
     if (decision === undefined) throw new PersistenceError("NOT_FOUND", "decision was not found");
     const option =
       input.selectedOptionId === null
@@ -432,7 +455,37 @@ export class LocalController {
     if (option?.id.endsWith("_clarify") === true) {
       throw new TypeError("clarification requires a concrete free-form decision");
     }
-    const recorded = this.store.recordHumanDecision({
+    const current = this.store.getRun(input.runId).run;
+    const cancellationSelected =
+      option?.id.endsWith("_cancel") === true || option?.id.endsWith("_rerun") === true;
+    let outcome: "review_only" | "ready_with_contract" | "cancelled" = "review_only";
+    if (cancellationSelected) {
+      outcome = "cancelled";
+    } else if (
+      current.state === "needs_review" &&
+      current.version === input.expectedVersion &&
+      current.blockingDecisionIds.length === 1 &&
+      current.blockingDecisionIds[0] === input.decisionId
+    ) {
+      outcome = "ready_with_contract";
+    } else if (current.activeContractId !== null) {
+      const contract = this.store.getContract(current.activeContractId);
+      const latestExpectedVersion = Math.max(
+        ...contract.humanDecisions.map((item) => item.expectedRunVersion),
+      );
+      if (
+        contract.humanDecisions.some(
+          (item) =>
+            item.decisionId === input.decisionId &&
+            item.expectedRunVersion === input.expectedVersion,
+        ) &&
+        latestExpectedVersion === input.expectedVersion
+      ) {
+        outcome = "ready_with_contract";
+      }
+    }
+    const decidedAt = this.now();
+    const persistenceInput = {
       idempotencyKey: input.idempotencyKey,
       runId: input.runId,
       decision: {
@@ -441,37 +494,39 @@ export class LocalController {
         freeformOverride: input.freeformOverride,
         rationale: input.rationale ?? null,
         expectedRunVersion: input.expectedVersion,
-        decidedAt: this.now(),
+        decidedAt,
       },
-    });
+      outcome,
+      requireUnpinned: input.requireUnpinned === true,
+      ...(input.reviewCapabilityGeneration === undefined
+        ? {}
+        : { reviewCapabilityGeneration: input.reviewCapabilityGeneration }),
+    } as const;
+    const recorded = this.store.recordHumanDecisionOutcome(
+      persistenceInput,
+      outcome === "ready_with_contract"
+        ? (context) => {
+            const comparison = this.store.getComparison(input.runId);
+            const plans = this.store.listPlanArtifacts(input.runId).map((item) => item.artifact);
+            return createContractPreview({
+              runId: input.runId,
+              snapshot: this.store.getSnapshot(context.run.snapshotHash ?? ""),
+              plans,
+              comparison: comparison.candidate,
+              decisions: context.decisions,
+              humanDecisions: context.humanDecisions,
+              comparatorModel: comparison.model,
+              createdAt: decidedAt,
+              version: context.nextContractVersion,
+            }).contract;
+          }
+        : undefined,
+    );
     const observed = this.store.getRun(input.runId).run;
     if (observed.version !== recorded.run.version || observed.state !== recorded.run.state) {
       return observed;
     }
-    if (option?.id.endsWith("_cancel") === true || option?.id.endsWith("_rerun") === true) {
-      return this.store.transitionRun(
-        input.runId,
-        "cancelled",
-        recorded.run.version,
-        this.now(),
-        "USER_CANCELLED",
-      );
-    }
-    if (recorded.run.blockingDecisionIds.length > 0) return recorded.run;
-    const comparison = this.store.getComparison(input.runId);
-    const plans = this.store.listPlanArtifacts(input.runId).map((item) => item.artifact);
-    const contract = createContractPreview({
-      runId: input.runId,
-      snapshot: this.store.getSnapshot(recorded.run.snapshotHash ?? ""),
-      plans,
-      comparison: comparison.candidate,
-      decisions: this.store.listDecisionPoints(input.runId),
-      humanDecisions: this.store.listHumanDecisions(input.runId),
-      comparatorModel: comparison.model,
-      createdAt: this.now(),
-      version: this.store.nextContractVersion(input.runId),
-    }).contract;
-    return this.store.saveContractAndReady(input.runId, contract, recorded.run.version, this.now());
+    return recorded.run;
   }
 
   defer(input: DeferInput): RunRecord {
@@ -482,6 +537,10 @@ export class LocalController {
       decisionId: input.decisionId,
       expectedVersion: input.expectedVersion,
       deferredAt: this.now(),
+      requireUnpinned: input.requireUnpinned === true,
+      ...(input.reviewCapabilityGeneration === undefined
+        ? {}
+        : { reviewCapabilityGeneration: input.reviewCapabilityGeneration }),
     }).run;
     const observed = this.store.getRun(input.runId).run;
     return observed.version === deferred.version ? deferred : observed;
@@ -495,6 +554,10 @@ export class LocalController {
       contractId: input.contractId,
       expectedVersion: input.expectedVersion,
       approvedAt: this.now(),
+      requireUnpinned: input.requireUnpinned === true,
+      ...(input.reviewCapabilityGeneration === undefined
+        ? {}
+        : { reviewCapabilityGeneration: input.reviewCapabilityGeneration }),
     }).run;
   }
 

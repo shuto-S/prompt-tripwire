@@ -71,6 +71,8 @@ export interface ApprovalInput {
   readonly contractId: string;
   readonly expectedVersion: number;
   readonly approvedAt: string;
+  readonly requireUnpinned?: boolean;
+  readonly reviewCapabilityGeneration?: number;
 }
 
 export interface ApprovalResult {
@@ -83,6 +85,8 @@ export interface CancelRunPersistenceInput {
   readonly runId: string;
   readonly expectedVersion: number;
   readonly cancelledAt: string;
+  readonly requireUnpinned?: boolean;
+  readonly reviewCapabilityGeneration?: number;
 }
 
 export interface ReopenReviewPersistenceInput {
@@ -90,6 +94,8 @@ export interface ReopenReviewPersistenceInput {
   readonly runId: string;
   readonly expectedVersion: number;
   readonly reopenedAt: string;
+  readonly requireUnpinned?: boolean;
+  readonly reviewCapabilityGeneration?: number;
 }
 
 export interface AmendPausedContractPersistenceInput {
@@ -209,6 +215,14 @@ export interface RecordHumanDecisionInput {
   readonly idempotencyKey: string;
   readonly runId: string;
   readonly decision: HumanDecision;
+  readonly requireUnpinned?: boolean;
+  readonly reviewCapabilityGeneration?: number;
+}
+
+export type HumanDecisionOutcome = "review_only" | "ready_with_contract" | "cancelled";
+
+export interface RecordHumanDecisionOutcomeInput extends RecordHumanDecisionInput {
+  readonly outcome: HumanDecisionOutcome;
 }
 
 export interface RecordHumanDecisionResult {
@@ -217,12 +231,25 @@ export interface RecordHumanDecisionResult {
   readonly humanDecision: HumanDecision;
 }
 
+export interface FinalDecisionContractContext {
+  readonly run: RunRecord;
+  readonly decisions: readonly DecisionPoint[];
+  readonly humanDecisions: readonly HumanDecision[];
+  readonly nextContractVersion: number;
+}
+
+export type FinalDecisionContractFactory = (
+  context: FinalDecisionContractContext,
+) => ExecutionContract;
+
 export interface DeferDecisionInput {
   readonly idempotencyKey: string;
   readonly runId: string;
   readonly decisionId: string;
   readonly expectedVersion: number;
   readonly deferredAt: string;
+  readonly requireUnpinned?: boolean;
+  readonly reviewCapabilityGeneration?: number;
 }
 
 export interface DeferDecisionResult {

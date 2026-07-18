@@ -92,8 +92,13 @@ function policyDecision(blocker: PolicyBlocker, plans: readonly PlanArtifact[]):
         .filter((probeId) => plans.some((plan) => plan.probeId === probeId)),
     ),
   ];
+  const taskOnly = blocker.evidenceRefs.every((reference) => reference.startsWith("task:"));
   const probes =
-    supportedByProbeIds.length > 0 ? supportedByProbeIds : plans.map((plan) => plan.probeId);
+    supportedByProbeIds.length > 0
+      ? supportedByProbeIds
+      : taskOnly
+        ? []
+        : plans.map((plan) => plan.probeId);
   const isLocalCompatibilityEffect =
     blocker.trigger === "compatibility" || blocker.trigger === "breaking_api";
   const allowOption = isLocalCompatibilityEffect
@@ -223,8 +228,8 @@ function compareDecisions(left: DecisionPoint, right: DecisionPoint): number {
 }
 
 export function normalizeReview(bundle: Omit<ReviewBundle, "decisions">): ReviewBundle {
-  const policy = evaluateDeterministicPolicy({ plans: bundle.plans }).map((blocker) =>
-    policyDecision(blocker, bundle.plans),
+  const policy = evaluateDeterministicPolicy({ task: bundle.task, plans: bundle.plans }).map(
+    (blocker) => policyDecision(blocker, bundle.plans),
   );
   const model = bundle.candidate.divergences.map(divergenceDecision);
   const unknowns = bundle.candidate.unknowns.map(unknownDecision);

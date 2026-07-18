@@ -6,7 +6,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { formatCliError, runCli } from "../../apps/cli/dist/index.js";
-import { LocalController } from "../../apps/controller/dist/index.js";
+import { InspectionRunError, LocalController } from "../../apps/controller/dist/index.js";
 import {
   createExecutionContract,
   createRepositorySnapshot,
@@ -28,7 +28,7 @@ function snapshot(overrides = {}) {
     task: "Implement the approved behavior",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.1",
+    promptTripwireVersion: "0.1.2",
     createdAt: "2026-07-14T00:00:00.000Z",
     ...overrides,
   });
@@ -191,6 +191,67 @@ test("AC-016: restart preserves paused/unapproved runs and recovers running to p
 
   assert.equal((await stat(paths.databasePath)).mode & 0o777, 0o600);
   assert.equal((await stat(paths.artifactRoot)).mode & 0o777, 0o700);
+});
+
+test("Decision Inbox generations persist across connections and gate stale mutations", async () => {
+  const paths = await storage();
+  const repositorySnapshot = snapshot();
+  const first = open(paths);
+  let second;
+  let restarted;
+  try {
+    first.createRun(
+      runRecord("run_review_capability_lease", repositorySnapshot, {
+        state: "needs_review",
+      }),
+    );
+    const before = first.getRun("run_review_capability_lease").run;
+    const firstGeneration = first.claimReviewCapability("run_review_capability_lease");
+    assert.equal(firstGeneration, 1);
+    assert.equal(
+      first.isReviewCapabilityCurrent("run_review_capability_lease", firstGeneration),
+      true,
+    );
+
+    second = open(paths);
+    const secondGeneration = second.claimReviewCapability("run_review_capability_lease");
+    assert.equal(secondGeneration, 2);
+    assert.equal(
+      first.isReviewCapabilityCurrent("run_review_capability_lease", firstGeneration),
+      false,
+    );
+    assert.equal(
+      second.isReviewCapabilityCurrent("run_review_capability_lease", secondGeneration),
+      true,
+    );
+    assert.throws(
+      () =>
+        first.cancelRun({
+          idempotencyKey: "stale-review-capability-cancel",
+          runId: "run_review_capability_lease",
+          expectedVersion: before.version,
+          cancelledAt: "2026-07-14T00:01:00.000Z",
+          requireUnpinned: true,
+          reviewCapabilityGeneration: firstGeneration,
+        }),
+      (error) => error instanceof PersistenceError && error.code === "CAPABILITY_REVOKED",
+    );
+    assert.deepEqual(first.getRun("run_review_capability_lease").run, before);
+
+    second.close();
+    second = undefined;
+    restarted = open(paths);
+    assert.equal(
+      restarted.isReviewCapabilityCurrent("run_review_capability_lease", secondGeneration),
+      true,
+    );
+    assert.deepEqual(restarted.getRun("run_review_capability_lease").run, before);
+  } finally {
+    restarted?.close();
+    second?.close();
+    first.close();
+    await rm(paths.root, { recursive: true, force: true });
+  }
 });
 
 test("duplicate events and approvals are idempotent while conflicting reuse fails", async () => {
@@ -643,6 +704,14 @@ test("FR-001 fixture accepts task text and a UTF-8 task file", async () => {
               async interrupt() {},
             },
           }),
+        async startReviewServer({ runId }) {
+          return {
+            url: `http://127.0.0.1:43129/runs/${runId}#token=fixture`,
+            closed: new Promise(() => undefined),
+            async close() {},
+          };
+        },
+        async waitForShutdownSignal() {},
       });
       assert.equal(exitCode, 0);
       assert.match(stdout, /State: ready_for_approval/u);
@@ -666,8 +735,14 @@ test("FR-001 fixture accepts task text and a UTF-8 task file", async () => {
             },
           }),
       }),
-      (error) =>
-        error !== null && typeof error === "object" && error.code === "DIRTY_CHOICE_REQUIRED",
+      (error) => {
+        assert.equal(
+          error !== null && typeof error === "object" && error.code === "DIRTY_CHOICE_REQUIRED",
+          true,
+        );
+        assert.doesNotMatch(formatCliError(error), /^Run:/mu);
+        return true;
+      },
     );
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -713,6 +788,7 @@ test("AC-006/AC-015: inspect opens the Decision Inbox only when review is useful
           openedRunId = runId;
           return {
             url: `http://127.0.0.1:43127/runs/${runId}#token=fixture`,
+            closed: new Promise(() => undefined),
             async close() {
               closed = true;
             },
@@ -729,6 +805,54 @@ test("AC-006/AC-015: inspect opens the Decision Inbox only when review is useful
     assert.match(openedRunId, /^run_/u);
     assert.equal(waited, true);
     assert.equal(closed, true);
+
+    let readyOutput = "";
+    let readyRunId = null;
+    let readyClosed = false;
+    let readyWaited = false;
+    assert.equal(
+      await runCli(
+        ["inspect", "--task", "Prepare a safe local implementation", "--repo", repository],
+        {
+          dataRoot: join(root, "data-ready"),
+          io: {
+            stdout: { write: (value) => (readyOutput += value) },
+            stderr: { write: () => undefined },
+          },
+          createController: (store) =>
+            new LocalController({
+              store,
+              inspectionPort: {
+                async inspect(context) {
+                  return {
+                    blockingDecisionIds: [],
+                    contract: contract(context.run.runId, context.preparedSnapshot.snapshot),
+                  };
+                },
+              },
+            }),
+          async startReviewServer({ runId }) {
+            readyRunId = runId;
+            return {
+              url: `http://127.0.0.1:43128/runs/${runId}#token=fixture`,
+              closed: new Promise(() => undefined),
+              async close() {
+                readyClosed = true;
+              },
+            };
+          },
+          async waitForShutdownSignal() {
+            readyWaited = true;
+          },
+        },
+      ),
+      0,
+    );
+    assert.match(readyOutput, /State: ready_for_approval/u);
+    assert.match(readyOutput, /Decision Inbox: http:\/\/127\.0\.0\.1:43128/u);
+    assert.match(readyRunId, /^run_/u);
+    assert.equal(readyWaited, true);
+    assert.equal(readyClosed, true);
 
     let terminalOutput = "";
     assert.equal(
@@ -777,4 +901,85 @@ test("FR-002/AC-019: CLI errors give safe, actionable setup guidance", () => {
     formatCliError(new Error("contains private implementation detail")),
     "CLI_ERROR: request failed\n",
   );
+  assert.equal(
+    formatCliError({
+      code: "INSUFFICIENT_VALID_PROBES",
+      runId: "run_OPENAI_API_KEY=must-not-leak",
+    }),
+    "INSUFFICIENT_VALID_PROBES: request failed\n",
+  );
+  assert.throws(
+    () =>
+      new InspectionRunError(
+        "run_not-canonical",
+        "INSUFFICIENT_VALID_PROBES",
+        new Error("private detail"),
+      ),
+    /canonical generated ID/u,
+  );
+});
+
+test("FR-002/AC-019: failed inspection reports its persisted run ID without leaking details", async () => {
+  const root = await mkdtemp(join(tmpdir(), "prompt-tripwire-failed-inspect-fixture-"));
+  const repository = join(root, "repository");
+  const dataRoot = join(root, "data");
+  try {
+    assert.equal(spawnSync("git", ["init", "-b", "main", repository]).status, 0);
+    await writeFile(join(repository, "tracked.txt"), "fixture\n");
+    for (const args of [
+      ["-C", repository, "config", "user.email", "fixture@example.invalid"],
+      ["-C", repository, "config", "user.name", "PromptTripwire Fixture"],
+      ["-C", repository, "add", "tracked.txt"],
+      ["-C", repository, "commit", "-m", "fixture"],
+    ]) {
+      assert.equal(spawnSync("git", args, { encoding: "utf8" }).status, 0);
+    }
+
+    let formatted = "";
+    await assert.rejects(
+      runCli(["inspect", "--task", "Inspect the safe fixture", "--repo", repository], {
+        dataRoot,
+        createController: (store) =>
+          new LocalController({
+            store,
+            inspectionPort: {
+              async inspect() {
+                throw Object.assign(
+                  new Error("OPENAI_API_KEY=private-value raw implementation detail"),
+                  { code: "INSUFFICIENT_VALID_PROBES" },
+                );
+              },
+            },
+          }),
+      }),
+      (error) => {
+        assert.equal(error instanceof InspectionRunError, true);
+        formatted = formatCliError(error);
+        assert.match(
+          formatted,
+          /^INSUFFICIENT_VALID_PROBES: request failed\nRun: run_[0-9a-f-]+\n$/u,
+        );
+        assert.doesNotMatch(formatted, /private-value|raw implementation detail/u);
+        return true;
+      },
+    );
+
+    const match = formatted.match(/^Run: (run_[0-9a-f-]+)$/mu);
+    assert.ok(match);
+    const store = new SqlitePersistence({
+      databasePath: join(dataRoot, "prompt-tripwire.sqlite3"),
+      artifactRoot: join(dataRoot, "artifacts"),
+    });
+    try {
+      const runs = store.listRuns();
+      assert.equal(runs.length, 1);
+      assert.equal(runs[0].run.runId, match[1]);
+      assert.equal(runs[0].run.state, "failed");
+      assert.equal(runs[0].run.lastErrorCode, "INSUFFICIENT_VALID_PROBES");
+    } finally {
+      store.close();
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

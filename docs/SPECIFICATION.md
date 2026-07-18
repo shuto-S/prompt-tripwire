@@ -139,9 +139,28 @@ inspect` in terminal mode, reports the run summary, and stops while a human uses
 the existing Decision Inbox. It must not choose a decision or invoke approval.
 After a human-approved current contract exists, it may delegate `tripwire run`
 and `tripwire report`. A deterministic `PROMPT_TRIPWIRE_PLUGIN_REENTRY` flag is
-propagated to the PromptTripwire child process and blocks recursive Plugin
-invocation. The adapter requires the supported macOS arm64 runtime and the
-existing logged-in Codex CLI; it introduces no API-key or hosted-backend path.
+propagated in two stages and blocks recursive Plugin invocation: the thin
+adapter sets the exact value `1` on the PromptTripwire process, the controller
+retains only that non-secret sentinel in the otherwise minimal App Server
+environment, and App Server receives the explicit
+`shell_environment_policy.set={PROMPT_TRIPWIRE_PLUGIN_REENTRY="1"}` override for
+every child command. `shell_environment_policy.inherit=none` remains in force,
+and a normal non-Plugin invocation does not inject the sentinel. The adapter
+requires the supported macOS arm64 runtime and the existing logged-in Codex
+CLI; it introduces no API-key or hosted-backend path.
+
+The thin adapter launches an authenticated nested `codex app-server`. If the
+calling Codex shell sandbox prevents that child from reaching the model
+service, the Skill may request the caller's normal command permission to run
+only the adapter command outside that shell sandbox. This caller-tool
+permission is not a PromptTripwire decision, contract approval, or task
+implementation authorization. Denial stops preflight safely. When an inspect
+attempt made under the caller sandbox ends with the sanitized
+`INSUFFICIENT_VALID_PROBES: request failed` symptom, the Skill may retry at most
+once through that normal permission path. It must not remove the deterministic
+re-entry guard, introduce an API-key path, or relax the probe, comparator,
+policy, contract, containment, or executor boundaries.
+
 The macOS arm64 release archive co-distributes that thin adapter with the one
 existing runtime. `install.sh --with-codex-plugin` installs the runtime in the
 user-local prefix, registers the archive's stable local marketplace root, and
@@ -197,6 +216,8 @@ PromptTripwire must not use “security expert,” “minimalist,” or similar 
 - Only bounded static inspection operations are allowed.
 - Probe turns use normal-schema `approvalPolicy: "untrusted"`; PromptTripwire declines command, file-change, and permission requests outside the static-inspection policy.
 - Probe execution never uses App Server `command/exec`, because standalone command execution bypasses turn-level approval handling and read-only sandboxing alone does not classify interpreter, build, test, or package-manager intent.
+- Before any probe thread starts, PromptTripwire recursively audits the materialized worktree without following symlinked directories. Every symlink must resolve successfully to a canonical target inside that worktree; an external, broken, or otherwise unresolvable symlink fails the whole probe batch with `PROBE_CONTAINMENT_VIOLATION`, is not retried as an ordinary probe failure, and cannot degrade to two probes.
+- Every static-read approval treats the App Server action as untrusted and independently validates both its structured type/path and actual command. CWD and action paths containing shell expansion or ambiguous syntax (`~`, variables, command substitution, globs, or brace expansion), explicit `..` segments, and absolute-path escape are rejected before canonical matching. The command must be one allowlisted static-read program with bounded flags and operands that semantically match the structured action; shell/interpreter wrappers, compound syntax, redirection, the `-` standard-input sentinel, symlink-following search flags (`rg -L`/`--follow`), `rg --pre`, `find -exec`/write predicates, and type/path mismatch are denied. Direct reads of default protected/secret-like paths are denied by both lexical and canonical target, and a content search is approved only when a filesystem walk proves it cannot reach a protected file under the command's hidden-file semantics. `rg --hidden` and any positive `--glob`/`-g` inclusion are conservatively treated as hidden-file reachability; a negative-only glob does not expand it. List-only actions may expose repository-relative names and metadata, but never protected file contents. App Server may report a root-contained absolute structured action path, which is allowed only when its canonical target remains inside the probe root. Missing resolution evidence or a canonical target outside the probe root is denied. Internal symlinks whose canonical target remains inside the worktree are allowed.
 - Completed command/file items and aggregate diffs are still inspected. If an unexpected local action was not presented for approval, it is treated as a deviation detected inside the disposable worktree, not described as prevented.
 - Probe timeout defaults to five minutes and is configurable downward or upward.
 - Probe concurrency defaults to three and is capped at three for the MVP.
@@ -260,6 +281,30 @@ Naming, prose ordering, and equivalent implementation details are suppressed unl
 
 ### 8.3 Deterministic policy triggers
 
+`deterministic-v2` evaluates both the normalized original task and all validated
+plan artifacts. The task is first-class policy evidence and a fail-closed
+backstop when one or every plan omits a requested high-impact action. Task
+evidence is identified as `task:normalized`; a blocker supported only by the
+task has no probe-support attribution, while matching task and plan evidence is
+merged without losing either source. Task text does not fabricate repository or
+probe evidence.
+
+Original-task matching is action-and-target oriented and supports bounded
+English and Japanese equivalents for external mutations such as repository
+archive/rename, issue transfer, object-store synchronization, and team
+notification. Service names or artifact nouns alone are not mutations. In
+particular, download/fetch/retrieve of a GitHub release artifact is network
+evidence but not release/publish evidence, and local inspect/verify/test wording
+is neither. A concrete release action remains blocking.
+
+The same bounded task rules explicitly classify making a repository private or
+internal, or transferring its ownership, as both `remote_write` and
+`permission`; changing protection for the main or default branch has the same
+two categories. Deleting an S3 object is classified as `destructive_data`,
+`network`, and `remote_write`. These action-and-target forms are covered in
+English and Japanese without treating a bare repository, branch, or S3 mention
+as an operation.
+
 The following always require explicit human confirmation, even under unanimous plans:
 
 - data deletion, destructive transformation, or migration application;
@@ -274,6 +319,26 @@ The following always require explicit human confirmation, even under unanimous p
 - expansion beyond the task's approved repository or writable roots.
 
 Unknown classification is fail-closed and becomes a decision.
+
+Dependency classification is action-oriented rather than mention-oriented.
+Adding, installing, updating, upgrading, replacing, removing, or otherwise
+changing a dependency is blocking. An entire structured `dependency_changes`
+value that unambiguously declares no change is not a blocker, including
+`dependency-free`, `no new dependencies`, `without adding dependencies`,
+`dependencies unchanged/preserved`, `新しい依存関係は追加しない`,
+`依存関係を変更しない`, and `依存関係の変更はない`. A no-change expression
+combined with `but`, `except`, `while`, `ただし`,
+or another contrasting clause is not exempt; the positive action is still
+evaluated. Negated task language such as “do not deploy” does not authorize or
+request that operation, but a later positive clause cannot be hidden by the
+earlier negation.
+
+Each validated `commands` value is accepted for deterministic classification
+only when it is a shell-free token sequence. PromptTripwire classifies that
+sequence through the command policy and evaluates actual path/config/output
+operands; ambiguous syntax is unknown, while absolute or parent-traversing
+paths, write outputs, and protected read targets create the corresponding
+scope, unknown, or secret evidence.
 
 For P0, confirming one of these effects can authorize only the local code changes that prepare it. It does not authorize PromptTripwire to perform a network, remote-write, deploy, release, migration-application, production-data, billing, credential, or permission-expansion operation. Those runtime effects remain denied and require a separate, explicitly authorized workflow outside the P0 executor.
 
@@ -319,6 +384,38 @@ The review sequence is:
 
 Full raw plan artifacts are available through an evidence drawer but are not the default presentation.
 
+At most one live Decision Inbox capability exists per run, including when
+multiple local processes use the same database, and only while the run is reviewable
+(`needs_review`, `ready_for_approval`, or `paused`). Its loopback server closes
+when the run leaves those states, when the run is archived, or after 30 minutes
+with no authenticated request and no active authenticated SSE connection. A
+valid API request refreshes the idle deadline and an active SSE connection
+prevents idle expiry; unauthenticated traffic does neither. Closing the server
+only revokes that capability and releases the listener. It never resolves a
+decision, approves a contract, cancels a run, or otherwise infers human intent.
+A later explicit review command creates a fresh capability when the run is
+still reviewable. After binding and revalidating the lifecycle, live startup
+atomically advances a non-secret generation lease in SQLite. The capability
+token remains in memory and is never persisted. Advancing the generation does
+not change run state, decisions, or approval; the prior listener rejects its
+next authenticated request and closes after bounded lifecycle polling. Each
+authenticated request revalidates the lifecycle and generation, and a mutation
+revalidates again after its size-bounded body has been read within five seconds.
+The corresponding persistence transaction also requires the run to remain
+unarchived and the generation to remain current, so an archive, replacement, or
+capability-close boundary cannot be crossed by an in-flight slow request. After
+the last blocking answer, its human-decision record, resolved decision, draft
+contract, and `ready_for_approval` transition commit in that same transaction;
+a `_cancel` or `_rerun` answer instead commits the answer and `cancelled`
+transition together. A stale generation rolls back the entire outcome, leaving
+no stranded answer, contract, or state transition. Explicit contract approval
+remains a separate human action. The controller-derived outcome is excluded
+from the client request fingerprint so a v0.1.1 final-answer idempotency key
+remains replayable after upgrade; changing the decision payload while reusing
+that key remains a conflict. After
+the bounded close grace, active connections are forcibly closed so a client that
+never finishes a request cannot retain the revoked listener.
+
 ## 10. Execution contract
 
 An `ExecutionContract` is immutable after approval. Editing creates a new version. It contains:
@@ -350,6 +447,9 @@ created_at
 approved_at
 content_hash
 ```
+
+New contract previews record the deterministic policy identity in
+`model_versions` as `deterministic-v2`.
 
 Approval records the timestamp and contract content hash. In the local single-user P0, the private database and OS account boundary identify the approving context; the account name is not copied into the contract or export. This is an audit record, not a cryptographic proof of legal identity.
 
@@ -443,8 +543,9 @@ State transitions are persisted atomically. Restarting the local controller must
 | Fewer than two valid probes | Fail closed; no contract can be approved. |
 | GPT-5.6 refusal or invalid structured output | Retry once. Then show deterministic diff output and require manual review; no auto-approval. |
 | App Server disconnects | Interrupt if possible, mark run failed, and preserve last events. |
+| Caller shell sandbox blocks the Plugin's nested App Server request | Return a sanitized permission hint. Retry only the adapter command at most once through the caller's normal Codex command permission; denial or a second failure stops preflight without changing any PromptTripwire approval or runtime boundary. |
 | Repository snapshot changes | Mark stale and require a new inspection. |
-| Local UI closes | Keep run in review/paused state; do not infer approval. |
+| Local UI closes, reaches a terminal/archive boundary, or idles for 30 minutes | Revoke the per-run capability and close the listener while keeping the persisted run state unchanged; never infer approval or a decision. |
 | Approval response is lost | Remain unapproved; approvals are idempotent by decision ID. |
 | Contract store write fails | Fail closed before execution. |
 | Required check cannot run | Record the exact reason and finish as paused or failed, not completed. |
@@ -468,10 +569,10 @@ See `SECURITY.md` for the threat model and known limits.
 |---|---|---|
 | FR-001 | P0 | Accept task text or a UTF-8 task file and validate a Git repository. |
 | FR-002 | P0 | Create and hash an immutable repository snapshot without modifying the user's checkout. |
-| FR-003 | P0 | Run three independent read-only Codex probes against identical inputs. |
+| FR-003 | P0 | Run three independent read-only Codex probes against identical inputs only after a fail-closed canonical symlink audit. |
 | FR-004 | P0 | Validate each probe against the canonical plan schema. |
 | FR-005 | P0 | Use GPT-5.6 Structured Outputs to extract consensus, divergence, and unknowns. |
-| FR-006 | P0 | Apply deterministic confirmation and denial rules after model comparison. |
+| FR-006 | P0 | Apply `deterministic-v2` confirmation and denial rules to the original task and validated plans after model comparison, preserving evidence provenance and unambiguous dependency no-change semantics. |
 | FR-007 | P0 | Render decisions in the local UI and terminal fallback. |
 | FR-008 | P0 | Limit each review round to three cards without hiding remaining blockers. |
 | FR-009 | P0 | Create immutable, versioned execution contracts with content hashes. |
@@ -481,16 +582,16 @@ See `SECURITY.md` for the threat model and known limits.
 | FR-013 | P0 | Interrupt and pause on a contract deviation. |
 | FR-014 | P0 | Require a clean restart after contract amendment. |
 | FR-015 | P0 | Generate JSON and Markdown audit reports. |
-| FR-016 | P0 | Support cancellation, timeout, crash-safe state, and idempotent approval. |
+| FR-016 | P0 | Support cancellation, timeout, crash-safe state, idempotent approval, and bounded Decision Inbox listener lifetime without state inference. |
 | FR-017 | P0 | Redact secret-like values and never log credentials or raw reasoning. |
-| FR-018 | P0 | Bind the local UI to loopback with a per-run capability token. |
+| FR-018 | P0 | Bind the local UI to loopback with a per-run capability token that expires on terminal/archive lifecycle boundaries or 30 minutes of authenticated inactivity. |
 | FR-019 | P1 | Allow custom repository policy files. |
 | FR-020 | P1 | Export a sanitized review artifact for PR or team discussion. |
 | FR-021 | P2 | Add adapters for non-Codex coding agents. |
 | FR-022 | P2 | Add historical team policies and shared approvals. |
 | PLUG-FR-001 | P1 | Expose an explicit `prompt-tripwire` Plugin Skill that delegates to the existing CLI with the exact task and repository snapshot. |
 | PLUG-FR-002 | P1 | Stop for human review and never select a decision or approve a contract automatically. |
-| PLUG-FR-003 | P1 | Fail closed for unsupported platform, missing runtime/login, dirty-choice ambiguity, and deterministic re-entry. |
+| PLUG-FR-003 | P1 | Fail closed for unsupported platform, missing runtime/login, dirty-choice ambiguity, deterministic re-entry propagated through both the App Server process and its explicit child shell environment, and denied caller command permission; retry a sandboxed nested-App-Server request failure at most once without relaxing inner boundaries. |
 | PLUG-FR-004 | P1 | Validate Plugin metadata and Skill packaging with executable manifest, marketplace, smoke, and package-content checks. |
 | PLUG-FR-005 | P1 | Co-distribute the thin Plugin adapter in the macOS arm64 archive and provide idempotent, user-local, one-command Plugin install and targeted uninstall without changing other marketplaces or Plugins. |
 
@@ -501,7 +602,7 @@ See `SECURITY.md` for the threat model and known limits.
 - **Latency:** probes run concurrently; the UI streams each phase instead of showing an indefinite spinner. No hard latency claim is made until measured on representative repositories.
 - **Cost visibility:** show probe count, selected models, token usage when available, retry count, and a pre-run estimate if the provider exposes one.
 - **Portability:** the Build Week MVP supports verified macOS builds with Git, Node.js, and an authenticated Codex CLI. No separate OpenAI API credential is required. Linux is the next target but is not advertised as supported until the same containment and end-to-end suite passes. Windows is out of MVP scope.
-- **Distribution:** the macOS arm64 release is a compiled JavaScript/runtime archive with checksum, direct launcher, user-local runtime-only and runtime-plus-Plugin installer/uninstaller modes, the repo marketplace and Skill adapter, recorded read-only replay, and a dependency-free safe fixture. Judges do not rebuild the TypeScript source.
+- **Distribution:** the macOS arm64 release is a compiled JavaScript/runtime archive with checksum, direct launcher, user-local runtime-only and runtime-plus-Plugin installer/uninstaller modes, the repo marketplace and Skill adapter, recorded read-only replay, and a dependency-free safe fixture. Judges do not rebuild the TypeScript source. A tagged artifact must come from a clean tree whose matching version tag resolves to the manifest's source commit, use that commit's timestamp, and satisfy the independently checked checksum and eight-MiB size ceiling.
 - **Runtime:** Node.js 24.15+ LTS and Codex CLI 0.144.4 are the pinned implementation baseline. Node 24.15 is the minimum because the built-in SQLite module reached release-candidate status there. A different Codex version or canonical normal-schema hash fails before probing.
 - **Accessibility:** complete decision review and approval with keyboard only; WCAG 2.2 AA contrast target.
 - **Observability:** structured local events with stable IDs; no secret values or raw chain-of-thought.
@@ -512,10 +613,10 @@ See `SECURITY.md` for the threat model and known limits.
 | ID | Acceptance criterion |
 |---|---|
 | AC-001 | Given a clean fixture repository and task, `inspect` produces three schema-valid plan artifacts with distinct thread IDs and the same snapshot/task hashes. |
-| AC-002 | During probes, attempted target writes, network access, interpreters, builds, tests, and package-manager commands are denied and the original checkout remains byte-for-byte unchanged. |
+| AC-002 | Before any probe thread starts, an external, broken, or unresolvable worktree symlink fails the whole batch while an internal symlink remains usable; each static-read action also resolves CWD/path canonically. Attempted target writes, network access, interpreters, builds, tests, package-manager commands, and canonical path escapes are denied, and the original checkout remains byte-for-byte unchanged. |
 | AC-003 | A fixture where plans differ on persistent deletion shows a decision card with alternatives, effects, probe support, and repository evidence. |
-| AC-004 | A unanimous plan containing deploy, migration apply, secret/permission change, or remote write still requires explicit confirmation. |
-| AC-005 | Equivalent plans with no policy triggers produce a contract preview without a blocking decision. |
+| AC-004 | A deploy, migration apply, secret/permission change, or remote write requested by the original task or present in unanimous plans still requires explicit confirmation under `deterministic-v2`; task-only evidence is labeled as task evidence and does not claim probe support. |
+| AC-005 | Equivalent plans with no policy triggers produce a contract preview without a blocking decision; unambiguous dependency no-change expressions and negated operational instructions do not create false blockers, while a later positive contrast clause still does. |
 | AC-006 | More than three blockers display three cards plus the remaining count; execution stays disabled until every blocker is resolved. |
 | AC-007 | Approval creates an immutable contract whose hash changes when any decision or boundary changes. |
 | AC-008 | Changing the commit, approved dirty patch, task, instructions, or configuration marks the contract stale and prevents `run`. |
@@ -527,14 +628,14 @@ See `SECURITY.md` for the threat model and known limits.
 | AC-014 | No API key, token, full environment, raw reasoning, or secret fixture value appears in UI output, logs, reports, or exported artifacts. |
 | AC-015 | The Decision Inbox is operable by keyboard and announces probe, review, pause, and completion state changes to assistive technology. |
 | AC-016 | Killing and restarting the controller preserves paused/unapproved state and cannot accidentally launch execution. |
-| AC-017 | The local API listens only on loopback, rejects missing/invalid capability tokens and cross-origin mutations, and loads no third-party runtime assets. |
+| AC-017 | The local API listens only on loopback, rejects missing/invalid capability tokens and cross-origin mutations, loads no third-party runtime assets, and closes its capability on terminal/archive state or after 30 minutes with neither authenticated activity nor an active authenticated SSE connection without mutating or approving the run. |
 | AC-018 | One failed probe produces degraded/manual review, fewer than two valid probes block approval, and an unrecoverable GPT-5.6 schema/refusal failure cannot auto-approve. |
 | AC-019 | An incompatible Codex App Server version fails before probing with the detected and required versions; duplicate or reordered protocol events cannot duplicate approval or completion. |
 | AC-PLUG-001 | The repo marketplace installs the `PromptTripwire` Plugin and exposes its `preflight` Skill to an explicit Codex task. |
 | AC-PLUG-002 | Plugin inspect leaves the target checkout's `git status --short` unchanged and returns a compact run summary or Decision Inbox next step. |
 | AC-PLUG-003 | No Skill or caller Codex path auto-approves a contract; approval remains an explicit human action. |
-| AC-PLUG-004 | The adapter propagates a deterministic re-entry guard and blocks recursive invocation. |
-| AC-PLUG-005 | API-key-free macOS arm64 runtime/login checks, unsupported-platform errors, manifest/marketplace/frontmatter validation, and package-content scans pass. |
+| AC-PLUG-004 | The adapter propagates the exact deterministic re-entry guard through the PromptTripwire child, the minimal App Server process environment, and `shell_environment_policy.set`; a child Codex process observes it and recursive invocation is blocked without broad environment inheritance. |
+| AC-PLUG-005 | API-key-free macOS arm64 runtime/login checks, unsupported-platform errors, manifest/marketplace/frontmatter validation, and package-content scans pass; a caller-sandbox request failure yields a sanitized permission hint, denial stops safely, and any permission-path retry is limited to one without removing the re-entry guard. |
 | AC-PLUG-006 | The release installer installs and verifies the runtime plus enabled `prompt-tripwire@prompt-tripwire-local` Plugin idempotently; targeted uninstall removes only that Plugin, its owned marketplace registration, and its user-local files. |
 
 ## 18. Test strategy
@@ -544,6 +645,7 @@ See `SECURITY.md` for the threat model and known limits.
 - schema validation and canonical hashing;
 - plan normalization and equivalence rules;
 - deterministic policy table;
+- original-task backstop, provenance, dependency no-change, and contrast-clause rules for `deterministic-v2`;
 - question grouping and pagination;
 - contract matching for paths, commands, data, network, and external effects;
 - secret redaction and export sanitization;
@@ -551,10 +653,10 @@ See `SECURITY.md` for the threat model and known limits.
 
 ### Integration
 
-- fake App Server JSON-RPC streams for approvals, file changes, command execution, interruption, disconnect, and duplicate events;
+- fake App Server JSON-RPC streams for approvals, file changes, command execution, interruption, disconnect, duplicate events, two-stage re-entry propagation, caller-sandbox request-failure guidance with a one-retry bound, and pre-thread/per-action symlink containment;
 - fake App Server schema-constrained comparison fixtures, prohibited-tool requests, invalid schema/reference, retry, timeout, and token-usage notifications;
 - Git repositories with clean, dirty, submodule, detached HEAD, renamed file, and snapshot drift cases;
-- worktree creation, containment, clean restart, and final diff verification.
+- worktree creation, canonical symlink containment, clean restart, final diff verification, and Decision Inbox terminal/archive/idle closure without inferred approval.
 
 ### End-to-end
 
@@ -579,7 +681,7 @@ No end-to-end test may use production credentials or a shared environment.
 | FR-003 | AC-001, AC-002, AC-018 |
 | FR-004 | AC-001, AC-018 |
 | FR-005 | AC-003, AC-005, AC-018 |
-| FR-006 | AC-004, AC-011 |
+| FR-006 | AC-004, AC-005, AC-011 |
 | FR-007 | AC-003, AC-015 |
 | FR-008 | AC-006 |
 | FR-009 | AC-007 |
@@ -589,7 +691,7 @@ No end-to-end test may use production credentials or a shared environment.
 | FR-013 | AC-010, AC-011 |
 | FR-014 | AC-012 |
 | FR-015 | AC-013 |
-| FR-016 | AC-016, AC-018, AC-019 and the failure-behavior table |
+| FR-016 | AC-016, AC-017, AC-018, AC-019 and the failure-behavior table |
 | FR-017 | AC-014 |
 | FR-018 | AC-017 |
 | PLUG-FR-001 | AC-PLUG-001, AC-PLUG-002 |

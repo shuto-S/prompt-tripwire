@@ -10,8 +10,8 @@ This file prepares the English submission fields. It is not a saved or final Dev
 - **Repository URL:** `https://github.com/shuto-S/prompt-tripwire`
 - **Repository access:** Public, Apache-2.0
 - **Supported platform:** macOS arm64
-- **Release artifact:** `https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.1`
-- **Demo video:** `<PENDING: public YouTube URL, audio, under 3 minutes>`
+- **Release artifact:** `<PENDING: publish and verify https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.2>`
+- **Demo video:** `<PENDING: add the public YouTube URL after upload and anonymous playback verification>`; [local v0.1.2 review copy](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4), 2:52.862 with audio
 - **Codex /feedback Session ID:** `<PENDING: paste the formal Session ID captured outside source into Devpost>`
 
 The formal Session ID was captured on 2026-07-15 and is intentionally retained outside source until Devpost entry. Do not replace the placeholder with a local task/thread UUID.
@@ -31,7 +31,7 @@ PromptTripwire uses observed plan divergence as early evidence. It asks only abo
 1. Freezes a Git snapshot without modifying the user's checkout.
 2. Runs three fresh, read-only Codex planning threads against identical task, snapshot, instructions, model, and schema inputs.
 3. Uses GPT-5.6 Structured Outputs in a separate tool-free App Server thread to normalize consensus, divergence, unknowns, and evidence references.
-4. Applies deterministic fail-closed rules for destructive, external, privileged, production, dependency, API, and irreversible effects.
+4. Applies `deterministic-v2` fail-closed rules to the original task and the validated plans for destructive, external, privileged, production, dependency, API, and irreversible effects, while preserving task-only provenance instead of claiming probe support.
 5. Shows at most three focused decision cards at a time in a loopback-only Decision Inbox or terminal fallback.
 6. Creates an immutable, content-addressed execution contract bound to the approved snapshot.
 7. Runs Codex in a disposable worktree, denies network/remote/high-impact effects, correlates approvals to contract evidence, and interrupts deviations.
@@ -41,7 +41,7 @@ PromptTripwire uses observed plan divergence as early evidence. It asks only abo
 
 PromptTripwire is a local TypeScript/Node.js workspace. It uses one OpenAI integration path: `codex app-server` 0.144.4 over stdio. That path supplies authentication, threads, schema-constrained turns, streamed items, approvals, diffs, token usage, and interruption. The existing Codex CLI login is reused; PromptTripwire does not require `OPENAI_API_KEY` or copy Codex credentials.
 
-Planning uses `gpt-5.6-sol` at low reasoning. Comparison uses `gpt-5.6-terra` at low reasoning after a bounded Sol/Terra evaluation. Zod-derived schemas validate model output, a deterministic policy engine adds mandatory decisions, `node:sqlite` persists crash-safe state, Git worktrees contain probe/execution changes, and React/Vite provides a bundled same-origin Decision Inbox.
+Planning uses `gpt-5.6-sol` at low reasoning. Comparison uses `gpt-5.6-terra` at low reasoning after a bounded Sol/Terra evaluation. Zod-derived schemas validate model output, a deterministic policy engine adds mandatory decisions, `node:sqlite` persists crash-safe state, Git worktrees contain probe/execution changes, and React/Vite provides a bundled same-origin Decision Inbox. The v0.1.2 distribution also audits canonical symlink containment before probes and at each static-read approval, expires the review capability at lifecycle/idle boundaries without changing run state, propagates only a non-secret Plugin re-entry sentinel through the minimal App Server environment, rolls failed installs/upgrades back across local and Codex Plugin state, and verifies deterministic archive output.
 
 ## Challenges
 
@@ -49,6 +49,8 @@ Planning uses `gpt-5.6-sol` at low reasoning. Comparison uses `gpt-5.6-terra` at
 - Stable file approval requests omit paths. PromptTripwire accepts one only when a same-thread, same-ID file item already disclosed contract-valid non-empty paths, then validates completed items and diffs again.
 - A permitted local command can write before aggregate diff monitoring reacts. PromptTripwire states this honestly: the write is contained in a disposable worktree, detected, interrupted, and never described as perfectly prevented.
 - Direct API comparison would add another credential path. Reusing an isolated App Server thread removed the extra API-key setup and secret handling.
+- Static-read labels are insufficient when a repository symlink resolves outside the probe worktree. v0.1.2 adds a whole-worktree canonical audit before any probe thread and repeats canonical CWD/path resolution at each approval.
+- Runtime files, launchers, marketplace state, and Plugin state form one user-visible installation. v0.1.2 stages local changes and restores the prior verified state when a covered install or upgrade step fails.
 
 ## Accomplishments
 
@@ -58,6 +60,9 @@ Planning uses `gpt-5.6-sol` at low reasoning. Comparison uses `gpt-5.6-terra` at
 - High-impact operational intent can authorize local preparation but never silently authorize the operation itself.
 - P0 functional requirements FR-001–018 and acceptance criteria AC-001–019 have executable traceability.
 - The judge archive runs without rebuilding from TypeScript and includes a safe fixture plus explicitly recorded read-only replay.
+- Original task text remains a deterministic safety input even when every generated plan omits a requested high-impact action; task-only evidence never masquerades as probe consensus.
+- The Decision Inbox capability closes on terminal/archive boundaries or authenticated inactivity without converting transport shutdown into approval, cancellation, or any other human decision.
+- Release packaging normalizes entry order, ownership, modes, timestamps, and gzip metadata, then compares two builds for the same digest.
 
 ## What was learned
 
@@ -76,7 +81,7 @@ Hosted backends, account systems, team approvals, non-Codex adapters, and automa
 
 ## Judge instructions
 
-Download the macOS arm64 release artifact and checksum, then follow `JUDGE_GUIDE.md`. The archive supports:
+After the v0.1.2 macOS arm64 release artifact and checksum are published, download both and follow `JUDGE_GUIDE.md`. The archive supports:
 
 - direct `./bin/tripwire` execution;
 - one-command user-local install/uninstall;
@@ -90,28 +95,61 @@ Known limitations are visible in the README, Judge Guide, and security document.
 
 `codex`, `gpt-5.6`, `developer-tools`, `agentic-workflows`, `security`, `code-review`, `typescript`, `local-first`
 
-## Media placeholders
+## Prepared media
 
-- **Thumbnail (recommended 1280×720):** `<PENDING: original PromptTripwire title + Decision Inbox crop; no third-party logo>`
-- **Screenshot 1:** `<PENDING: CLI showing three same-snapshot probe completions>`
-- **Screenshot 2:** `<PENDING: Decision Inbox with one material divergence and evidence>`
-- **Screenshot 3:** `<PENDING: contract-bound execution report/deviation evidence>`
-- **Demo video:** `<PENDING: public YouTube URL; audio; under 3:00>`
+- **Thumbnail:** [original PromptTripwire thumbnail](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-thumbnail.png)
+- **Demo video:** [local v0.1.2 review copy](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4) — 2:52.862, 1920×1080 H.264, AAC stereo 48 kHz, embedded default English `mov_text` subtitles
+- **English captions:** [74-cue sidecar](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/demo/prompt-tripwire-v0.1.2-demo.en.srt) — maximum measured rate 19.08 characters per second
+- **Narration and evidence notes:** [demo documentation](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/demo/README.md)
+- **Screenshot — human-decision boundary:** [live v0.1.2 Decision Inbox](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/decision-inbox-v0.1.2-live.png) — one unresolved compatibility decision, no dependency blocker, no selected option, and no approved contract
+- **Screenshot — result evidence:** [sanitized report](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/evidence-report-v0.1.2.png) — a separate earlier human-approved safe-fixture run, with two contract-scoped paths, passing `npm test`, no deviation, and no remaining unknown
+
+The Inbox scene is from an actual API-key-free v0.1.2 Codex Skill inspect. Its
+source status, HEAD, and worktree list remained unchanged. The later contract,
+execution, and report scenes are explicitly disclosed in the narration as a
+separate safe-fixture run that a human approved earlier; they are not presented
+as a continuation of the untouched Inbox. Repository media is excluded from
+the compact release archive. After publication, the public YouTube video will
+be the primary submission link and this repository copy will remain the
+review/offline fallback.
+
+## YouTube copy (publication pending)
+
+Use this copy when uploading the completed v0.1.2 video. The public URL and
+anonymous playback verification remain pending.
+
+- **Title:** `PromptTripwire — Human Decisions and Contract-Bound Codex Execution`
+- **Description:**
+
+  > PromptTripwire is a local-first preflight and execution gate for Codex. It
+  > runs three independent read-only Codex planning probes against the same task
+  > and repository snapshot, turns material disagreement into explicit human
+  > decisions, and executes the approved contract in an isolated Codex thread
+  > and disposable Git worktree. Built for the OpenAI Build Week Developer Tools
+  > track with codex-cli 0.144.4, gpt-5.6-sol planning probes, and a tool-free
+  > gpt-5.6-terra comparator. No separate OPENAI_API_KEY is required, and
+  > PromptTripwire never auto-approves human decisions.
+
+Append the public repository URL and the verified v0.1.2 release URL only after
+both are anonymously reachable.
 
 ## Rights and English review
 
 - Submission copy, fixture, diagrams, and UI are original project material.
 - UI uses system fonts and CSS; no third-party runtime images, fonts, analytics, stock media, or copied design assets.
-- The later demo should use only product screen capture and original narration. Do not add music, OpenAI/Devpost logos, third-party repository content, or unlicensed assets.
+- The final local demo uses only owned product screen capture, original copy, a macOS system voice, and system fonts. It contains no music, OpenAI/Devpost logos, stock media, third-party repository content, or unlicensed assets.
+- The committed media was reviewed for capability tokens, secrets, raw model reasoning, and local absolute paths; none are retained.
 - Third-party software is listed in `docs/DEPENDENCIES.md` and checked from the lockfile.
 - README, testing instructions, release notes, and this draft are English.
 
 ## Final external-action checklist
 
 - [x] Select public + Apache-2.0 as the repository route.
-- [x] Verify the final GitHub Release artifact/checksum from an unauthenticated download: `fbff8b060d6309d151f5ffdf66fc2c76abf2ebe39da4122195bba2c801856b98`.
+- [x] Preserve the anonymously verified historical v0.1.1 artifact SHA-256: `7a29de3241bab426b2e9b9edd84a6d6f01dd0fc1bf13d71da3927a4a83277f50`.
+- [ ] Build, publish, and anonymously verify the distinct v0.1.2 artifact and checksum.
 - [x] Obtain the formal `/feedback` Session ID from the primary Codex task and retain it outside source.
-- [ ] Record and upload the public YouTube demo with audio under three minutes.
-- [ ] Replace thumbnail/screenshot/video placeholders with owned media.
+- [x] Regenerate the owned local v0.1.2 demo with audio under three minutes, English captions, thumbnail, and screenshots.
+- [ ] Upload the completed v0.1.2 demo/captions to public YouTube and verify playback anonymously.
+- [x] Add the reviewed owned thumbnail, screenshots, video, captions, and narration to the repository.
 - [ ] Save the Devpost draft.
 - [ ] Final-submit before July 22, 2026 at 09:00 JST.

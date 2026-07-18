@@ -151,7 +151,7 @@ export function createContractPreview(input: ContractPreviewInput): ContractPrev
     modelVersions: {
       codex: input.snapshot.model.id,
       comparator: input.comparatorModel,
-      policy: input.policyVersion ?? "deterministic-v1",
+      policy: input.policyVersion ?? "deterministic-v2",
     },
     createdAt: input.createdAt,
     approvedAt: null,

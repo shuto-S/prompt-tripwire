@@ -9,7 +9,9 @@ import { pathToFileURL } from "node:url";
 import {
   createRecordedReviewFixture,
   DefaultInspectionPort,
+  InspectionRunError,
   LocalController,
+  isCanonicalInspectionRunId,
   renderTerminalReview,
   renderTerminalStatus,
 } from "@prompt-tripwire/controller";
@@ -23,7 +25,7 @@ import { prepareRepositorySnapshot } from "@prompt-tripwire/git-snapshot";
 import { SqlitePersistence } from "@prompt-tripwire/persistence";
 import { startReviewServer } from "@prompt-tripwire/ui";
 
-export const CLI_FOUNDATION = Object.freeze({ name: "cli", version: "0.1.1" });
+export const CLI_FOUNDATION = Object.freeze({ name: "cli", version: "0.1.2" });
 
 const HELP = `PromptTripwire ${CLI_FOUNDATION.version}
 
@@ -65,13 +67,23 @@ export function formatCliError(error: unknown): string {
     error !== null && typeof error === "object" && "code" in error && typeof error.code === "string"
       ? error.code
       : "CLI_ERROR";
+  const runLine =
+    error instanceof InspectionRunError && isCanonicalInspectionRunId(error.runId)
+      ? `Run: ${error.runId}\n`
+      : "";
   if (code === "DIRTY_CHOICE_REQUIRED") {
-    return `${code}: the checkout is dirty; rerun with --dirty committed or --dirty include\n`;
+    return `${code}: the checkout is dirty; rerun with --dirty committed or --dirty include\n${runLine}`;
   }
-  if (code === "CODEX_VERSION_MISMATCH" && error instanceof Error && error.message.length > 0) {
-    return `${code}: ${error.message}\n`;
+  const detailError =
+    error instanceof InspectionRunError && error.cause instanceof Error ? error.cause : error;
+  if (
+    code === "CODEX_VERSION_MISMATCH" &&
+    detailError instanceof Error &&
+    detailError.message.length > 0
+  ) {
+    return `${code}: ${detailError.message}\n${runLine}`;
   }
-  return `${code}: request failed\n`;
+  return `${code}: request failed\n${runLine}`;
 }
 
 function defaultDataRoot(): string {
@@ -113,15 +125,18 @@ function mutationKey(kind: string, value: unknown): string {
   return `cli:${kind}:${canonicalHash(value).slice(0, 32)}`;
 }
 
-async function waitForShutdownSignal(): Promise<void> {
+async function waitForShutdownSignal(signal?: AbortSignal): Promise<void> {
   await new Promise<void>((resolveSignal) => {
     const finish = (): void => {
       process.off("SIGINT", finish);
       process.off("SIGTERM", finish);
+      signal?.removeEventListener("abort", finish);
       resolveSignal();
     };
     process.once("SIGINT", finish);
     process.once("SIGTERM", finish);
+    signal?.addEventListener("abort", finish, { once: true });
+    if (signal?.aborted === true) finish();
   });
 }
 
@@ -137,10 +152,17 @@ async function serveReview(
     runId,
     mode,
   });
-  io.stdout.write(`Decision Inbox: ${reviewServer.url}\nPress Ctrl-C to close it.\n`);
+  io.stdout.write(
+    `Decision Inbox: ${reviewServer.url}\nPress Ctrl-C to close it. It also closes after terminal state or 30 minutes idle.\n`,
+  );
+  const shutdown = new AbortController();
   try {
-    await (dependencies.waitForShutdownSignal ?? waitForShutdownSignal)();
+    await Promise.race([
+      dependencies.waitForShutdownSignal?.() ?? waitForShutdownSignal(shutdown.signal),
+      reviewServer.closed,
+    ]);
   } finally {
+    shutdown.abort();
     await reviewServer.close();
   }
 }
@@ -153,7 +175,7 @@ async function reviewIfUseful(
   io: CliIo,
   dependencies: CliDependencies,
 ): Promise<void> {
-  if (state !== "needs_review" && state !== "paused") return;
+  if (state !== "needs_review" && state !== "ready_for_approval" && state !== "paused") return;
   if (terminalOnly) {
     io.stdout.write(`Next: tripwire review ${runId} --terminal\n`);
     return;

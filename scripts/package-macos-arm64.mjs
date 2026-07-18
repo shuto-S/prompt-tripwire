@@ -6,6 +6,7 @@ import {
   chmodSync,
   cpSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -27,6 +28,46 @@ const stagingRoot = join(artifactsRoot, artifactName);
 const archivePath = join(artifactsRoot, `${artifactName}.tar.gz`);
 const tarPath = join(artifactsRoot, `${artifactName}.tar`);
 const checksumsPath = join(artifactsRoot, "SHA256SUMS.txt");
+const maxArchiveBytes = 8 * 1024 * 1024;
+
+function commandOutput(command, args) {
+  const result = spawnSync(command, args, { cwd: root, encoding: "utf8" });
+  assert.equal(result.status, 0, `${command} ${args.join(" ")}\n${result.stderr}`);
+  return result.stdout.trim();
+}
+
+const sourceCommit = commandOutput("git", ["rev-parse", "HEAD"]);
+const sourceDirty = commandOutput("git", ["status", "--porcelain=v1", "--untracked-files=normal"])
+  .split("\n")
+  .some(Boolean);
+const commitEpoch = commandOutput("git", ["show", "-s", "--format=%ct", "HEAD"]);
+const sourceDateEpoch = Number(process.env.SOURCE_DATE_EPOCH ?? commitEpoch);
+assert.ok(
+  Number.isSafeInteger(sourceDateEpoch) && sourceDateEpoch >= 0,
+  "SOURCE_DATE_EPOCH must be a non-negative integer",
+);
+
+const releaseTag =
+  process.env.GITHUB_REF_TYPE === "tag"
+    ? process.env.GITHUB_REF_NAME
+    : process.env.PROMPT_TRIPWIRE_RELEASE_TAG;
+if (process.env.GITHUB_REF_TYPE === "tag") {
+  assert.ok(releaseTag, "GITHUB_REF_NAME is required for tag release packaging");
+}
+if (releaseTag !== undefined) {
+  assert.equal(releaseTag, `v${version}`, "release tag must match the package version");
+  assert.equal(sourceDirty, false, "release packaging requires a clean source tree");
+  assert.equal(
+    commandOutput("git", ["rev-parse", `refs/tags/${releaseTag}^{commit}`]),
+    sourceCommit,
+    "release tag must resolve to the packaged source commit",
+  );
+  assert.equal(
+    sourceDateEpoch,
+    Number(commitEpoch),
+    "release packaging must use the source commit timestamp",
+  );
+}
 
 assert.equal(process.platform, "darwin", "the release artifact is verified for macOS only");
 assert.equal(process.arch, "arm64", "the release artifact is verified for arm64 only");
@@ -39,6 +80,7 @@ assert.ok(
 rmSync(stagingRoot, { recursive: true, force: true });
 rmSync(archivePath, { force: true });
 rmSync(tarPath, { force: true });
+rmSync(checksumsPath, { force: true });
 mkdirSync(stagingRoot, { recursive: true, mode: 0o755 });
 
 function copyFile(source, destination) {
@@ -100,7 +142,26 @@ for (const [source, destination] of [
 ]) {
   copyFile(join(root, source), join(stagingRoot, destination));
 }
-cpSync(join(root, "docs"), join(stagingRoot, "docs"), { recursive: true });
+const releaseDocs = [
+  "ARCHITECTURE.md",
+  "BUILD_WEEK.md",
+  "BUILD_WEEK_REQUIREMENTS_MATRIX.md",
+  "CODEX_APP_SERVER_SPIKE.md",
+  "CODEX_COLLABORATION.md",
+  "DECISIONS.md",
+  "DEPENDENCIES.md",
+  "DEVPOST_SUBMISSION.md",
+  "JUDGE_GUIDE.md",
+  "RELEASE_NOTES_v0.1.0.md",
+  "RELEASE_NOTES_v0.1.1.md",
+  `RELEASE_NOTES_v${version}.md`,
+  "RESEARCH.md",
+  "SECURITY.md",
+  "SPECIFICATION.md",
+];
+for (const name of new Set(releaseDocs)) {
+  copyFile(join(root, "docs", name), join(stagingRoot, "docs", name));
+}
 copyFile(join(root, "LICENSE"), join(stagingRoot, "LICENSE"));
 copyFile(
   join(root, ".agents", "plugins", "marketplace.json"),
@@ -194,27 +255,81 @@ const manifest = {
   planningModel: "gpt-5.6-sol / low",
   comparatorModel: "gpt-5.6-terra / low",
   projectLicense: "Apache-2.0 (see LICENSE)",
+  sourceCommit,
+  sourceDirty,
+  sourceDateEpoch,
+  releaseTag: releaseTag ?? null,
+  archiveFormat: "ustar+gzip",
+  maximumArchiveBytes: maxArchiveBytes,
 };
 writeFileSync(join(stagingRoot, "release-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 
-const releaseTimestamp = new Date("2026-07-16T00:00:00.000Z");
+const releaseTimestamp = new Date(sourceDateEpoch * 1000);
 function normalizeTimestamps(path) {
-  if (statSync(path).isDirectory()) {
+  const stats = lstatSync(path);
+  assert.equal(
+    stats.isSymbolicLink(),
+    false,
+    `release staging cannot contain symlinks: ${relative(root, path)}`,
+  );
+  if (stats.isDirectory()) {
     for (const entry of readdirSync(path).sort()) normalizeTimestamps(join(path, entry));
+    chmodSync(path, 0o755);
+  } else {
+    chmodSync(path, (stats.mode & 0o111) === 0 ? 0o644 : 0o755);
   }
   utimesSync(path, releaseTimestamp, releaseTimestamp);
 }
 normalizeTimestamps(stagingRoot);
 
-const tar = spawnSync("/usr/bin/tar", ["-cf", tarPath, "-C", artifactsRoot, artifactName], {
-  encoding: "utf8",
-  env: { ...process.env, COPYFILE_DISABLE: "1" },
-});
+function archiveEntries(path, archivePath) {
+  const result = [archivePath];
+  if (lstatSync(path).isDirectory()) {
+    for (const entry of readdirSync(path).sort()) {
+      result.push(...archiveEntries(join(path, entry), `${archivePath}/${entry}`));
+    }
+  }
+  return result;
+}
+
+const entries = archiveEntries(stagingRoot, artifactName);
+const tar = spawnSync(
+  "/usr/bin/tar",
+  [
+    "-cf",
+    tarPath,
+    "--format",
+    "ustar",
+    "--uid",
+    "0",
+    "--gid",
+    "0",
+    "--uname",
+    "root",
+    "--gname",
+    "root",
+    "--no-recursion",
+    "-C",
+    artifactsRoot,
+    "-T",
+    "-",
+  ],
+  {
+    encoding: "utf8",
+    env: { ...process.env, COPYFILE_DISABLE: "1" },
+    input: `${entries.join("\n")}\n`,
+  },
+);
 assert.equal(tar.status, 0, tar.stderr);
-const gzip = spawnSync("/usr/bin/gzip", ["-n", "-f", tarPath], { encoding: "utf8" });
+const gzip = spawnSync("/usr/bin/gzip", ["-n", "-9", "-f", tarPath], { encoding: "utf8" });
 assert.equal(gzip.status, 0, gzip.stderr);
+const archiveBytes = statSync(archivePath).size;
+assert.ok(
+  archiveBytes <= maxArchiveBytes,
+  `release archive exceeds ${String(maxArchiveBytes)} bytes: ${String(archiveBytes)}`,
+);
 const digest = createHash("sha256").update(readFileSync(archivePath)).digest("hex");
 writeFileSync(checksumsPath, `${digest}  ${basename(archivePath)}\n`);
 process.stdout.write(
-  `${relative(root, archivePath)}\n${relative(root, checksumsPath)}\nsha256 ${digest}\n`,
+  `${relative(root, archivePath)}\n${relative(root, checksumsPath)}\nsha256 ${digest}\nbytes ${String(archiveBytes)}\nsource ${sourceCommit}\n`,
 );

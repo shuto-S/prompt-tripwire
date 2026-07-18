@@ -7,6 +7,9 @@ import type { JsonRpcTransport, JsonRpcTransportClose } from "./types.js";
 
 export const REQUIRED_CODEX_VERSION = "0.144.4";
 const MAX_JSON_LINE_BYTES = 2 * 1024 * 1024;
+const PLUGIN_REENTRY_ENV = "PROMPT_TRIPWIRE_PLUGIN_REENTRY";
+const PLUGIN_REENTRY_SHELL_CONFIG =
+  'shell_environment_policy.set={PROMPT_TRIPWIRE_PLUGIN_REENTRY="1"}';
 
 type MessageListener = (message: unknown) => void;
 type CloseListener = (event: JsonRpcTransportClose) => void;
@@ -27,6 +30,12 @@ function minimalAppServerEnvironment(source: NodeJS.ProcessEnv = process.env): N
   for (const name of allowed) {
     const value = source[name];
     if (value !== undefined) result[name] = value;
+  }
+  // This non-secret sentinel is the deterministic boundary that prevents a
+  // PromptTripwire-launched Codex thread from invoking the Plugin again. Do
+  // not broaden this to arbitrary Plugin or caller environment variables.
+  if (source[PLUGIN_REENTRY_ENV] === "1") {
+    result[PLUGIN_REENTRY_ENV] = "1";
   }
   return result;
 }
@@ -93,6 +102,9 @@ export class ProcessJsonRpcTransport implements JsonRpcTransport {
   static start(options: ProcessTransportOptions): ProcessJsonRpcTransport {
     const codexPath = options.codexPath ?? "codex";
     assertCodexVersion((options.detectedVersion ?? (() => detectedCodexVersion(codexPath)))());
+    const environment = minimalAppServerEnvironment();
+    const shellEnvironmentArgs =
+      environment[PLUGIN_REENTRY_ENV] === "1" ? ["-c", PLUGIN_REENTRY_SHELL_CONFIG] : [];
     const child = spawn(
       codexPath,
       [
@@ -100,6 +112,7 @@ export class ProcessJsonRpcTransport implements JsonRpcTransport {
         "--stdio",
         "-c",
         "shell_environment_policy.inherit=none",
+        ...shellEnvironmentArgs,
         "-c",
         "analytics.enabled=false",
         "-c",
@@ -131,7 +144,7 @@ export class ProcessJsonRpcTransport implements JsonRpcTransport {
       ],
       {
         cwd: options.cwd,
-        env: minimalAppServerEnvironment(),
+        env: environment,
         stdio: ["pipe", "pipe", "pipe"],
       },
     );

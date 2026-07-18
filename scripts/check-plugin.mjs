@@ -47,14 +47,34 @@ assert.match(frontmatter, /^name:\s*preflight\s*$/mu);
 assert.match(frontmatter, /^description:\s*.+$/mu);
 assert.match(skill, /explicitly asks/iu);
 assert.match(skill, /Decision Inbox:/u);
+assert.match(skill, /`needs_review`, `ready_for_approval`, or `paused`/u);
 assert.match(skill, /Do not call `tripwire approve`/u);
 assert.match(skill, /review-url/u);
+assert.match(skill, /normal Codex command permission/iu);
+assert.match(skill, /not a PromptTripwire decision or\s+contract approval/iu);
+assert.match(skill, /retry the\s+same adapter inspect command at most once/iu);
+assert.match(skill, /If the user denies permission or the\s+single retry fails, stop/iu);
+assert.match(skill, /do not use a global\s+sandbox-bypass flag/iu);
+assert.match(skill, /remove `PROMPT_TRIPWIRE_PLUGIN_REENTRY`/u);
+assert.match(skill, /runner's stdin channel/iu);
+assert.match(skill, /interactive PTY\s+\(`tty: true`\)/iu);
+assert.match(skill, /stty -echo && exec node/u);
+assert.match(skill, /Ctrl-D \(`\\u0004`\) twice/iu);
+assert.match(skill, /Never interpolate task text into shell source/iu);
+assert.doesNotMatch(
+  skill,
+  /\b(?:printf|echo)\b[^\r\n]{0,200}(?:exact current task|task text)/iu,
+  "Skill must not interpolate untrusted task text into shell source",
+);
 
 assert.ok(statSync(scriptPath).isFile());
 assert.match(script, /PROMPT_TRIPWIRE_PLUGIN_REENTRY/u);
 assert.match(script, /REENTRY_BLOCKED/u);
 assert.match(script, /CODEX_LOGIN_REQUIRED/u);
 assert.match(script, /runtime\.json/u);
+assert.match(script, /caller shell sandbox may have blocked/iu);
+assert.match(script, /not a PromptTripwire decision.*contract approval/isu);
+assert.match(script, /retry the same inspect once/iu);
 assert.match(script, new RegExp(`REQUIRED_TRIPWIRE_VERSION = "${packageJson.version}"`, "u"));
 assert.match(installTemplate, /--with-codex-plugin/u);
 assert.match(installTemplate, /plugin marketplace add/u);

@@ -4,7 +4,13 @@
 
 PromptTripwire is a local-first preflight and execution gate for Codex. It runs the same engineering task through multiple independent, read-only Codex planning threads, turns material disagreements into a small number of human decisions, and binds the approved choices into an execution contract.
 
-The local-first P0 engine and judge distribution are implemented and tested: a unified Codex App Server 0.144.4 planning/comparison/execution adapter, three independent real planning probes, tool-free GPT-5.6 structured comparison, deterministic policy normalization, terminal and browser review/approval, immutable contracts, Git worktree containment, contract-bound execution/deviation handling, sanitized audit reports, crash recovery, retention, security/traceability gates, a compiled macOS arm64 archive, a safe fixture, and an explicitly recorded read-only replay.
+The local-first P0 engine and judge distribution are implemented and tested: a unified Codex App Server 0.144.4 planning/comparison/execution adapter, three independent real planning probes, tool-free GPT-5.6 structured comparison, task-aware deterministic policy, terminal and browser review/approval, immutable contracts, Git worktree containment, contract-bound execution/deviation handling, sanitized audit reports, crash recovery, retention, security/traceability gates, a compiled macOS arm64 archive, a safe fixture, and an explicitly recorded read-only replay.
+
+The v0.1.2 release hardens that baseline with fail-closed canonical
+symlink checks before and during probing, `deterministic-v2` task provenance and
+dependency-intent handling, bounded Decision Inbox capability lifetime,
+two-stage Plugin re-entry protection, transactional install/upgrade rollback,
+owned-directory uninstall checks, and reproducible archive verification.
 
 ## Why this exists
 
@@ -48,7 +54,9 @@ After review, PromptTripwire creates a versioned execution contract. Codex runs 
 - [Build Week plan and compliance](docs/BUILD_WEEK.md)
 - [Build Week requirements matrix](docs/BUILD_WEEK_REQUIREMENTS_MATRIX.md)
 - [Judge guide](docs/JUDGE_GUIDE.md)
+- [v0.1.2 demo media, captions, and evidence boundary](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/demo/README.md)
 - [Devpost submission draft](docs/DEVPOST_SUBMISSION.md)
+- [v0.1.2 release notes](docs/RELEASE_NOTES_v0.1.2.md)
 - [Codex collaboration record](docs/CODEX_COLLABORATION.md)
 - [Decision log and open questions](docs/DECISIONS.md)
 - [Codex App Server 0.144.4 feasibility spike](docs/CODEX_APP_SERVER_SPIKE.md)
@@ -57,20 +65,36 @@ After review, PromptTripwire creates a versioned execution contract. Codex runs 
 
 ## Judge quickstart
 
-The judge artifact is a compiled JavaScript/runtime archive for macOS arm64. It does not require the TypeScript source tree or a source build.
+The judge artifact is a compiled JavaScript/runtime archive for macOS arm64. It does not require the TypeScript source tree or a source build. Once v0.1.2 is published, download the archive and its matching checksum from the [v0.1.2 GitHub Release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.2).
 
 Prerequisites are Node.js 24.15+, npm 11+, Git, and an already authenticated `codex-cli 0.144.4`. PromptTripwire reuses the existing Codex CLI login for probes, GPT-5.6 comparison, and execution. It does not require `OPENAI_API_KEY`, expose an API-key setting, or copy Codex credentials.
 
 ```sh
 shasum -a 256 -c SHA256SUMS.txt
-tar -xzf prompt-tripwire-v0.1.1-macos-arm64.tar.gz
-cd prompt-tripwire-v0.1.1-macos-arm64
+tar -xzf prompt-tripwire-v0.1.2-macos-arm64.tar.gz
+cd prompt-tripwire-v0.1.2-macos-arm64
 ./install.sh --with-codex-plugin
 codex plugin list --json
 ./bin/tripwire replay --terminal
 ```
 
-`tripwire replay` is clearly labeled recorded and read-only; it makes no Codex call and executes no code. The included dependency-free fixture exercises the real `inspect → review → approve → contained execution → report` path. See the [Judge Guide](docs/JUDGE_GUIDE.md) for exact commands, install/uninstall, safety boundaries, and troubleshooting.
+`tripwire replay` is clearly labeled recorded and read-only; it makes no Codex call and executes no code. The included dependency-free fixture exercises the real `inspect → review → approve → contained execution → report` path. See the [Judge Guide](docs/JUDGE_GUIDE.md) for exact commands, install/uninstall, safety boundaries, and troubleshooting. Verify v0.1.2 only with the checksum file from that same release; the v0.1.1 checksum is historical and must not be reused.
+
+## Demo and submission status
+
+[![PromptTripwire v0.1.2 demo thumbnail](https://raw.githubusercontent.com/shuto-S/prompt-tripwire/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-thumbnail.png)](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4)
+
+The repository contains the final local [v0.1.2 demo video](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4), [English captions](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/demo/prompt-tripwire-v0.1.2-demo.en.srt), [live Decision Inbox capture](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/decision-inbox-v0.1.2-live.png), and [sanitized report capture](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/evidence-report-v0.1.2.png). The 2:52.862 video is 1920×1080 H.264 with AAC stereo audio and embedded English subtitles. See the [demo evidence notes and narration](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/demo/README.md) for exact format details and disclosure.
+
+The live Inbox scene comes from an API-key-free v0.1.2 Codex Plugin inspect. It
+shows one unresolved compatibility decision, no dependency blocker, no selected
+option, and no approved contract; the source checkout, HEAD, and worktree list
+remained unchanged. The later contract, execution, and report scenes are
+explicitly a separate safe-fixture run that a human approved earlier. The
+repository media is excluded from the compact release archive and serves as a
+review/offline fallback. Once published, the public YouTube upload will be the
+primary demo. YouTube publication and Devpost save/final submission remain
+pending human-controlled external steps.
 
 ## Development baseline
 
@@ -95,7 +119,7 @@ Run the complete local foundation verification:
 npm run check
 ```
 
-Individual entry points are available for `typecheck`, `lint`, `build`, `test:unit`, `test:integration`, `test:e2e`, `check:boundaries`, `check:versions`, `check:schema`, `check:licenses`, `check:security`, `check:plugin`, `check:traceability`, and `check:submission`. `npm run package:macos-arm64` builds the judge archive and `npm run verify:release` verifies its checksum, install/uninstall path, replay, fixture, and content boundaries. CI runs the same source checks on `macos-latest` and verifies that build/test steps leave no tracked or unignored artifacts. The E2E suite replays all seven specification fixtures from [`fixtures/repositories/spec-scenarios.json`](fixtures/repositories/spec-scenarios.json).
+Individual entry points are available for `typecheck`, `lint`, `build`, `test:unit`, `test:integration`, `test:e2e`, `check:boundaries`, `check:versions`, `check:schema`, `check:licenses`, `check:security`, `check:plugin`, `check:traceability`, and `check:submission`. `npm run package:macos-arm64` builds the judge archive, `npm run check:release-reproducibility` compares two clean archive builds and their normalized metadata, and `npm run verify:release` verifies the checksum, transactional install/upgrade behavior, owned uninstall boundaries, replay, fixture, and content boundaries. CI runs the source and release-artifact gates on `macos-latest` for pull requests, `main` pushes, tags, and manual dispatches, while checking that build/test steps leave no tracked or unignored artifacts. The E2E suite replays all seven specification fixtures from [`fixtures/repositories/spec-scenarios.json`](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/fixtures/repositories/spec-scenarios.json).
 
 Run the bounded real-probe smoke test with an authenticated Codex CLI:
 
@@ -103,7 +127,7 @@ Run the bounded real-probe smoke test with an authenticated Codex CLI:
 npm run smoke:real-probes
 ```
 
-The 2026-07-14 fixture run used `codex-cli 0.144.4`, `gpt-5.6-sol`, and low reasoning. It produced three schema-valid plans on distinct fresh thread IDs with the same snapshot/task hashes, cleaned all disposable worktrees, and left the source checkout unchanged. The sanitized metadata evidence is in [`fixtures/app-server/real-probes-2026-07-14.json`](fixtures/app-server/real-probes-2026-07-14.json); plan text, raw reasoning, command output, and process environments are intentionally not retained.
+The 2026-07-14 fixture run used `codex-cli 0.144.4`, `gpt-5.6-sol`, and low reasoning. It produced three schema-valid plans on distinct fresh thread IDs with the same snapshot/task hashes, cleaned all disposable worktrees, and left the source checkout unchanged. The sanitized metadata evidence is in [`fixtures/app-server/real-probes-2026-07-14.json`](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/fixtures/app-server/real-probes-2026-07-14.json); plan text, raw reasoning, command output, and process environments are intentionally not retained.
 
 Run the bounded comparator model evaluation (two fixtures × two models, one attempt each) with the authenticated Codex CLI:
 
@@ -111,9 +135,9 @@ Run the bounded comparator model evaluation (two fixtures × two models, one att
 npm run eval:comparator
 ```
 
-The evaluator records only pass/fail, candidate counts, timing, App Server thread/turn IDs, and token usage. It never prints prompts, plans, model output, raw reasoning, process environments, or credentials. On 2026-07-15, both `gpt-5.6-sol` and `gpt-5.6-terra` passed 2/2 at low reasoning. Terra used 48,910 total tokens versus Sol's 49,131, completed in 21,619 ms versus 29,657 ms, and returned no unnecessary unknown on the divergence fixture, so `gpt-5.6-terra`/low remains the bounded empirical default. Sanitized metadata is in [`fixtures/app-server/comparator-eval-2026-07-15.json`](fixtures/app-server/comparator-eval-2026-07-15.json).
+The evaluator records only pass/fail, candidate counts, timing, App Server thread/turn IDs, and token usage. It never prints prompts, plans, model output, raw reasoning, process environments, or credentials. On 2026-07-15, both `gpt-5.6-sol` and `gpt-5.6-terra` passed 2/2 at low reasoning. Terra used 48,910 total tokens versus Sol's 49,131, completed in 21,619 ms versus 29,657 ms, and returned no unnecessary unknown on the divergence fixture, so `gpt-5.6-terra`/low remains the bounded empirical default. Sanitized metadata is in [`fixtures/app-server/comparator-eval-2026-07-15.json`](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/fixtures/app-server/comparator-eval-2026-07-15.json).
 
-`tripwire review RUN_ID` starts a random-port loopback Decision Inbox and keeps it available until Ctrl-C. The capability token appears only in the one-time URL fragment, is removed from the address bar after bootstrap, and is required as an authorization header for the aggregate review API and authenticated fetch-based SSE stream. The UI shows at most three decision cards plus the remaining count, never preselects a high-impact option, supports selection, free-form resolution, defer, pre-approval edit, explicit approval, cancellation, deviation display, keyboard operation, visible focus, and assistive-technology state announcements. It loads only its bundled React/Vite assets and renders model content as escaped text.
+`tripwire review RUN_ID` starts a random-port loopback Decision Inbox while the run remains reviewable; Ctrl-C also closes it. Terminal/non-reviewable state, archive, or 30 minutes with neither authenticated activity nor an authenticated SSE stream closes the listener and revokes its in-memory capability without changing the persisted run or inferring approval. Mutation bodies are size-bounded and must finish within five seconds; after the short close grace, remaining connections are force-closed so an incomplete request cannot retain the listener. The capability token appears only in the one-time URL fragment, is removed from the address bar after bootstrap, and is required as an authorization header for the aggregate review API and authenticated fetch-based SSE stream. The UI shows at most three decision cards plus the remaining count, never preselects a high-impact option, supports selection, free-form resolution, defer, pre-approval edit, explicit approval, cancellation, deviation display, keyboard operation, visible focus, and assistive-technology state announcements. It loads only its bundled React/Vite assets and renders model content as escaped text.
 
 ## Codex Plugin (explicit preflight)
 
@@ -134,7 +158,7 @@ codex plugin list --json
 This requires macOS arm64, Node.js 24.15+, Git, exactly `codex-cli 0.144.4`,
 and an existing `codex login` session. It does not require or read
 `OPENAI_API_KEY`. The default install and marketplace root is
-`~/.local/lib/prompt-tripwire/0.1.1`; the installer keeps the marketplace source
+`~/.local/lib/prompt-tripwire/0.1.2`; the installer keeps the marketplace source
 as `./plugins/prompt-tripwire`, registers `prompt-tripwire-local`, installs and
 enables `prompt-tripwire@prompt-tripwire-local`, and is safe to rerun. It does
 not start inspect, select a decision, approve a contract, or run implementation.
@@ -153,33 +177,53 @@ Codex displays the Plugin as `PromptTripwire`; the callable Skill is
 Use prompt-tripwire:preflight before implementing this task.
 ```
 
+The adapter starts an authenticated nested `codex app-server`. If the calling
+Codex shell sandbox blocks that child from reaching the model service, the
+Skill asks for the normal Codex command permission to run only the adapter
+outside the caller shell sandbox. That permission is only for launching the
+thin adapter and nested App Server; it is not a PromptTripwire decision,
+contract approval, or permission to implement the task. If permission is
+denied, preflight stops safely. After
+`INSUFFICIENT_VALID_PROBES: request failed` occurs under the caller sandbox,
+the Skill may retry once through that normal permission path. It never removes
+the re-entry guard, adds an API key, or broadens the probe, comparator, or
+executor restrictions.
+
 The Skill runs a terminal `tripwire inspect`, returns the run summary, and
-stops at the existing Decision Inbox when human choices are needed. It never
-calls `approve` or selects a decision. After the user approves in the Decision
-Inbox, the Skill can delegate `tripwire run` and `tripwire report`; execution
-remains in PromptTripwire's disposable worktree.
+stops at the existing Decision Inbox whenever a contract needs human review or
+choices. It never calls `approve` or selects a decision. After the user approves
+in the Decision Inbox, the Skill can delegate `tripwire run` and `tripwire
+report`; execution remains in PromptTripwire's disposable worktree.
 
 Remove the bundled Plugin and runtime together with:
 
 ```sh
-~/.local/lib/prompt-tripwire/0.1.1/uninstall.sh --with-codex-plugin
+~/.local/lib/prompt-tripwire/0.1.2/uninstall.sh --with-codex-plugin
 ```
 
-This removes only `prompt-tripwire@prompt-tripwire-local`, removes the
-`prompt-tripwire-local` marketplace only when it still points to this install,
-and leaves every other Plugin and marketplace untouched. It is safe to rerun
-from the unpacked artifact's `./uninstall.sh --with-codex-plugin` if the
-versioned installed script is already gone.
+The v0.1.2 installer stages the runtime, switches launchers atomically, and
+verifies the Plugin and marketplace before committing an install or upgrade.
+On a covered failure it restores the prior local and Codex Plugin state. The
+uninstaller requires a private, version-matched ownership marker before
+removing a runtime; it removes only `prompt-tripwire@prompt-tripwire-local`,
+removes the `prompt-tripwire-local` marketplace only when it still points to
+this install, and leaves every other Plugin and marketplace untouched. It is
+safe to rerun from the unpacked artifact's
+`./uninstall.sh --with-codex-plugin` if the versioned installed script is
+already gone.
 
 As a Git-marketplace fallback for development or when using the archive in
 place, keep a working `tripwire` launcher on `PATH` (or set
 `PROMPT_TRIPWIRE_BIN`) and run:
 
 ```sh
-codex plugin marketplace add shuto-S/prompt-tripwire --ref main
+codex plugin marketplace add shuto-S/prompt-tripwire --ref v0.1.2
 codex plugin add prompt-tripwire@prompt-tripwire-local
 codex plugin list --marketplace prompt-tripwire-local
 ```
+
+Use `--ref main` only when intentionally testing the development branch rather
+than the release-matched runtime.
 
 The Plugin does not bundle a second runtime or credential path. Unsupported
 platforms, missing runtime/login, dirty checkouts, and re-entry from an
@@ -193,9 +237,9 @@ Use `tripwire review RUN_ID --terminal` for the terminal fallback. Both interfac
 
 ## Verified evidence and residual risks
 
-On macOS/arm64 with `codex-cli 0.144.4`, the bounded live execution fixture completed with one contract-scoped file, `npm test` exit 0, no deviation, an unchanged source checkout, and a removed execution worktree. The full local check passes 23 unit, 71 integration, and 17 E2E tests, including App Server disconnect, comparator tool denial/schema failure and late-request isolation, selected-alternative contract binding, P0 allowlist rejection before worktree creation, snapshot drift, duplicate/reordered events, idempotent approval, controller restart, cleanup failure, retention/deletion, conditional Decision Inbox startup, recorded replay immutability, UI capability/origin controls, secret redaction, seven specification fixtures, and FR-001–018 / AC-001–019 traceability. CI runs the same gates on macOS.
+On macOS/arm64 with `codex-cli 0.144.4`, the bounded live execution fixture completed with one contract-scoped file, `npm test` exit 0, no deviation, an unchanged source checkout, and a removed execution worktree. The local suite covers App Server disconnect, comparator tool denial/schema failure and late-request isolation, selected-alternative contract binding, task-only policy provenance, dependency no-change and contrast clauses, pre-thread and per-action canonical path containment, two-stage Plugin re-entry, Decision Inbox lifecycle expiry, transactional installer rollback, snapshot drift, duplicate/reordered events, idempotent approval, controller restart, cleanup failure, retention/deletion, recorded replay immutability, UI capability/origin controls, secret redaction, seven specification fixtures, and FR-001–018 / AC-001–019 traceability. Current v0.1.2 pass results are reported from the verification commands rather than frozen here as test counts.
 
-The compiled judge archive was also exercised end to end on 2026-07-15 with `OPENAI_API_KEY` and `CODEX_API_KEY` unset: three fresh Sol probes, one successful Terra comparison attempt, one explicit compatibility decision, contract approval, contained Codex execution, `npm test` pass, two contract-scoped paths, no deviation or external capability, an unchanged source fixture, and all four worktrees removed. Sanitized metadata is in [`fixtures/app-server/judge-live-2026-07-15.json`](fixtures/app-server/judge-live-2026-07-15.json).
+The compiled judge archive was also exercised end to end on 2026-07-15 with `OPENAI_API_KEY` and `CODEX_API_KEY` unset: three fresh Sol probes, one successful Terra comparison attempt, one explicit compatibility decision, contract approval, contained Codex execution, `npm test` pass, two contract-scoped paths, no deviation or external capability, an unchanged source fixture, and all four worktrees removed. Sanitized metadata is in [`fixtures/app-server/judge-live-2026-07-15.json`](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/fixtures/app-server/judge-live-2026-07-15.json).
 
 Known residual risks are explicit:
 
@@ -233,4 +277,4 @@ PromptTripwire is licensed under the [Apache License 2.0](LICENSE).
 
 ## Status
 
-Specification baseline: 2026-07-15. App Server hard gate, three-real-probe smoke, tool-free App Server Sol/Terra comparison, live compliant execution, full P0 traceability, macOS secret scan, seven specification fixtures, recorded replay, and the judge archive verification are covered by executable gates. No separate OpenAI API credential is required. The selected Build Week distribution route is a public Apache-2.0 repository with a `v0.1.1` GitHub Release. Video creation/upload and Devpost save/final submit remain intentionally outside this preparation work.
+Specification baseline: 2026-07-18. App Server hard gate, three-real-probe smoke, tool-free App Server Sol/Terra comparison, live compliant execution, full P0 traceability, macOS secret scan, seven specification fixtures, recorded replay, release reproducibility, and judge archive verification are covered by executable gates. No separate OpenAI API credential is required. The owned v0.1.2 demo, captions, thumbnail, and UI captures are present in the repository and excluded from the judge archive. v0.1.2 is the current Build Week distribution version; publishing and anonymously verifying its GitHub artifact/checksum, publishing the public YouTube demo, and saving/final-submitting Devpost remain pending. The public v0.1.1 release is retained as historical evidence with SHA-256 `7a29de3241bab426b2e9b9edd84a6d6f01dd0fc1bf13d71da3927a4a83277f50`.
