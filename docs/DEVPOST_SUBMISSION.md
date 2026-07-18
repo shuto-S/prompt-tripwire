@@ -10,8 +10,8 @@ This file prepares the English submission fields. It is not a saved or final Dev
 - **Repository URL:** `https://github.com/shuto-S/prompt-tripwire`
 - **Repository access:** Public, Apache-2.0
 - **Supported platform:** macOS arm64
-- **Release artifact:** `<PENDING: publish and anonymously verify https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.4>`; [v0.1.3 remains an immutable historical release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.3)
-- **Release SHA-256:** `<PENDING: insert the v0.1.4 archive digest after anonymous download and checksum verification>`
+- **Release artifact:** [v0.1.4 macOS arm64](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.4), published and anonymously verified on 2026-07-19 JST; [v0.1.3 remains an immutable historical release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.3)
+- **Release SHA-256:** `02a30d1f202e18da556aff576ef6d01d82970973e2566639e116615cc6aea4fa`
 - **Demo video:** `<PENDING HUMAN CONFIRMATION: upload to YouTube, then add the anonymously verified public URL>`; [local v0.1.2 review copy](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4), 2:52.862 with audio. The recording predates the v0.1.3 launcher hardening and v0.1.4 child-Plugin isolation patches described below.
 - **Codex /feedback Session ID:** `<PENDING: paste the formal Session ID captured outside source into Devpost>`
 
@@ -89,7 +89,7 @@ Hosted backends, account systems, team approvals, non-Codex adapters, and automa
 
 ## Judge instructions
 
-After the v0.1.4 macOS arm64 release artifact and checksum are published and anonymously verified, download both and follow `JUDGE_GUIDE.md`. Until that verification is complete, the v0.1.4 URL above remains a placeholder rather than submission evidence. The archive supports:
+Download the v0.1.4 macOS arm64 release artifact and its matching checksum, verify them together, and follow `JUDGE_GUIDE.md`. The public archive was anonymously downloaded, matched byte-for-byte with the tag-aware candidate, and passed the complete release verifier. It supports:
 
 - direct `./bin/tripwire` execution;
 - one-command user-local install/uninstall;
@@ -142,7 +142,11 @@ The public URL and anonymous playback verification remain pending.
   > gpt-5.6-sol planning probes, and a tool-free gpt-5.6-terra comparator.
   >
   > Repository: https://github.com/shuto-S/prompt-tripwire
-  > Release (macOS arm64): [PENDING: insert the anonymously verified v0.1.4 Release URL]
+  > Release (macOS arm64): https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.4
+  >
+  > This video is the completed v0.1.2 capture. v0.1.4 is the current
+  > compatibility and safety patch to install; the footage is not presented as a
+  > v0.1.4 recording.
   >
   > No separate OPENAI_API_KEY is required. PromptTripwire reuses the logged-in
   > Codex CLI / App Server session and never auto-approves human decisions.
@@ -156,11 +160,11 @@ The public URL and anonymous playback verification remain pending.
 - **Category:** Science & Technology
 - **License:** Standard YouTube License
 
-Replace the pending Release line only after v0.1.4 and its checksum are
-anonymously reachable. Then show the resolved title, description, visibility,
-captions, thumbnail, and settings once more and wait for explicit human
-confirmation. Uploading, publishing, or changing visibility before that
-confirmation is prohibited by this preparation checklist.
+The Release line is resolved from the anonymously verified v0.1.4 publication.
+Show the complete title, description, visibility, captions, thumbnail, and
+settings once more and wait for explicit human confirmation. Uploading,
+publishing, or changing visibility before that confirmation is prohibited by
+this preparation checklist.
 
 ## Final Devpost confirmation packet (submission pending)
 
@@ -194,7 +198,7 @@ packet.
 - [x] Select public + Apache-2.0 as the repository route.
 - [x] Preserve the anonymously verified historical v0.1.1 artifact SHA-256: `7a29de3241bab426b2e9b9edd84a6d6f01dd0fc1bf13d71da3927a4a83277f50`.
 - [x] Build, publish, and anonymously verify the distinct v0.1.2 artifact and checksum.
-- [ ] Build, publish, and anonymously verify the v0.1.4 compatibility-patch artifact and checksum.
+- [x] Build, publish, and anonymously verify the v0.1.4 compatibility-patch artifact and checksum.
 - [x] Obtain the formal `/feedback` Session ID from the primary Codex task and retain it outside source.
 - [x] Regenerate the owned local v0.1.2 demo with audio under three minutes, English captions, thumbnail, and screenshots.
 - [ ] Obtain explicit human confirmation for the resolved YouTube packet, upload the completed v0.1.2 demo/captions, and verify public playback anonymously.

@@ -53,6 +53,10 @@ Description:
 > Repository: https://github.com/shuto-S/prompt-tripwire
 > Release (macOS arm64): https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.4
 >
+> This video is the completed v0.1.2 capture. v0.1.4 is the current
+> compatibility and safety patch to install; the footage is not presented as a
+> v0.1.4 recording.
+>
 > No separate OPENAI_API_KEY is required. PromptTripwire reuses the logged-in
 > Codex CLI / App Server session and never auto-approves human decisions.
 
