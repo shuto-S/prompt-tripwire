@@ -1,7 +1,20 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { getEventListeners } from "node:events";
-import { access, mkdir, mkdtemp, readFile, rm, symlink, unlink, writeFile } from "node:fs/promises";
+import {
+  access,
+  chmod,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  rm,
+  stat,
+  symlink,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -69,7 +82,7 @@ function snapshot(repositoryPath) {
     task: "Implement the fixture change",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.2",
+    promptTripwireVersion: "0.1.3",
     createdAt: "2026-07-14T00:00:00.000Z",
   });
 }
@@ -439,6 +452,7 @@ test("AC-002: network, interpreters, builds, tests, packages, and writes are den
     "item/commandExecution/requestApproval",
     {
       ...base,
+      command: "cat README.md",
       commandActions: [
         { type: "read", command: "cat README.md", path: "README.md", name: "README.md" },
       ],
@@ -451,6 +465,7 @@ test("AC-002: network, interpreters, builds, tests, packages, and writes are den
     "item/commandExecution/requestApproval",
     {
       ...base,
+      command: `cat ${join(root, "README.md")}`,
       commandActions: [
         {
           type: "read",
@@ -463,6 +478,33 @@ test("AC-002: network, interpreters, builds, tests, packages, and writes are den
     root,
   );
   assert.equal(safeAbsoluteRead.observation.decision, "accept_static_read");
+  const missingActualCommand = decideProbeApproval(
+    3,
+    "item/commandExecution/requestApproval",
+    {
+      ...base,
+      commandActions: [
+        { type: "read", command: "cat README.md", path: "README.md", name: "README.md" },
+      ],
+    },
+    root,
+  );
+  assert.equal(missingActualCommand.observation.decision, "decline");
+  assert.equal(missingActualCommand.observation.reasonCode, "unsafe_action");
+  const nullActualCommand = decideProbeApproval(
+    3,
+    "item/commandExecution/requestApproval",
+    {
+      ...base,
+      command: null,
+      commandActions: [
+        { type: "read", command: "cat README.md", path: "README.md", name: "README.md" },
+      ],
+    },
+    root,
+  );
+  assert.equal(nullActualCommand.observation.decision, "decline");
+  assert.equal(nullActualCommand.observation.reasonCode, "unsafe_action");
 
   const deniedCommands = [
     "python3 inspect.py",
@@ -475,7 +517,7 @@ test("AC-002: network, interpreters, builds, tests, packages, and writes are den
     const decision = decideProbeApproval(
       3,
       "item/commandExecution/requestApproval",
-      { ...base, commandActions: [{ type: "unknown", command }] },
+      { ...base, command, commandActions: [{ type: "unknown", command }] },
       root,
     );
     assert.equal(decision.observation.decision, "decline");
@@ -496,6 +538,7 @@ test("AC-002: network, interpreters, builds, tests, packages, and writes are den
     "item/commandExecution/requestApproval",
     {
       ...base,
+      command: "cat outside",
       commandActions: [
         { type: "read", command: "cat outside", path: "../outside", name: "outside" },
       ],
@@ -508,6 +551,7 @@ test("AC-002: network, interpreters, builds, tests, packages, and writes are den
     "item/commandExecution/requestApproval",
     {
       ...base,
+      command: "cat src/../README.md",
       commandActions: [
         {
           type: "read",
@@ -535,6 +579,7 @@ test("AC-002: structured static reads reject shell ambiguity and command/action 
   };
   const read = (command, path, extra = {}) => ({
     ...base,
+    command,
     ...extra,
     commandActions: [{ type: "read", command, path, name: path }],
   });
@@ -558,10 +603,12 @@ test("AC-002: structured static reads reject shell ambiguity and command/action 
     read("cat README.md", "README.md", { command: "curl https://example.invalid" }),
     {
       ...base,
+      command: "rg TODO -",
       commandActions: [{ type: "search", command: "rg TODO -", path: "-", query: "TODO" }],
     },
     {
       ...base,
+      command: "rg --pre 'sh -c evil' TODO .",
       commandActions: [
         {
           type: "search",
@@ -573,6 +620,7 @@ test("AC-002: structured static reads reject shell ambiguity and command/action 
     },
     {
       ...base,
+      command: "find . -exec cat README.md +",
       commandActions: [
         {
           type: "listFiles",
@@ -583,6 +631,7 @@ test("AC-002: structured static reads reject shell ambiguity and command/action 
     },
     {
       ...base,
+      command: "cat README.md",
       commandActions: [
         { type: "search", command: "cat README.md", path: "README.md", query: "TODO" },
       ],
@@ -636,6 +685,46 @@ test("AC-002: structured static reads reject shell ambiguity and command/action 
       cwd: root,
       commandActions: [{ type: "search", command: "rg TODO -", path: "-", query: "TODO" }],
     },
+    {
+      id: "item_observed_wrong_shell_envelope",
+      type: "commandExecution",
+      status: "completed",
+      command: "/bin/bash -lc ls",
+      cwd: root,
+      commandActions: [{ type: "listFiles", command: "ls", path: null }],
+    },
+    {
+      id: "item_observed_wrong_zsh_flag",
+      type: "commandExecution",
+      status: "completed",
+      command: "/bin/zsh -ic ls",
+      cwd: root,
+      commandActions: [{ type: "listFiles", command: "ls", path: null }],
+    },
+    {
+      id: "item_observed_compound_inner_command",
+      type: "commandExecution",
+      status: "completed",
+      command: "/bin/zsh -lc 'ls; cat .env'",
+      cwd: root,
+      commandActions: [{ type: "listFiles", command: "ls", path: null }],
+    },
+    {
+      id: "item_observed_mismatched_inner_command",
+      type: "commandExecution",
+      status: "completed",
+      command: "/bin/zsh -c 'cat README.md'",
+      cwd: root,
+      commandActions: [{ type: "listFiles", command: "ls", path: null }],
+    },
+    {
+      id: "item_observed_extra_wrapper_argument",
+      type: "commandExecution",
+      status: "completed",
+      command: "/bin/zsh -lc ls extra",
+      cwd: root,
+      commandActions: [{ type: "listFiles", command: "ls", path: null }],
+    },
   ]) {
     assert.match(
       probeItemViolation(item, root),
@@ -643,6 +732,27 @@ test("AC-002: structured static reads reject shell ambiguity and command/action 
       item.command,
     );
   }
+  assert.match(
+    probeItemViolation(
+      {
+        id: "item_failed_unsafe_command",
+        type: "commandExecution",
+        status: "failed",
+        command: "npm test",
+        cwd: root,
+        commandActions: [{ type: "unknown", command: "npm test" }],
+      },
+      root,
+    ),
+    /^unsafe_command_observed:unsafe_action:/u,
+  );
+  assert.equal(
+    probeItemViolation(
+      { id: "item_failed_file_change", type: "fileChange", status: "failed", changes: [] },
+      root,
+    ),
+    "file_change_observed",
+  );
 });
 
 test("AC-002: bounded cat, read, search, and listing commands remain allowed", async () => {
@@ -716,13 +826,29 @@ test("AC-002: bounded cat, read, search, and listing commands remain allowed", a
         },
       ],
     },
+    {
+      ...base,
+      command: "/bin/zsh -c ls",
+      commandActions: [{ type: "listFiles", command: "ls", path: null }],
+    },
+    {
+      ...base,
+      command: "/bin/zsh -lc 'cat README.md'",
+      commandActions: [
+        { type: "read", command: "cat README.md", path: "README.md", name: "README.md" },
+      ],
+    },
   ];
   try {
     for (const request of allowed) {
+      const requestWithActualCommand =
+        request.command === undefined
+          ? { ...request, command: request.commandActions[0]?.command }
+          : request;
       const decision = decideProbeApproval(
         1,
         "item/commandExecution/requestApproval",
-        request,
+        requestWithActualCommand,
         root,
       );
       assert.equal(
@@ -731,6 +857,43 @@ test("AC-002: bounded cat, read, search, and listing commands remain allowed", a
         JSON.stringify(request.commandActions),
       );
       assert.equal(decision.observation.reasonCode, "static_read");
+    }
+
+    const appServerWrappedItems = [
+      {
+        command: "/bin/zsh -c ls",
+        commandActions: [{ type: "listFiles", command: "ls", path: null }],
+      },
+      {
+        command: "/bin/zsh -lc ls",
+        commandActions: [{ type: "listFiles", command: "ls", path: null }],
+      },
+      {
+        command: "/bin/zsh -c 'cat README.md'",
+        commandActions: [
+          { type: "read", command: "cat README.md", path: "README.md", name: "README.md" },
+        ],
+      },
+      {
+        command: "/bin/zsh -lc 'rg -n TODO src'",
+        commandActions: [{ type: "search", command: "rg -n TODO src", path: "src", query: "TODO" }],
+      },
+    ];
+    for (const [index, item] of appServerWrappedItems.entries()) {
+      assert.equal(
+        probeItemViolation(
+          {
+            id: `item_app_server_wrapper_${String(index)}`,
+            type: "commandExecution",
+            status: "completed",
+            cwd: root,
+            ...item,
+          },
+          root,
+        ),
+        null,
+        item.command,
+      );
     }
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -746,12 +909,15 @@ test("AC-002: protected content is unreadable while list-only inspection remains
     cwd: root,
   };
   await mkdir(join(root, ".ssh"));
+  await mkdir(join(root, ".git"));
   await mkdir(join(root, "fixtures"));
   await mkdir(join(root, "hidden-only"));
   await mkdir(join(root, "safe"));
   await mkdir(join(root, "src"));
   await mkdir(join(root, "vault"));
   await writeFile(join(root, ".env"), "SECRET=redacted\n");
+  await writeFile(join(root, ".git", "config"), '[remote "origin"]\n');
+  await writeFile(join(root, ".git", "credentials"), "redacted\n");
   await writeFile(join(root, ".ssh", "id_rsa"), "redacted\n");
   await writeFile(join(root, "fixtures", "test.key"), "redacted\n");
   await writeFile(join(root, "hidden-only", ".env.local"), "SECRET=redacted\n");
@@ -761,13 +927,22 @@ test("AC-002: protected content is unreadable while list-only inspection remains
   await symlink(join(root, "vault"), join(root, "safe", "linked"));
   try {
     assert.doesNotThrow(() => assertProbeRootSymlinkContainment(root));
-    const directReads = [".env", ".ssh/id_rsa", "fixtures/test.key", "apparently-safe-link"];
+    const directReads = [
+      ".env",
+      ".git",
+      ".git/config",
+      ".git/credentials",
+      ".ssh/id_rsa",
+      "fixtures/test.key",
+      "apparently-safe-link",
+    ];
     for (const path of directReads) {
       const decision = decideProbeApproval(
         1,
         "item/commandExecution/requestApproval",
         {
           ...base,
+          command: `cat ${path}`,
           commandActions: [{ type: "read", command: `cat ${path}`, path, name: path }],
         },
         root,
@@ -812,7 +987,7 @@ test("AC-002: protected content is unreadable while list-only inspection remains
       const decision = decideProbeApproval(
         2,
         "item/commandExecution/requestApproval",
-        { ...base, commandActions: [{ type: "search", ...action }] },
+        { ...base, command: action.command, commandActions: [{ type: "search", ...action }] },
         root,
       );
       assert.equal(decision.observation.decision, "decline", action.command);
@@ -849,13 +1024,14 @@ test("AC-002: protected content is unreadable while list-only inspection remains
       const decision = decideProbeApproval(
         3,
         "item/commandExecution/requestApproval",
-        { ...base, commandActions: [{ type: "search", ...action }] },
+        { ...base, command: action.command, commandActions: [{ type: "search", ...action }] },
         root,
       );
       assert.equal(decision.observation.decision, "accept_static_read", action.command);
     }
 
     const listOnly = [
+      { type: "listFiles", command: "ls -la .git", path: ".git" },
       { type: "listFiles", command: "ls -la .ssh", path: ".ssh" },
       { type: "listFiles", command: "find . -maxdepth 3 -type f -print", path: "." },
       { type: "listFiles", command: "rg --files --hidden --no-ignore .", path: "." },
@@ -864,7 +1040,7 @@ test("AC-002: protected content is unreadable while list-only inspection remains
       const decision = decideProbeApproval(
         4,
         "item/commandExecution/requestApproval",
-        { ...base, commandActions: [action] },
+        { ...base, command: action.command, commandActions: [action] },
         root,
       );
       assert.equal(decision.observation.decision, "accept_static_read", action.command);
@@ -911,6 +1087,7 @@ test("AC-002: static reads resolve symlinks and reject repository escape", async
       turnId: "turn_symlink",
       itemId: `item_${path}`,
       cwd: root,
+      command: `cat ${path}`,
       commandActions: [{ type: "read", command: `cat ${path}`, path, name: path }],
     });
     assert.equal(
@@ -941,6 +1118,9 @@ test("AC-PLUG-004: child App Server inherits the guard and Plugin re-entry is bl
   const root = await mkdtemp(join(tmpdir(), "prompt-tripwire-reentry-child-"));
   const codex = join(root, "codex");
   const marker = join(root, "result.txt");
+  const zDotDir = join(root, "zsh-startup");
+  await mkdir(zDotDir, { mode: 0o700 });
+  const expectedShellConfig = `shell_environment_policy.set={ZDOTDIR=${JSON.stringify(await realpath(zDotDir))},PROMPT_TRIPWIRE_PLUGIN_REENTRY="1"}`;
   const adapter = fileURLToPath(
     new URL(
       "../../plugins/prompt-tripwire/skills/preflight/scripts/run_preflight.mjs",
@@ -958,7 +1138,7 @@ if (process.argv[2] === "--version") {
 }
 const result = spawnSync(process.execPath, [${JSON.stringify(adapter)}, "--help"], {
   encoding: "utf8",
-  env: process.argv.includes('shell_environment_policy.set={PROMPT_TRIPWIRE_PLUGIN_REENTRY="1"}')
+  env: process.argv.includes(${JSON.stringify(expectedShellConfig)})
     ? { PATH: process.env.PATH, PROMPT_TRIPWIRE_PLUGIN_REENTRY: "1" }
     : { PATH: process.env.PATH },
 });
@@ -971,7 +1151,11 @@ writeFileSync(${JSON.stringify(marker)}, [String(result.status), result.stdout, 
   process.env.PROMPT_TRIPWIRE_PLUGIN_REENTRY = "1";
   let transport;
   try {
-    transport = ProcessJsonRpcTransport.start({ cwd: root, codexPath: codex });
+    transport = ProcessJsonRpcTransport.start({
+      cwd: root,
+      codexPath: codex,
+      shellStartupDirectory: zDotDir,
+    });
     for (let attempt = 0; attempt < 100; attempt += 1) {
       try {
         await access(marker);
@@ -983,10 +1167,95 @@ writeFileSync(${JSON.stringify(marker)}, [String(result.status), result.stdout, 
     const output = await readFile(marker, "utf8");
     assert.match(output, /^1\n/u);
     assert.match(output, /REENTRY_BLOCKED/u);
+    assert.equal((await stat(zDotDir)).mode & 0o777, 0o700);
+    assert.deepEqual(await readdir(zDotDir), []);
   } finally {
     if (previous === undefined) delete process.env.PROMPT_TRIPWIRE_PLUGIN_REENTRY;
     else process.env.PROMPT_TRIPWIRE_PLUGIN_REENTRY = previous;
     await transport?.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("probe App Server uses an empty isolated zsh startup directory without broad inheritance", async () => {
+  const root = await mkdtemp(join(tmpdir(), "prompt-tripwire-zdotdir-child-"));
+  const codex = join(root, "codex");
+  const marker = join(root, "args.json");
+  const zDotDir = join(root, "zsh-startup");
+  await mkdir(zDotDir, { mode: 0o700 });
+  const expectedShellConfig = `shell_environment_policy.set={ZDOTDIR=${JSON.stringify(await realpath(zDotDir))}}`;
+  await writeFile(
+    codex,
+    `#!/usr/bin/env node
+import { writeFileSync } from "node:fs";
+if (process.argv[2] === "--version") {
+  process.stdout.write("codex-cli 0.144.4\\n");
+  process.exit(0);
+}
+writeFileSync(${JSON.stringify(marker)}, JSON.stringify(process.argv.slice(2)), { mode: 0o600 });
+process.stdin.resume();
+`,
+    { mode: 0o700 },
+  );
+
+  const previous = process.env.PROMPT_TRIPWIRE_PLUGIN_REENTRY;
+  delete process.env.PROMPT_TRIPWIRE_PLUGIN_REENTRY;
+  let transport;
+  try {
+    transport = ProcessJsonRpcTransport.start({
+      cwd: root,
+      codexPath: codex,
+      shellStartupDirectory: zDotDir,
+    });
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      try {
+        await access(marker);
+        break;
+      } catch {
+        await new Promise((resolveTimer) => setTimeout(resolveTimer, 10));
+      }
+    }
+    const args = JSON.parse(await readFile(marker, "utf8"));
+    assert.equal(args.includes(expectedShellConfig), true);
+    assert.equal(
+      args.some((argument) => argument.includes("PROMPT_TRIPWIRE_PLUGIN_REENTRY")),
+      false,
+    );
+    assert.equal((await stat(zDotDir)).mode & 0o777, 0o700);
+    assert.deepEqual(await readdir(zDotDir), []);
+  } finally {
+    if (previous !== undefined) process.env.PROMPT_TRIPWIRE_PLUGIN_REENTRY = previous;
+    await transport?.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("probe App Server rejects unsafe zsh startup directories before spawn", async () => {
+  const root = await mkdtemp(join(tmpdir(), "prompt-tripwire-unsafe-zdotdir-"));
+  const permissive = join(root, "permissive");
+  const nonempty = join(root, "nonempty");
+  const safe = join(root, "safe");
+  const linked = join(root, "linked");
+  await mkdir(permissive, { mode: 0o700 });
+  await chmod(permissive, 0o755);
+  await mkdir(nonempty, { mode: 0o700 });
+  await writeFile(join(nonempty, ".zshenv"), "# fixture\n");
+  await mkdir(safe, { mode: 0o700 });
+  await symlink(safe, linked);
+  try {
+    for (const shellStartupDirectory of [join(root, "missing"), permissive, nonempty, linked]) {
+      assert.throws(
+        () =>
+          ProcessJsonRpcTransport.start({
+            cwd: root,
+            codexPath: "must-not-be-spawned",
+            detectedVersion: () => "0.144.4",
+            shellStartupDirectory,
+          }),
+        (error) => error instanceof AppServerError && error.code === "PROTOCOL_VALIDATION_FAILED",
+      );
+    }
+  } finally {
     await rm(root, { recursive: true, force: true });
   }
 });
@@ -998,6 +1267,7 @@ test("runtime refuses an unverified Codex version before spawning App Server", (
         cwd: "/tmp",
         codexPath: "must-not-be-spawned",
         detectedVersion: () => "0.144.3",
+        shellStartupDirectory: "/must-not-be-inspected",
       }),
     (error) => error instanceof AppServerError && error.code === "CODEX_VERSION_MISMATCH",
   );
@@ -1033,7 +1303,7 @@ async function createPreparedRepository() {
     task: "Implement the fixture change",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.2",
+    promptTripwireVersion: "0.1.3",
     effectiveConfig: { probeCount: 3 },
     createdAt: "2026-07-14T00:00:00.000Z",
   });
@@ -1110,7 +1380,7 @@ test("AC-002: an external tracked symlink blocks the batch before any probe thre
     task: "Inspect the fixture without changing it",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.2",
+    promptTripwireVersion: "0.1.3",
     effectiveConfig: { probeCount: 3 },
     createdAt: "2026-07-14T00:00:00.000Z",
   });

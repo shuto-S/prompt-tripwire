@@ -1,4 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { chmod, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
   CodexAppServerClient,
@@ -211,6 +214,7 @@ export class ContractExecutionPort {
     let client: CodexAppServerClient | null = null;
     let execution: ExecutionRecord | null = null;
     let gate: ContractExecutionGate | null = null;
+    let appServerRuntimeRoot: string | null = null;
     let changedPaths: readonly string[] = [];
     let diffWithinContract: boolean | null = null;
     let threadId: string | null = null;
@@ -254,9 +258,19 @@ export class ContractExecutionPort {
         protectedPaths: context.contract.protectedPaths,
       });
       gate = new ContractExecutionGate(context.contract, monitor);
-      const transport =
-        this.options.createTransport?.(worktree.cwd) ??
-        ProcessJsonRpcTransport.start({ cwd: worktree.cwd });
+      let transport: JsonRpcTransport;
+      if (this.options.createTransport !== undefined) {
+        transport = this.options.createTransport(worktree.cwd);
+      } else {
+        appServerRuntimeRoot = await mkdtemp(join(tmpdir(), "prompt-tripwire-app-server-"));
+        await chmod(appServerRuntimeRoot, 0o700);
+        const shellStartupDirectory = join(appServerRuntimeRoot, "zsh-startup");
+        await mkdir(shellStartupDirectory, { mode: 0o700 });
+        transport = ProcessJsonRpcTransport.start({
+          cwd: worktree.cwd,
+          shellStartupDirectory,
+        });
+      }
       client = new CodexAppServerClient(transport);
       const active: ActiveExecution = { client, threadId: null, turnId: null };
       this.active.set(context.run.runId, active);
@@ -351,6 +365,15 @@ export class ContractExecutionPort {
           outcome = "failed";
           code = "APP_SERVER_CLOSE_FAILED";
           unknowns.push("App Server shutdown could not be confirmed.");
+        }
+      }
+      if (appServerRuntimeRoot !== null) {
+        try {
+          await rm(appServerRuntimeRoot, { recursive: true, force: true });
+        } catch {
+          outcome = "failed";
+          code = "APP_SERVER_RUNTIME_CLEANUP_FAILED";
+          unknowns.push("App Server runtime cleanup could not be confirmed.");
         }
       }
       if (worktree !== null) {

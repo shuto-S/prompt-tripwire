@@ -110,7 +110,7 @@ export async function createReviewFixture({
     task: "Implement an explicit persisted-record deletion policy",
     model: { id: "gpt-5.6-sol", reasoningEffort: "low" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.2",
+    promptTripwireVersion: "0.1.3",
     createdAt: CREATED_AT,
   });
   store.createRun({

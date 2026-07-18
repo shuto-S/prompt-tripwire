@@ -1,6 +1,6 @@
 # OpenAI Build Week plan and compliance
 
-Status date: 2026-07-18
+Status date: 2026-07-19
 
 Official source: [OpenAI Build Week Official Rules](https://openai.devpost.com/rules)
 
@@ -104,7 +104,13 @@ limit; the sidecar contains 74 cues with a measured maximum of 19.08 characters
 per second. The [demo notes](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/demo/README.md) record the media hash, narration,
 format, and evidence boundary.
 
-The flow is:
+This is explicitly a v0.1.2 capture. v0.1.3 is a compatibility and fail-closed
+patch for the pinned Codex App Server, not a newly recorded demo: it recognizes
+only the exact `/bin/zsh -c` and `/bin/zsh -lc` launcher envelopes, supplies an
+empty private runtime-owned `ZDOTDIR`, rejects missing raw commands, validates
+failed command/file items, and denies direct `.git` metadata reads.
+
+The captured flow is:
 
 1. the hidden-decision problem and explicit Plugin invocation;
 2. three same-input, read-only Codex planning probes and the tool-free GPT-5.6 comparator;
@@ -116,15 +122,16 @@ The flow is:
 The live inspect left the source checkout, HEAD, and worktree list unchanged.
 The later contract/execution/report footage is not represented as a continuation
 of that untouched Inbox. The public YouTube upload will become the primary demo
-after publication; the repository media remains a review fallback and is
-excluded from the judge release archive.
+only after the prepared title, description, visibility, captions, and thumbnail
+receive human confirmation. The repository media remains a review fallback and
+is excluded from the judge release archive.
 
 ## 8. Submission checklist
 
 ### Product
 
 - [x] All P0 functional requirements implemented.
-- [ ] Re-run the complete v0.1.2 source and release gates after the final version bump.
+- [ ] Run the complete v0.1.3 source and release gates after the patch version bump.
 - [x] Real Codex App Server integration; no mocked core demo.
 - [x] Real GPT-5.6 Structured Outputs integration.
 - [x] Judge-ready install that does not require rebuilding.
@@ -135,8 +142,8 @@ excluded from the judge release archive.
 
 - [x] Apache-2.0 selected as the project license for the public repository.
 - [x] README includes installation, supported platforms, test instructions, architecture summary, and Codex collaboration.
-- [x] Public repository and historical `v0.1.1` Release verified anonymously.
-- [ ] Publish the verified `v0.1.2` macOS arm64 artifact and checksum, then verify both anonymously.
+- [x] Public repository and `v0.1.2` Release verified anonymously.
+- [ ] Publish the verified `v0.1.3` macOS arm64 patch artifact and checksum, then verify both anonymously.
 - [x] Dated commits distinguish specification, implementation, and submission work.
 - [x] Dependency licenses and third-party assets reviewed.
 - [x] No secrets in Git history.
@@ -159,16 +166,16 @@ excluded from the judge release archive.
 - [x] Confirm the regenerated final video contains only owned or permitted assets and trademarks.
 - [ ] Repository URL and judge instructions verified from a clean machine/account.
 - [ ] Free, unrestricted judging access maintained through the judging period.
-- [ ] Devpost draft saved early and final submission completed before deadline.
+- [ ] Devpost draft saved early and final submission completed before deadline; final submission requires explicit human confirmation.
 
 ## 9. Remaining submission actions
 
-- Complete the v0.1.2 verification gates and build the final reproducible archive/checksum.
-- Publish the v0.1.2 GitHub Release and verify the artifact, checksum, repository, and judge instructions from a clean account.
-- Upload the final video and English captions to public YouTube, then verify playback anonymously.
-- Replace the Devpost public video/release placeholders, save the draft, and final-submit.
+- Complete the v0.1.3 verification gates and build the final reproducible archive/checksum.
+- Publish the v0.1.3 GitHub Release and verify the artifact, checksum, repository, and judge instructions from a clean account.
+- Present the prepared YouTube video, title, description, visibility, captions, and thumbnail for human confirmation; only then upload and verify playback anonymously.
+- Replace the Devpost public video/release placeholders and prepare the complete draft; present the final field/attachment/link packet for a separate human confirmation before final submission.
 
-Historical publication evidence (2026-07-16 JST): repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0, release `v0.1.1` is live, and the unauthenticated release asset SHA-256 is `7a29de3241bab426b2e9b9edd84a6d6f01dd0fc1bf13d71da3927a4a83277f50`. The downloaded v0.1.1 archive passed its complete 918-file release verification, including runtime-only, runtime-plus-Plugin, v0.1.0 upgrade, idempotency, targeted uninstall, fixture, replay, license, local-path, and secret checks. This SHA verifies only v0.1.1 and must not be reused for v0.1.2.
+Publication evidence: repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0. The public v0.1.2 release and its downloaded artifact/checksum were verified anonymously; its macOS arm64 archive SHA-256 is `73d61b8262b5c81be558a89b800ddaa0f5d71c4c9e46679893c3c93b1bbfee3f`. The earlier public v0.1.1 release remains historical evidence with SHA-256 `7a29de3241bab426b2e9b9edd84a6d6f01dd0fc1bf13d71da3927a4a83277f50`. Neither historical SHA verifies the v0.1.3 candidate archive.
 
 A final local v0.1.2 H.264/AAC English demo, caption/narration copy, thumbnail,
 and owned UI captures are now in `docs/demo/` and `docs/assets/demo/`. The live
@@ -177,4 +184,7 @@ scenes use an earlier human-approved safe-fixture run. These files are present
 in the repository but intentionally excluded from the compact judge archive.
 They are local review evidence, not proof of public YouTube publication.
 
-These do not block the product specification or local v0.1.2 source preparation, but they must be closed before external publication and final submission.
+These do not block the product specification or local v0.1.3 patch preparation,
+but v0.1.3 publication/verification must finish before the external confirmation
+packets are final. YouTube upload and Devpost final submission remain blocked on
+their respective explicit human confirmations.

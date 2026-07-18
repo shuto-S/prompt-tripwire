@@ -134,8 +134,9 @@ Propagation is deliberately two-stage. The adapter sets
 non-secret sentinel in its minimal process environment and conditionally adds
 `shell_environment_policy.set={PROMPT_TRIPWIRE_PLUGIN_REENTRY="1"}` so commands
 spawned by App Server observe it despite
-`shell_environment_policy.inherit=none`. Normal non-Plugin launches add neither
-the process-environment exception nor the child override.
+`shell_environment_policy.inherit=none`. Every launch also sets the
+controller-owned isolated `ZDOTDIR`; normal non-Plugin launches add no re-entry
+process-environment exception or sentinel override.
 
 The adapter itself starts an authenticated nested `codex app-server`. A
 restrictive shell sandbox around the calling Codex tool command can block that
@@ -163,7 +164,7 @@ CLI, policy, contract, containment, and report paths as the source of truth.
 ### 4.1 Startup
 
 1. Resolve and version-check the `codex` executable.
-2. Spawn `codex app-server` from an empty disposable runtime directory with stdio pipes and a minimal environment; rely only on the existing Codex CLI login. If and only if the incoming process has `PROMPT_TRIPWIRE_PLUGIN_REENTRY=1`, preserve that sentinel and add the explicit child setting `shell_environment_policy.set={PROMPT_TRIPWIRE_PLUGIN_REENTRY="1"}` while keeping `shell_environment_policy.inherit=none`.
+2. Spawn `codex app-server` from an empty disposable runtime directory with stdio pipes and a minimal environment; rely only on the existing Codex CLI login. Create an empty mode-`0700` zsh startup directory under that root and always pass it as `ZDOTDIR` through `shell_environment_policy.set` while keeping `shell_environment_policy.inherit=none`. If and only if the incoming process has `PROMPT_TRIPWIRE_PLUGIN_REENTRY=1`, preserve that sentinel and add its exact child setting to the same map.
 3. Send `initialize` with `clientInfo.name = "prompt_tripwire"`.
 4. Send `initialized`.
 5. Use only methods and fields present in the normal 0.144.4 schema; never opt into `experimentalApi` for P0.
@@ -198,10 +199,18 @@ absolute-path escape are rejected before canonical matching, and missing
 canonical evidence denies the action. The adapter then tokenizes the action's
 actual command without expansion, requires a single allowlisted static-read
 program and bounded flags, and checks that its command operands match the
-structured action type/path. Compound/redirection syntax, interpreter wrappers,
+structured action type/path. Codex App Server 0.144.4 on macOS reports these
+items through exact `/bin/zsh -c <structured-command>` or
+`/bin/zsh -lc <structured-command>` process envelopes. The transport first sets
+`ZDOTDIR` to a fresh empty mode-`0700` directory inside its disposable runtime
+root so user-controlled zsh startup files are not loaded. The adapter accepts
+only those three-token shapes, tokenizes the single inner command again, and
+requires it to equal the structured action before applying the same command and
+path policy. Root-owned global zsh startup files remain an explicit macOS host
+trust assumption. Other interpreter wrappers, compound/redirection syntax,
 the `-` standard-input sentinel, executable read hooks such as `rg --pre` and
 symlink-following search flags such as `rg -L`/`--follow`, `find -exec`, and
-semantic mismatch are denied. Direct content reads check default secret-like patterns against both
+semantic mismatch are denied. Direct content reads check default secret-like patterns and `.git` metadata against both
 the lexical and canonical target. Before a recursive `rg`, the adapter walks its
 effective target and denies the search if it can reach protected content;
 hidden entries are considered reachable when the command uses `--hidden` or a
@@ -481,7 +490,7 @@ The 2026-07-14 macOS/arm64 spike against `codex-cli 0.144.4` established:
 - `untrusted` command and file-change requests can be declined before execution;
 - `approvalPolicy: "never"` can apply a contained file change before `turn/diff/updated`, so diff monitoring is detective;
 - standalone read-only `command/exec` prevented writes/network but allowed an interpreter version command, so sandbox mode is not a command policy;
-- `shell_environment_policy.inherit=none` excluded a synthetic App Server environment canary from child commands; Plugin-originated runs retain only the non-secret re-entry sentinel and inject its exact value through `shell_environment_policy.set`, so an App Server child also fails recursive Plugin invocation without inheriting the caller environment;
+- `shell_environment_policy.inherit=none` excluded a synthetic App Server environment canary from child commands; every run receives only the controller-owned isolated `ZDOTDIR`, while Plugin-originated runs additionally retain the non-secret re-entry sentinel and inject its exact value through `shell_environment_policy.set`, so an App Server child also fails recursive Plugin invocation without inheriting the caller environment;
 - granular permission approval requires the experimental capability despite appearing in the normal schema;
 - duplicate events are idempotent, while completion-before-start and disconnect fixtures fail closed.
 

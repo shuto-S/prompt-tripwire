@@ -1,6 +1,12 @@
 # PromptTripwire judge guide
 
-PromptTripwire is a local-first preflight and execution gate for Codex. This guide targets the compiled v0.1.2 macOS arm64 release; judges do not need the TypeScript source tree or a source build. Once v0.1.2 is published, download the archive and `SHA256SUMS.txt` from the [v0.1.2 GitHub Release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.2).
+PromptTripwire is a local-first preflight and execution gate for Codex. This guide targets the compiled v0.1.3 macOS arm64 patch release candidate; judges do not need the TypeScript source tree or a source build. After the candidate passes its release gates and is published, download the archive and `SHA256SUMS.txt` from the [v0.1.3 GitHub Release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.3). The public v0.1.2 release remains historical evidence until v0.1.3 publication is complete.
+
+v0.1.3 preserves the v0.1.2 product flow and adds compatibility and fail-closed
+hardening for the pinned Codex App Server: exact `/bin/zsh -c` and
+`/bin/zsh -lc` launcher envelopes, an empty private runtime-owned `ZDOTDIR`,
+rejection of missing raw commands, continued validation of failed command/file
+items, and denial of direct `.git` metadata reads.
 
 ## Supported platform and prerequisites
 
@@ -26,14 +32,14 @@ Place the `.tar.gz` and `SHA256SUMS.txt` files in the same directory, then run:
 
 ```sh
 shasum -a 256 -c SHA256SUMS.txt
-tar -xzf prompt-tripwire-v0.1.2-macos-arm64.tar.gz
-cd prompt-tripwire-v0.1.2-macos-arm64
+tar -xzf prompt-tripwire-v0.1.3-macos-arm64.tar.gz
+cd prompt-tripwire-v0.1.3-macos-arm64
 ./bin/tripwire --version
 ./bin/tripwire --help
 ```
 
-Do not use the historical v0.1.1 SHA-256 for this archive. Verify only with the
-`SHA256SUMS.txt` downloaded alongside the v0.1.2 archive.
+Do not use a historical v0.1.1 or v0.1.2 SHA-256 for this archive. Verify only
+with the `SHA256SUMS.txt` downloaded alongside the v0.1.3 archive.
 
 The shortest user-local setup installs the runtime and Codex Plugin together
 and requires no `sudo`:
@@ -60,7 +66,7 @@ restrictions remain unchanged. If the permission is denied, preflight stops;
 do not configure an API key as a workaround.
 
 The default runtime and marketplace root is
-`~/.local/lib/prompt-tripwire/0.1.2`. The marketplace retains the relative
+`~/.local/lib/prompt-tripwire/0.1.3`. The marketplace retains the relative
 `./plugins/prompt-tripwire` source. The installer verifies macOS arm64, Node.js,
 Git, Codex 0.144.4, and the existing login; it never runs inspect, decisions,
 approval, or implementation. It does not require `OPENAI_API_KEY`.
@@ -75,7 +81,7 @@ Add `~/.local/bin` to `PATH` if using the runtime directly. To remove the
 Plugin, its owned marketplace registration, and runtime together:
 
 ```sh
-~/.local/lib/prompt-tripwire/0.1.2/uninstall.sh --with-codex-plugin
+~/.local/lib/prompt-tripwire/0.1.3/uninstall.sh --with-codex-plugin
 ```
 
 The targeted uninstall leaves every other Plugin and marketplace untouched and
@@ -96,7 +102,7 @@ For a Git-marketplace fallback, first keep the artifact's `tripwire` launcher
 on `PATH` or set `PROMPT_TRIPWIRE_BIN`, then run:
 
 ```sh
-codex plugin marketplace add shuto-S/prompt-tripwire --ref v0.1.2
+codex plugin marketplace add shuto-S/prompt-tripwire --ref v0.1.3
 codex plugin add prompt-tripwire@prompt-tripwire-local
 codex plugin list --marketplace prompt-tripwire-local
 ```
@@ -121,13 +127,17 @@ notes](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/demo/README.m
 embedded default English subtitles. These repository files are excluded from
 the compact release archive.
 
-The Inbox capture is an actual API-key-free v0.1.2 Plugin inspect. It has one
+This media is explicitly a v0.1.2 capture, not footage of the v0.1.3
+compatibility patch. The Inbox capture is an actual API-key-free v0.1.2 Plugin
+inspect. It has one
 unresolved compatibility decision, no dependency blocker, no selected option,
 and no approved contract; its source status, HEAD, and worktree list stayed
 unchanged. The later contract, execution, and report scenes are explicitly a
 separate safe-fixture run that a human approved earlier. The public YouTube
-upload will be the primary demo after publication; until then, this repository
-copy is the review/offline fallback.
+upload will be the primary demo only after its prepared title, description,
+visibility, captions, and thumbnail receive human confirmation; until then,
+this repository copy is the review/offline fallback. Devpost final submission
+has a separate human confirmation gate.
 
 ## Thirty-second recorded UI fallback
 
@@ -199,6 +209,7 @@ The report should contain the contract hash, Codex/App Server identifiers, obser
 
 - Planning uses separate fresh threads with identical task/snapshot inputs.
 - Planning worktrees are read-only; network, project scripts, interpreters, package managers, and writes are denied. Before any probe thread starts, every materialized symlink must resolve canonically inside its disposable worktree; root/CWD/action containment is checked again for each static-read approval.
+- The pinned App Server's exact `/bin/zsh -c` and `/bin/zsh -lc` command envelopes are cross-validated against their structured actions. App Server runs with an empty private runtime-owned `ZDOTDIR`; missing raw commands, failed unsafe items, and direct `.git` metadata reads fail closed.
 - GPT-5.6 comparison runs in a fresh empty directory with no tools, network, MCP, apps, or subagents.
 - `deterministic-v2` evaluates the normalized original task as well as validated plans. Task-only safety evidence never claims probe support, and narrow dependency no-change declarations do not hide a later positive contrast clause.
 - Execution uses another disposable worktree. Network, remote writes, deploy, publish, release, migration application, production data, credentials, and permission expansion remain denied in P0 even if local preparation is approved.

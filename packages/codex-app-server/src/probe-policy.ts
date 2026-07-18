@@ -219,6 +219,29 @@ function sameTokens(left: readonly string[], right: readonly string[]): boolean 
   return left.length === right.length && left.every((token, index) => token === right[index]);
 }
 
+function actualCommandMatchesAction(
+  actualCommand: string,
+  actionTokens: readonly string[],
+): boolean {
+  const actualTokens = tokenizeStaticCommand(actualCommand);
+  if (actualTokens === null) return false;
+  if (sameTokens(actionTokens, actualTokens)) return true;
+
+  // Codex App Server 0.144.4 reports macOS command items through this exact
+  // process envelope even when the structured action is a direct static read.
+  // Unwrap only that observed shape, then apply the same fail-closed grammar to
+  // the single inner command. Other shells, flags, and extra argv stay denied.
+  if (
+    actualTokens.length !== 3 ||
+    actualTokens[0] !== "/bin/zsh" ||
+    !new Set(["-c", "-lc"]).has(actualTokens[1] ?? "")
+  ) {
+    return false;
+  }
+  const innerTokens = tokenizeStaticCommand(actualTokens[2] ?? "");
+  return innerTokens !== null && sameTokens(actionTokens, innerTokens);
+}
+
 function canonicalTarget(root: string, cwd: string, path: string): string | null {
   if (hasParentSegment(path) || hasAmbiguousStructuredPath(path)) return null;
   const candidate = resolve(cwd, path);
@@ -261,7 +284,13 @@ function isProtectedAbsolutePath(root: string, target: string): boolean {
   for (const candidateRoot of new Set([resolve(root), canonicalRoot])) {
     if (!contained(candidateRoot, target)) continue;
     const repositoryPath = relative(candidateRoot, target).split(sep).join("/");
-    if (repositoryPath !== "" && isSecretLikePath(repositoryPath)) return true;
+    const normalized = repositoryPath.toLowerCase();
+    if (
+      repositoryPath !== "" &&
+      (normalized === ".git" || normalized.startsWith(".git/") || isSecretLikePath(repositoryPath))
+    ) {
+      return true;
+    }
   }
   return false;
 }
@@ -687,6 +716,7 @@ function safeAction(
 ): boolean {
   if (!canonicalContained(root, cwd)) return false;
   if (action.type === "unknown") return false;
+  if (actualCommand === null || actualCommand === undefined) return false;
   if (
     action.path !== null &&
     action.path !== undefined &&
@@ -697,10 +727,7 @@ function safeAction(
 
   const actionTokens = tokenizeStaticCommand(action.command);
   if (actionTokens === null) return false;
-  if (actualCommand !== null && actualCommand !== undefined) {
-    const actualTokens = tokenizeStaticCommand(actualCommand);
-    if (actualTokens === null || !sameTokens(actionTokens, actualTokens)) return false;
-  }
+  if (!actualCommandMatchesAction(actualCommand, actionTokens)) return false;
 
   let commandPath: string | null | undefined;
   if (action.type === "read") commandPath = readCommandPath(actionTokens);
@@ -825,7 +852,7 @@ export function probeItemViolation(item: ParsedThreadItem, probeRoot: string): s
     "commandActions" in item &&
     Array.isArray(item.commandActions)
   ) {
-    if (item.status === "declined" || item.status === "failed") return null;
+    if (item.status === "declined") return null;
     const actions = item.commandActions.map((action) => CommandActionSchema.parse(action));
     const reason = staticReadReason(probeRoot, item.cwd, actions, item.command);
     return reason === "static_read"
@@ -839,7 +866,7 @@ export function probeItemViolation(item: ParsedThreadItem, probeRoot: string): s
         ].join(",")}`;
   }
   if (item.type === "fileChange" && "status" in item) {
-    return item.status === "declined" || item.status === "failed" ? null : "file_change_observed";
+    return item.status === "declined" ? null : "file_change_observed";
   }
   if (new Set(["agentMessage", "plan", "reasoning", "userMessage"]).has(item.type)) return null;
   return `unexpected_tool_item:${item.type}`;

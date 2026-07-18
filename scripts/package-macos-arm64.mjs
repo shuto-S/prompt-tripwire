@@ -154,6 +154,7 @@ const releaseDocs = [
   "JUDGE_GUIDE.md",
   "RELEASE_NOTES_v0.1.0.md",
   "RELEASE_NOTES_v0.1.1.md",
+  "RELEASE_NOTES_v0.1.2.md",
   `RELEASE_NOTES_v${version}.md`,
   "RESEARCH.md",
   "SECURITY.md",

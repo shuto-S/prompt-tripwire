@@ -84,11 +84,20 @@ absolute-path escape, shell expansion or ambiguity in structured CWD/path text,
 or missing resolution evidence remains deny-by-default. Structured action type
 and path do not make raw command text trusted: the actual command must parse as
 one allowlisted static-read program, use only bounded non-executing flags, and
-name operands that match the structured action. Shell/interpreter wrappers,
+name operands that match the structured action. Before any child command,
+PromptTripwire sets `ZDOTDIR` to a fresh empty mode-`0700` directory inside the
+disposable App Server runtime root, excluding user-controlled zsh startup files.
+Root-owned global zsh startup files such as `/etc/zshenv` and, for `-lc`,
+`/etc/zprofile` remain part of the supported macOS host trust boundary.
+The exact macOS App Server 0.144.4 envelopes `/bin/zsh -c <structured-command>` and
+`/bin/zsh -lc <structured-command>` are accepted only as three tokens, only
+when their one inner command independently passes the same tokenizer, and only
+when those inner tokens equal the structured action. Other shell/interpreter wrappers,
 compound syntax, redirection, the `-` standard-input sentinel, `rg --pre`,
 symlink-following `rg -L`/`--follow`, `find -exec`/write predicates, and
-command/action mismatch are denied. Default protected-path patterns are applied
-to both lexical and canonical targets before direct content reads. Recursive
+command/action mismatch are denied. Default protected-path patterns and all
+`.git` metadata are applied to both lexical and canonical targets before direct
+content reads. Recursive
 content search performs a fail-closed tree walk first: visible protected files
 always block it, and hidden protected entries block it when `rg --hidden` or a
 positive `--glob`/`-g` inclusion can make them reachable. Negative-only globs do
@@ -101,7 +110,7 @@ canonical containment succeeds.
 
 If the platform cannot enforce these properties, probing must stop with an actionable error.
 
-The client also inspects completed command/file items and aggregate diffs. A trusted command can start without a server approval request, so an unexpected action can be detected only after it begins inside the disposable worktree. Reports must preserve that distinction.
+The client also inspects started, completed, and failed command/file items plus aggregate diffs; only an explicitly declined item is treated as non-executed. A trusted command can start without a server approval request, so an unexpected action can be detected only after it begins inside the disposable worktree. Reports must preserve that distinction.
 
 ## 6. Secrets
 
@@ -221,8 +230,9 @@ stages. The adapter sets it on the PromptTripwire process; the App Server
 transport retains that exact non-secret sentinel in its otherwise minimal
 process environment and conditionally injects the same exact value into every
 App Server child with `shell_environment_policy.set`. The existing
-`shell_environment_policy.inherit=none` boundary remains unchanged, no other
-caller environment is forwarded, and non-Plugin calls do not inject the flag.
+`shell_environment_policy.inherit=none` boundary remains unchanged. Every call
+receives only the controller-owned isolated `ZDOTDIR`; no other caller
+environment is forwarded, and non-Plugin calls do not inject the flag.
 Any Plugin invocation under that flag fails with `REENTRY_BLOCKED`, including
 one attempted by the child Codex thread. Missing runtime/login, unsupported
 platform, stale/dirty choices, and other CLI failures remain fail-closed. V1

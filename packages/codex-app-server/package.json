@@ -1,6 +1,6 @@
 {
   "name": "@prompt-tripwire/codex-app-server",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "type": "module",
   "exports": "./dist/index.js",
@@ -8,9 +8,9 @@
     "dist"
   ],
   "dependencies": {
-    "@prompt-tripwire/domain": "0.1.2",
-    "@prompt-tripwire/git-snapshot": "0.1.2",
-    "@prompt-tripwire/policy": "0.1.2",
+    "@prompt-tripwire/domain": "0.1.3",
+    "@prompt-tripwire/git-snapshot": "0.1.3",
+    "@prompt-tripwire/policy": "0.1.3",
     "zod": "4.4.3"
   }
 }
