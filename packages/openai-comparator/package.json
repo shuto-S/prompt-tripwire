@@ -1,6 +1,6 @@
 {
   "name": "@prompt-tripwire/openai-comparator",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "type": "module",
   "exports": "./dist/index.js",
@@ -8,7 +8,7 @@
     "dist"
   ],
   "dependencies": {
-    "@prompt-tripwire/domain": "0.1.4",
-    "@prompt-tripwire/policy": "0.1.4"
+    "@prompt-tripwire/domain": "0.1.5",
+    "@prompt-tripwire/policy": "0.1.5"
   }
 }
