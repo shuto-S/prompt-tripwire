@@ -195,6 +195,11 @@ validated plan command fields, PromptTripwire accepts only shell-free tokenized
 forms for deterministic classification. Ambiguous syntax is unknown, and
 absolute, parent-traversing, output, or protected-path operands create the
 corresponding scope, unknown, or secret evidence.
+Probe instructions and the structured-output field description require those
+values to be literal argv strings and direct workflow/check prose to other
+fields. PromptTripwire never extracts an executable command from prose: a model
+that still emits a prose wrapper or repeats the already-active preflight
+directive remains `unknown` and blocked.
 
 Repository private/internal visibility changes and ownership transfers are
 classified as both `remote_write` and `permission`; main/default

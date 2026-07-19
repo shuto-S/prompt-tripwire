@@ -1,6 +1,6 @@
 {
   "name": "@prompt-tripwire/persistence",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "private": true,
   "type": "module",
   "exports": "./dist/index.js",
@@ -8,7 +8,7 @@
     "dist"
   ],
   "dependencies": {
-    "@prompt-tripwire/domain": "0.1.7",
-    "@prompt-tripwire/policy": "0.1.7"
+    "@prompt-tripwire/domain": "0.1.8",
+    "@prompt-tripwire/policy": "0.1.8"
   }
 }

@@ -25,7 +25,7 @@ import { prepareRepositorySnapshot } from "@prompt-tripwire/git-snapshot";
 import { SqlitePersistence } from "@prompt-tripwire/persistence";
 import { startReviewServer } from "@prompt-tripwire/ui";
 
-export const CLI_FOUNDATION = Object.freeze({ name: "cli", version: "0.1.7" });
+export const CLI_FOUNDATION = Object.freeze({ name: "cli", version: "0.1.8" });
 
 const HELP = `PromptTripwire ${CLI_FOUNDATION.version}
 

@@ -25,7 +25,7 @@ async function seedApprovedRun(repositoryPath, dataRoot) {
     task: "Run the approved CLI execution",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.7",
+    promptTripwireVersion: "0.1.8",
     dirtyChoice: "committed_only",
   });
   const store = new SqlitePersistence({

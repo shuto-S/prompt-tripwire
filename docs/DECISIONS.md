@@ -430,6 +430,22 @@ three false blockers and contradicted AC-005. Requiring a visible terminal
 coordinator makes the no-change reading bounded, while the existing comma-splice
 and contrast tests prevent a negated item from hiding a later requested action.
 
+### D-038 — Constrain plan commands at generation without normalizing prose
+
+**Decision:** Tell every planning probe, both in developer instructions and the
+structured-output field description, that `commands` accepts only literal
+shell-free argv strings such as `npm test`. The already-active
+`prompt-tripwire:preflight` workflow directive and explanatory phrases belong
+outside that field, with check prose in `verificationSteps`. Do not add a
+post-hoc parser that extracts executable text from prose; malformed values stay
+fail-closed as `unknown`.
+
+**Reason:** A real v0.1.7 Plugin inspect produced correct plans but two probes
+restated the preflight directive and wrapped `npm test` in sentences. The
+deterministic command parser correctly blocked all four as unknown, creating
+avoidable human decisions. Generation-time field guidance removes that UX
+noise while preserving the runtime's strict parser and unknown-action boundary.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage
@@ -466,4 +482,4 @@ and contrast tests prevent a negated item from hiding a later requested action.
 
 ## Decision-change rule
 
-Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, D-034, D-035, D-036, or D-037 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.
+Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, D-034, D-035, D-036, D-037, or D-038 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.
