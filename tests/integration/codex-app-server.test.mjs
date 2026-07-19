@@ -82,7 +82,7 @@ function snapshot(repositoryPath) {
     task: "Implement the fixture change",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.6",
+    promptTripwireVersion: "0.1.7",
     createdAt: "2026-07-14T00:00:00.000Z",
   });
 }
@@ -1462,7 +1462,7 @@ async function createPreparedRepository() {
     task: "Implement the fixture change",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.6",
+    promptTripwireVersion: "0.1.7",
     effectiveConfig: { probeCount: 3 },
     createdAt: "2026-07-14T00:00:00.000Z",
   });
@@ -1539,7 +1539,7 @@ test("AC-002: an external tracked symlink blocks the batch before any probe thre
     task: "Inspect the fixture without changing it",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.6",
+    promptTripwireVersion: "0.1.7",
     effectiveConfig: { probeCount: 3 },
     createdAt: "2026-07-14T00:00:00.000Z",
   });

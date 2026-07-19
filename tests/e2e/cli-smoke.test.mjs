@@ -10,7 +10,7 @@ test("compiled CLI reports its version and complete command surface", () => {
     encoding: "utf8",
   });
   assert.equal(result.status, 0);
-  assert.equal(result.stdout.trim(), "prompt-tripwire 0.1.6");
+  assert.equal(result.stdout.trim(), "prompt-tripwire 0.1.7");
   assert.equal(result.stderr, "");
 
   const help = spawnSync(process.execPath, ["apps/cli/dist/index.js", "--help"], {
@@ -43,7 +43,7 @@ test("compiled CLI starts through a symlinked or canonicalized entry path", () =
     symlinkSync(resolve("apps/cli/dist/index.js"), entry);
     const result = spawnSync(process.execPath, [entry, "--version"], { encoding: "utf8" });
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), "prompt-tripwire 0.1.6");
+    assert.equal(result.stdout.trim(), "prompt-tripwire 0.1.7");
     assert.equal(realpathSync(entry), resolve("apps/cli/dist/index.js"));
   } finally {
     rmSync(root, { recursive: true, force: true });

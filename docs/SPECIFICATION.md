@@ -2,9 +2,9 @@
 
 Status: P0 implementation baseline verified
 
-Version: 0.1.6
+Version: 0.1.7
 
-Date: 2026-07-18
+Date: 2026-07-19
 
 Owner: shuto-S
 
@@ -345,8 +345,11 @@ value that unambiguously declares no change is not a blocker, including
 combined with `but`, `except`, `while`, `ただし`,
 or another contrasting clause is not exempt; the positive action is still
 evaluated. Negated task language such as “do not deploy” does not authorize or
-request that operation, but a later positive clause cannot be hidden by the
-earlier negation.
+request that operation. An explicit coordinated prohibition such as
+`Do not A, B, C, or D` keeps the negation over every comma-separated item. A
+bare comma splice without that terminal coordinator remains fail-closed, and a
+later positive clause introduced by `but`, `then`, a new subject/modal, or a
+new sentence cannot be hidden by the earlier negation.
 
 Each validated `commands` value is accepted for deterministic classification
 only when it is a shell-free token sequence. PromptTripwire classifies that

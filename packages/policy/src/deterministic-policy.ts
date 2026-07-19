@@ -321,7 +321,7 @@ function positiveMatch(text: string, pattern: RegExp): boolean {
     const prefix = text.slice(Math.max(0, index - 512), index).toLowerCase();
     const matchedText = match[0].toLowerCase();
     const clauseBoundary =
-      /(?:[.!?;]|,\s*(?=(?:and\s+)?(?:then|afterwards?|after\s+that|subsequently|next|finally|instead)\b)|\band\s+(?:actually|instead)\b|\b(?:but|however|except)\b)/u;
+      /(?:[.!?;]|,\s*(?=(?:(?:and\s+)?(?:then|afterwards?|after\s+that|subsequently|next|finally|instead)|please|(?:you|we|they|i|he|she|it|the\s+[a-z][\w-]*)\s+(?:should|must|need\s+to|will|shall|can|may)\b(?!\s+not\b))\b)|\band\s+(?:actually|instead)\b|\b(?:but|however|except)\b)/u;
     const negationPrefix = prefix.split(clauseBoundary).at(-1) ?? prefix;
     const subjectClausePrefix = prefix.split(clauseBoundary).at(-1) ?? prefix;
     const remainingText = text.slice(index + match[0].length).toLowerCase();
@@ -412,8 +412,16 @@ function positiveMatch(text: string, pattern: RegExp): boolean {
       /(?:\bno|\bnot|\bnever|\bwithout|\bdo\s+not|\bdon['’]t)\b[^.!?;]{0,256}$/u.test(
         beforeLastComma,
       );
+    // A terminal coordinator makes the preceding bare comma items one
+    // prohibited list; without it, a comma splice remains fail-closed.
+    const hasLaterCoordinatingConjunction =
+      negationBeforeComma &&
+      afterLastComma.trim().length === 0 &&
+      /^[^.!?;]{0,256},\s*(?:and|or)\s+[^.!?;]+(?:[.!?;]|$)/u.test(remainingText);
     const commaContinuesNegatedList =
-      /^\s*(?:and|or)\s*$/u.test(afterLastComma) || /^\s*,\s*(?:and|or)\b/u.test(suffix);
+      /^\s*(?:and|or)\s*$/u.test(afterLastComma) ||
+      /^\s*,\s*(?:and|or)\b/u.test(suffix) ||
+      hasLaterCoordinatingConjunction;
     const independentCommaClause =
       explicitActionMatch &&
       lastCommaIndex >= 0 &&

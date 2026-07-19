@@ -452,7 +452,7 @@ class AppServerClient {
       clientInfo: {
         name: "prompt_tripwire_spike",
         title: "PromptTripwire protocol spike",
-        version: "0.1.6",
+        version: "0.1.7",
       },
     });
     this.notify("initialized", {});

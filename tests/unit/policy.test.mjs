@@ -664,6 +664,7 @@ test("final task vocabulary respects negation, docs, and component meta contexts
 test("comma, without, and how-to scopes preserve negation without hiding later actions", () => {
   for (const task of [
     "Do not send an email, SMS, or Google Calendar invitation.",
+    "Do not change package metadata, add dependencies, access the network, commit, push, publish, deploy, or perform any external action.",
     "Work locally without sending an email or posting a Slack message.",
     "Implement locally without opening a URL, browsing the web, or running npm ci.",
     "Document how to send an email, create a Google Calendar event, and upload an object to S3.",
@@ -681,6 +682,8 @@ test("comma, without, and how-to scopes preserve negation without hiding later a
     ["Never delete data, run the migrations.", "migration"],
     ["Do not install zod, add valibot.", "dependency"],
     ["Do not update Jira, update Notion.", "remote_write"],
+    ["Do not install zod, you should add a dependency, and publish it.", "dependency"],
+    ["Do not deploy, but publish the release, and notify the team.", "deploy_release_publish"],
     ["Document how to deploy and then deploy it.", "deploy_release_publish"],
   ]) {
     assert.equal(
