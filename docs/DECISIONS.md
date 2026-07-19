@@ -446,6 +446,23 @@ deterministic command parser correctly blocked all four as unknown, creating
 avoidable human decisions. Generation-time field guidance removes that UX
 noise while preserving the runtime's strict parser and unknown-action boundary.
 
+### D-039 — Require bare inspection program names without normalizing paths
+
+**Decision:** Tell every planning probe to invoke each allowlisted static-read
+program by its exact bare name, such as `ls` or `cat`. Explicitly prohibit
+model-authored absolute or relative executable paths and explicit shells. Keep
+the deterministic command policy unchanged: an App Server `unknown` action such
+as `/bin/ls` remains a containment violation and is never converted into an
+allowed `listFiles` action. Continue to unwrap only the pinned App Server's
+independently validated exact zsh envelope.
+
+**Reason:** A real v0.1.8 Plugin inspect twice failed closed because one of three
+Codex 0.144.4 probes issued the otherwise read-only program as `/bin/ls`. The
+App Server correctly classified that model-authored path as `unknown`, and
+PromptTripwire correctly blocked the batch. Generation guidance removes the
+avoidable notation while preserving the structured-action, canonical-path, and
+raw-command cross-checks rather than weakening them.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage
@@ -482,4 +499,4 @@ noise while preserving the runtime's strict parser and unknown-action boundary.
 
 ## Decision-change rule
 
-Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, D-034, D-035, D-036, D-037, or D-038 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.
+Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, D-034, D-035, D-036, D-037, D-038, or D-039 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.

@@ -28,7 +28,7 @@ function snapshot(overrides = {}) {
     task: "Implement the approved behavior",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.8",
+    promptTripwireVersion: "0.1.9",
     createdAt: "2026-07-14T00:00:00.000Z",
     ...overrides,
   });

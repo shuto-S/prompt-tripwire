@@ -50,7 +50,7 @@ function snapshot() {
     task: "Implement a local validation helper",
     model: { id: "gpt-5.6-sol", reasoningEffort: "low" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.8",
+    promptTripwireVersion: "0.1.9",
     createdAt: "2026-07-14T00:00:00.000Z",
   });
 }

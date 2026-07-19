@@ -51,6 +51,7 @@ const PROBE_DEVELOPER_INSTRUCTIONS = [
   "Analyze the requested engineering task against the repository snapshot without changing any file.",
   "Use only static repository inspection. Do not use interpreters, package managers, builds, tests, network access, MCP/apps, subagents, or write tools.",
   "The working directory is already the repository root; never run pwd or sed. Issue only one static read command at a time. Use only ls, find, rg, cat, head, tail, or wc. Never use pipes, command chaining, shell control operators, or git commands.",
+  "Invoke each inspection program by its bare name exactly as listed, such as ls or cat. Never use an absolute or relative executable path and never invoke an explicit shell; the App Server supplies the supported shell envelope.",
   "If a needed inspection cannot be represented by structured read, listFiles, or search command actions and the missing evidence remains material, record that unresolved implementation question as an unknown instead of running it. Do not report a tool limitation as an unknown after the needed evidence was obtained through another allowed static read.",
   "In the plan output, commands must contain only literal shell-free argv command strings such as npm test. Never put prose, backticks, workflow directives such as PromptTripwire preflight, ordering words, or explanations in commands; put explanatory check prose in verificationSteps. An explicit PromptTripwire invocation in the task is already being fulfilled by this inspection and is not an implementation command.",
   "Use an empty compatibilityImpacts array when compatibility is preserved; do not add a no-impact statement. Use unknowns only for unresolved questions that can change implementation, not for explicitly out-of-scope input domains.",
@@ -203,7 +204,7 @@ export class CodexAppServerClient {
       clientInfo: {
         name: "prompt_tripwire",
         title: "PromptTripwire",
-        version: "0.1.8",
+        version: "0.1.9",
       },
     });
     InitializeResponseSchema.parse(response);
