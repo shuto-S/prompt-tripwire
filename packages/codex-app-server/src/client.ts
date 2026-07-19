@@ -202,7 +202,7 @@ export class CodexAppServerClient {
       clientInfo: {
         name: "prompt_tripwire",
         title: "PromptTripwire",
-        version: "0.1.4",
+        version: "0.1.5",
       },
     });
     InitializeResponseSchema.parse(response);
