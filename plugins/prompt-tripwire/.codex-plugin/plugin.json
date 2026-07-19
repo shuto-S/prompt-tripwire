@@ -1,6 +1,6 @@
 {
   "name": "prompt-tripwire",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Run PromptTripwire preflight checks from an explicitly invoked Codex Skill.",
   "author": {
     "name": "PromptTripwire contributors",

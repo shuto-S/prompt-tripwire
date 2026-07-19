@@ -29,6 +29,28 @@ export interface DecisionCardDto {
   readonly status: "unresolved" | "deferred";
 }
 
+export interface ReviewPresentationOptionDto {
+  readonly optionId: string;
+  readonly label: string;
+  readonly description: string;
+  readonly effects: readonly string[];
+}
+
+export interface ReviewPresentationDecisionDto {
+  readonly decisionId: string;
+  readonly question: string;
+  readonly reason: string;
+  readonly options: readonly ReviewPresentationOptionDto[];
+}
+
+export interface ReviewPresentationDto {
+  readonly locale: "ja";
+  readonly status: "available" | "unavailable";
+  readonly sourceHash: string;
+  readonly task: string | null;
+  readonly decisions: readonly ReviewPresentationDecisionDto[];
+}
+
 export interface ContractPreviewDto {
   readonly contractId: string;
   readonly contentHash: string;
@@ -62,6 +84,7 @@ export interface RunReviewDto {
   readonly resolvedDecisionCount: number;
   readonly contract: ContractPreviewDto | null;
   readonly deviations: readonly DeviationDto[];
+  readonly presentation: ReviewPresentationDto | null;
 }
 
 export interface RunEventDto {

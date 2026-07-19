@@ -13,6 +13,10 @@ test("AC-015: Japanese UI messages cover state, category, trigger, and product t
     "提案されたネットワークアクセスを許可しますか？",
   );
   assert.equal(displayProductText("Allow implementation only", "ja"), "実装のみ許可");
+  assert.equal(
+    displayProductText("a file path falls outside the approved contract", "ja"),
+    "ファイルパスが承認済み契約の範囲外になった場合",
+  );
 });
 
 test("localized chrome preserves arbitrary contract-bound source text", () => {

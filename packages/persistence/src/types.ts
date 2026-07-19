@@ -7,6 +7,7 @@ import type {
   HumanDecision,
   PlanArtifact,
   RepositorySnapshot,
+  ReviewPresentationContent,
   RunRecord,
   RunReport,
   RunState,
@@ -201,6 +202,28 @@ export interface PersistedComparison {
   readonly model: string;
   readonly reasoningEffort: string;
   readonly attempts: readonly ComparatorAttemptRecordInput[];
+  readonly createdAt: string;
+}
+
+export interface SaveReviewPresentationInput {
+  readonly runId: string;
+  readonly taskHash: string;
+  readonly status: "available" | "unavailable";
+  readonly content: ReviewPresentationContent | null;
+  readonly model: string;
+  readonly errorCode: string | null;
+  readonly createdAt: string;
+}
+
+export interface PersistedReviewPresentation {
+  readonly runId: string;
+  readonly locale: "ja";
+  readonly sourceHash: string;
+  readonly taskHash: string;
+  readonly status: "available" | "unavailable";
+  readonly content: ReviewPresentationContent | null;
+  readonly model: string;
+  readonly errorCode: string | null;
   readonly createdAt: string;
 }
 

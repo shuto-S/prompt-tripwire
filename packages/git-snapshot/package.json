@@ -1,6 +1,6 @@
 {
   "name": "@prompt-tripwire/git-snapshot",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "private": true,
   "type": "module",
   "exports": "./dist/index.js",
@@ -8,6 +8,6 @@
     "dist"
   ],
   "dependencies": {
-    "@prompt-tripwire/domain": "0.1.9"
+    "@prompt-tripwire/domain": "0.1.10"
   }
 }

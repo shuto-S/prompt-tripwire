@@ -220,6 +220,35 @@ export const DecisionPointSchema = z
     }
   });
 
+export const ReviewPresentationOptionSchema = z
+  .object({
+    optionId: IdSchema,
+    label: z.string().min(1),
+    description: z.string().min(1),
+    effects: z.array(z.string()),
+  })
+  .strict();
+
+export const ReviewPresentationDecisionSchema = z
+  .object({
+    decisionId: IdSchema,
+    question: z.string().min(1),
+    reason: z.string().min(1),
+    options: z.array(ReviewPresentationOptionSchema).min(2).max(3),
+  })
+  .strict();
+
+/**
+ * Presentation-only Japanese reference text. The authoritative task, decisions,
+ * hashes, and execution contract always remain in their source language.
+ */
+export const ReviewPresentationContentSchema = z
+  .object({
+    task: z.string().min(1),
+    decisions: z.array(ReviewPresentationDecisionSchema),
+  })
+  .strict();
+
 export const HumanDecisionSchema = z
   .object({
     decisionId: IdSchema,
@@ -507,6 +536,9 @@ export type ComparisonCandidateContent = z.infer<typeof ComparisonCandidateConte
 export type DecisionCategory = z.infer<typeof DecisionCategorySchema>;
 export type DecisionOption = z.infer<typeof DecisionOptionSchema>;
 export type DecisionPoint = z.infer<typeof DecisionPointSchema>;
+export type ReviewPresentationOption = z.infer<typeof ReviewPresentationOptionSchema>;
+export type ReviewPresentationDecision = z.infer<typeof ReviewPresentationDecisionSchema>;
+export type ReviewPresentationContent = z.infer<typeof ReviewPresentationContentSchema>;
 export type HumanDecision = z.infer<typeof HumanDecisionSchema>;
 export type ExecutionContract = z.infer<typeof ExecutionContractSchema>;
 export type ExecutionContractDraft = z.infer<typeof ExecutionContractDraftSchema>;

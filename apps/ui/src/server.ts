@@ -237,6 +237,16 @@ function toReviewDto(
             approvedAt: review.contract.approvedAt,
           },
     deviations: review.report?.deviations ?? [],
+    presentation:
+      review.presentation === null
+        ? null
+        : {
+            locale: review.presentation.locale,
+            status: review.presentation.status,
+            sourceHash: review.presentation.sourceHash,
+            task: review.presentation.content?.task ?? null,
+            decisions: review.presentation.content?.decisions ?? [],
+          },
   };
 }
 

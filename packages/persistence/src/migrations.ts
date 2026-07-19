@@ -239,6 +239,23 @@ const MIGRATIONS = [
     issued_at TEXT NOT NULL
   ) STRICT;
   `,
+  `
+  CREATE TABLE review_presentations (
+    run_id TEXT PRIMARY KEY REFERENCES runs(run_id) ON DELETE CASCADE,
+    locale TEXT NOT NULL CHECK (locale = 'ja'),
+    source_hash TEXT NOT NULL,
+    task_hash TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('available', 'unavailable')),
+    model TEXT NOT NULL,
+    error_code TEXT,
+    record_json TEXT,
+    created_at TEXT NOT NULL,
+    CHECK (
+      (status = 'available' AND record_json IS NOT NULL AND error_code IS NULL) OR
+      (status = 'unavailable' AND record_json IS NULL AND error_code IS NOT NULL)
+    )
+  ) STRICT;
+  `,
 ] as const;
 
 export function migrate(database: DatabaseSync, appliedAt: string): void {

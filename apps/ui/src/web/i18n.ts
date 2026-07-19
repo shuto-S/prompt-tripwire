@@ -27,6 +27,11 @@ export interface UiMessages {
   readonly explicitChoices: string;
   readonly decisionsRequiringReview: string;
   readonly sourceTextNotice: string;
+  readonly referenceTranslation: string;
+  readonly showSourceText: string;
+  readonly originalTask: string;
+  readonly originalDecision: string;
+  readonly translationUnavailable: string;
   readonly chooseDirection: string;
   readonly chooseOrEnter: string;
   readonly probeSupport: string;
@@ -94,7 +99,13 @@ const en: UiMessages = {
   explicitChoices: "Explicit choices",
   decisionsRequiringReview: "Decisions requiring review",
   sourceTextNotice:
-    "Task, decision, and evidence content is shown in its contract-bound source language.",
+    "Japanese reference translations are presentation-only. The source text remains authoritative for decisions and the execution contract.",
+  referenceTranslation: "Japanese reference translation",
+  showSourceText: "Show authoritative source text",
+  originalTask: "Authoritative task",
+  originalDecision: "Authoritative decision text",
+  translationUnavailable:
+    "A Japanese reference translation is unavailable. Review the authoritative source text before deciding.",
   chooseDirection: "Choose an explicit direction",
   chooseOrEnter: "Choose one option or enter a free-form decision.",
   probeSupport: "Probe support",
@@ -182,7 +193,13 @@ const ja: UiMessages = {
   explicitChoices: "明示的な選択",
   decisionsRequiringReview: "確認が必要な判断",
   sourceTextNotice:
-    "タスク、判断内容、根拠は契約に結び付いた原文で表示します。PromptTripwireの定型文のみ表示言語に合わせます。",
+    "日本語は判断を助ける参考訳です。承認、契約、ハッシュには変更されていない原文を使用します。",
+  referenceTranslation: "日本語の参考訳",
+  showSourceText: "正本の原文を表示",
+  originalTask: "正本のタスク原文",
+  originalDecision: "正本の判断原文",
+  translationUnavailable:
+    "日本語の参考訳を生成できませんでした。判断前に正本の原文を確認してください。",
   chooseDirection: "方針を明示してください",
   chooseOrEnter: "選択肢を1つ選ぶか、自由記述で判断を入力してください。",
   probeSupport: "支持するプローブ",
@@ -345,6 +362,12 @@ const japaneseProductText: Readonly<Record<string, string>> = {
     "比較範囲の縮小を明示的に受け入れた場合のみ続行します。",
   "The contract records that comparison coverage was degraded.":
     "比較範囲が縮退したことを契約に記録します。",
+  "snapshot or task hash changes": "スナップショットまたはタスクのハッシュが変わった場合",
+  "an unresolved or unknown action is requested": "未解決または未知の操作が要求された場合",
+  "a file path falls outside the approved contract":
+    "ファイルパスが承認済み契約の範囲外になった場合",
+  "a permission, network, dependency, data, or external effect is not explicitly allowed":
+    "権限、ネットワーク、依存関係、データ、または外部への影響が明示的に許可されていない場合",
 };
 
 export function detectUiLocale(): UiLocale {

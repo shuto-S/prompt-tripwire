@@ -80,7 +80,7 @@ async function main() {
       task: "Add a --dry-run option that validates the NAME argument and explains what greeting would be printed without printing the greeting itself.",
       model: { id: selected.model, reasoningEffort },
       codexVersion: REQUIRED_CODEX_VERSION,
-      promptTripwireVersion: "0.1.9",
+      promptTripwireVersion: "0.1.10",
       effectiveConfig: { probeCount: 3, network: "deny" },
     });
     const result = await new ProbeCoordinator(client).run({

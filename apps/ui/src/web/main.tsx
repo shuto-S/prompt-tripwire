@@ -11,6 +11,7 @@ import { createRoot } from "react-dom/client";
 
 import type {
   DecisionCardDto,
+  ReviewPresentationDecisionDto,
   ReviewEvidenceDto,
   RunEventDto,
   RunReviewDto,
@@ -29,6 +30,16 @@ import {
 import "./styles.css";
 
 const terminalStates = new Set(["completed", "failed", "cancelled", "stale"]);
+
+function displayReviewText(
+  source: string,
+  translated: string | undefined,
+  locale: UiLocale,
+): string {
+  return locale === "ja" && translated !== undefined
+    ? translated
+    : displayProductText(source, locale);
+}
 
 function stateLabel(state: string, messages: UiMessages): string {
   return displayLabel(messages.states, state);
@@ -95,6 +106,7 @@ interface DecisionCardProps {
   readonly disabled: boolean;
   readonly locale: UiLocale;
   readonly messages: UiMessages;
+  readonly translation: ReviewPresentationDecisionDto | null;
   readonly onResolve: (
     decision: DecisionCardDto,
     payload: Record<string, unknown>,
@@ -106,6 +118,7 @@ function DecisionCard({
   disabled,
   locale,
   messages,
+  translation,
   onResolve,
 }: DecisionCardProps): JSX.Element {
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
@@ -137,41 +150,58 @@ function DecisionCard({
         <span>{displayLabel(messages.categories, decision.category)}</span>
         {decision.status === "deferred" ? <span>{messages.deferred}</span> : null}
       </div>
-      <h3 id={`${decision.decisionId}-heading`}>{displayProductText(decision.question, locale)}</h3>
-      <p className="reason">{displayProductText(decision.reason, locale)}</p>
+      {locale === "ja" && translation !== null ? (
+        <p className="reference-label">{messages.referenceTranslation}</p>
+      ) : null}
+      <h3 id={`${decision.decisionId}-heading`}>
+        {displayReviewText(decision.question, translation?.question, locale)}
+      </h3>
+      <p className="reason">{displayReviewText(decision.reason, translation?.reason, locale)}</p>
       <form onSubmit={(event) => void submit(event)}>
         <fieldset disabled={disabled}>
           <legend>{messages.chooseDirection}</legend>
           <div className="options">
-            {decision.options.map((option) => (
-              <label className="option" key={option.id}>
-                <span className="option-heading">
-                  <input
-                    type="radio"
-                    name={`${decision.decisionId}-option`}
-                    value={option.id}
-                    checked={selectedOptionId === option.id}
-                    onChange={() => {
-                      setSelectedOptionId(option.id);
-                      setFreeform("");
-                      setValidation("");
-                    }}
-                  />
-                  <strong>{displayProductText(option.label, locale)}</strong>
-                </span>
-                <span>{displayProductText(option.description, locale)}</span>
-                {option.effects.length > 0 ? (
-                  <ul>
-                    {option.effects.map((effect) => (
-                      <li key={effect}>{displayProductText(effect, locale)}</li>
-                    ))}
-                  </ul>
-                ) : null}
-                <span className="support">
-                  {messages.probeSupport}: {option.supportedByProbeIds.join(", ") || messages.none}
-                </span>
-              </label>
-            ))}
+            {decision.options.map((option) => {
+              const translatedOption = translation?.options.find(
+                (candidate) => candidate.optionId === option.id,
+              );
+              return (
+                <label className="option" key={option.id}>
+                  <span className="option-heading">
+                    <input
+                      type="radio"
+                      name={`${decision.decisionId}-option`}
+                      value={option.id}
+                      checked={selectedOptionId === option.id}
+                      onChange={() => {
+                        setSelectedOptionId(option.id);
+                        setFreeform("");
+                        setValidation("");
+                      }}
+                    />
+                    <strong>
+                      {displayReviewText(option.label, translatedOption?.label, locale)}
+                    </strong>
+                  </span>
+                  <span>
+                    {displayReviewText(option.description, translatedOption?.description, locale)}
+                  </span>
+                  {option.effects.length > 0 ? (
+                    <ul>
+                      {option.effects.map((effect, index) => (
+                        <li key={`${option.id}:${String(index)}`}>
+                          {displayReviewText(effect, translatedOption?.effects[index], locale)}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  <span className="support">
+                    {messages.probeSupport}:{" "}
+                    {option.supportedByProbeIds.join(", ") || messages.none}
+                  </span>
+                </label>
+              );
+            })}
           </div>
           {decision.freeformAllowed ? (
             <label className="freeform">
@@ -207,6 +237,31 @@ function DecisionCard({
           </div>
         </fieldset>
       </form>
+      {locale === "ja" && translation !== null ? (
+        <details className="source-text">
+          <summary>{messages.showSourceText}</summary>
+          <h4>{messages.originalDecision}</h4>
+          <p>
+            <strong>{decision.question}</strong>
+          </p>
+          <p>{decision.reason}</p>
+          {decision.options.map((option) => (
+            <div className="source-option" key={`source:${option.id}`}>
+              <p>
+                <strong>{option.label}</strong>
+              </p>
+              <p>{option.description}</p>
+              {option.effects.length > 0 ? (
+                <ul>
+                  {option.effects.map((effect, index) => (
+                    <li key={`source:${option.id}:${String(index)}`}>{effect}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ))}
+        </details>
+      ) : null}
       <details>
         <summary>{messages.evidenceAndTriggers}</summary>
         <dl className="evidence">
@@ -271,6 +326,9 @@ function App(): JSX.Element {
   const [evidenceBusy, setEvidenceBusy] = useState(false);
   const contentRef = useRef<HTMLElement>(null);
   const observedVersion = useRef(-1);
+  const japanesePresentation =
+    locale === "ja" && review?.presentation?.status === "available" ? review.presentation : null;
+  const translatedTask = japanesePresentation?.task ?? null;
 
   const applyReview = useCallback((next: RunReviewDto): void => {
     if (next.version < observedVersion.current) return;
@@ -429,7 +487,24 @@ function App(): JSX.Element {
           <section className="summary" aria-labelledby="summary-heading">
             <div>
               <p className="section-label">{messages.taskAndSnapshot}</p>
-              <h2 id="summary-heading">{review.snapshot?.task ?? `Run ${review.runId}`}</h2>
+              {translatedTask !== null ? (
+                <p className="reference-label">{messages.referenceTranslation}</p>
+              ) : null}
+              <h2 id="summary-heading">
+                {translatedTask ?? review.snapshot?.task ?? `Run ${review.runId}`}
+              </h2>
+              {locale === "ja" && japanesePresentation === null ? (
+                <p className="translation-warning" role="note">
+                  {messages.translationUnavailable}
+                </p>
+              ) : null}
+              {translatedTask !== null && review.snapshot !== null ? (
+                <details className="source-text task-source">
+                  <summary>{messages.showSourceText}</summary>
+                  <h3>{messages.originalTask}</h3>
+                  <p>{review.snapshot.task}</p>
+                </details>
+              ) : null}
             </div>
             <dl>
               <div>
@@ -467,6 +542,11 @@ function App(): JSX.Element {
                     disabled={busy || review.mode === "recorded"}
                     locale={locale}
                     messages={messages}
+                    translation={
+                      japanesePresentation?.decisions.find(
+                        (candidate) => candidate.decisionId === decision.decisionId,
+                      ) ?? null
+                    }
                     onResolve={async (item, payload) => {
                       await mutate(
                         `/api/runs/${encodeURIComponent(review.runId)}/decisions/${encodeURIComponent(item.decisionId)}`,
@@ -483,7 +563,7 @@ function App(): JSX.Element {
             <section className="contract" aria-labelledby="contract-heading">
               <p className="section-label">{messages.consolidatedContract}</p>
               <h2 id="contract-heading">{messages.approveBoundedExecution}</h2>
-              <p>{review.contract.approvedGoal}</p>
+              <p>{translatedTask ?? review.contract.approvedGoal}</p>
               <div className="contract-columns">
                 <div>
                   <h3>{messages.allowedPaths}</h3>
@@ -505,7 +585,7 @@ function App(): JSX.Element {
                   <h3>{messages.stopConditions}</h3>
                   <ul>
                     {review.contract.stopConditions.map((condition) => (
-                      <li key={condition}>{condition}</li>
+                      <li key={condition}>{displayProductText(condition, locale)}</li>
                     ))}
                   </ul>
                 </div>

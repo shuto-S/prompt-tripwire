@@ -1,6 +1,6 @@
 # OpenAI Build Week plan and compliance
 
-Status date: 2026-07-19
+Status date: 2026-07-20
 
 Official source: [OpenAI Build Week Official Rules](https://openai.devpost.com/rules)
 
@@ -170,7 +170,8 @@ is excluded from the judge release archive.
 - [x] Publish the verified `v0.1.6` macOS arm64 artifact and checksum, then verify both anonymously.
 - [x] Publish the verified `v0.1.7` macOS arm64 artifact and checksum, then verify both anonymously.
 - [x] Publish the verified `v0.1.8` macOS arm64 artifact and checksum, then verify both anonymously.
-- [ ] Publish the verified `v0.1.9` macOS arm64 artifact and checksum, then verify both anonymously.
+- [x] Publish the verified `v0.1.9` macOS arm64 artifact and checksum, then verify both anonymously.
+- [ ] Publish the verified `v0.1.10` macOS arm64 artifact and checksum, then verify both anonymously.
 - [x] Dated commits distinguish specification, implementation, and submission work.
 - [x] Dependency licenses and third-party assets reviewed.
 - [x] No secrets in Git history.
@@ -200,7 +201,7 @@ is excluded from the judge release archive.
 - Present the prepared YouTube video, title, description, visibility, captions, and thumbnail for human confirmation; only then upload and verify playback anonymously.
 - Replace the Devpost public video placeholder after YouTube publication and prepare the complete draft; present the final field/attachment/link packet for a separate human confirmation before final submission.
 
-Publication evidence: repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0. The prepared v0.1.9 release still requires publication and anonymous real-Plugin verification. The public v0.1.8 release and its downloaded artifact/checksum were verified anonymously on 2026-07-19 JST; its macOS arm64 archive SHA-256 is `0b5ca45f3cf497917df9f0b1c531aa4e8cf5b9e75eb46e47128c5fa3d09e351c`. Its public bytes matched the clean tag-aware candidate, packaged instructions self-reference v0.1.8, and an isolated-prefix install enabled Plugin version 0.1.8 without API-key environment variables. A real logged-in Skill invocation stopped safely in the caller sandbox; two permitted thin-adapter runs then failed closed because Codex 0.144.4 emitted `/bin/ls` as an `unknown` action. v0.1.9 corrects only that generation notation and retains the unknown-action boundary. The public v0.1.7 archive remains immutable historical evidence with SHA-256 `c6fe5b1f51bfd81dff7ebdce5f5f5f46eef01c6cb4dced0fd7213723ba9611f6`; its real inspect exposed four plan-command prose unknowns corrected in v0.1.8. The public v0.1.6 archive remains historical evidence with SHA-256 `1b74c4c935e0fec1857b88b2a592f776c01f104a4042d224ef3ac1265fe83c33`. Historical checksums do not verify the v0.1.9 archive.
+Publication evidence: repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0. The public v0.1.9 archive and checksum were downloaded anonymously on 2026-07-20 JST. SHA-256 `8e1fa4ea296eb7d64c3fb453d21121037c63fe68a919c0fd51de483d6436d9c0`, size 2,314,606 bytes, 921 verified files, and source commit `de6c4bb458793d3395155f370b0c0e22d24ef773` match the clean tag-aware candidate byte-for-byte. Its packaged runtime reports 0.1.9, packaged instructions self-reference v0.1.9, and an isolated API-key-free install enabled Plugin 0.1.9. The real Skill invocation stopped before implementation inside the caller sandbox; the one permitted normal-permission thin-adapter retry reached `needs_review` with one compatibility decision, no approved contract, and an unchanged source checkout. v0.1.10 adds source-bound Japanese reference translation after that review exposed English decision effects, without changing the human-approval or contract boundary. The public v0.1.8 release remains immutable historical evidence with SHA-256 `0b5ca45f3cf497917df9f0b1c531aa4e8cf5b9e75eb46e47128c5fa3d09e351c`; the v0.1.7 archive remains historical evidence with SHA-256 `c6fe5b1f51bfd81dff7ebdce5f5f5f46eef01c6cb4dced0fd7213723ba9611f6`; and the v0.1.6 archive remains historical evidence with SHA-256 `1b74c4c935e0fec1857b88b2a592f776c01f104a4042d224ef3ac1265fe83c33`. Historical checksums do not verify the v0.1.10 archive.
 
 A final local v0.1.2 H.264/AAC English demo, caption/narration copy, thumbnail,
 and owned UI captures are now in `docs/demo/` and `docs/assets/demo/`. The live
@@ -209,8 +210,18 @@ scenes use an earlier human-approved safe-fixture run. These files are present
 in the repository but intentionally excluded from the compact judge archive.
 They are local review evidence, not proof of public YouTube publication.
 
-The v0.1.9 bare-program guidance patch, Release, checksum, packaged instructions,
-anonymous artifact/Plugin verification, and contract-bound rehearsal remain to
-be completed before the YouTube confirmation gate. YouTube upload and Devpost
-final submission remain blocked on their respective explicit human
-confirmations.
+The v0.1.9 public artifact, isolated install, and pre-approval Plugin flow are
+verified. The v0.1.10 Japanese-reference patch now requires its own clean
+artifact, anonymous verification, API-key-free Plugin flow, explicit human
+decision, contained execution, report, and targeted uninstall rehearsal before
+the YouTube confirmation gate. YouTube upload and Devpost final submission
+remain blocked on their respective explicit human confirmations.
+
+Post-submission product work is separated from the Build Week critical path:
+[#35](https://github.com/shuto-S/prompt-tripwire/issues/35) tracks Linux,
+[#36](https://github.com/shuto-S/prompt-tripwire/issues/36) custom repository
+policy, [#37](https://github.com/shuto-S/prompt-tripwire/issues/37) sanitized
+review export, [#38](https://github.com/shuto-S/prompt-tripwire/issues/38)
+Codex version policy, and
+[#39](https://github.com/shuto-S/prompt-tripwire/issues/39) comparator and
+deterministic-policy fixture expansion.

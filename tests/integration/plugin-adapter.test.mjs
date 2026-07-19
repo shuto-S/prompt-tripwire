@@ -56,7 +56,7 @@ test("plugin delegates inspect without changing the target repository", () => {
   const marker = join(root, "args.txt");
   const fake = `#!/bin/sh
 if [ "$1" = "--version" ]; then
-  printf '%s\\n' 'prompt-tripwire 0.1.9'
+  printf '%s\\n' 'prompt-tripwire 0.1.10'
   exit 0
 fi
 printf '%s' "$*" > "$MARKER"
@@ -123,7 +123,7 @@ test("plugin receives untrusted multiline task bytes only through stdin", () => 
     runtime,
     `#!/bin/sh
 if [ "$1" = "--version" ]; then
-  printf '%s\\n' 'prompt-tripwire 0.1.9'
+  printf '%s\\n' 'prompt-tripwire 0.1.10'
   exit 0
 fi
 while [ "$#" -gt 0 ]; do
@@ -190,7 +190,7 @@ test("plugin gives a sanitized caller-sandbox hint without removing the re-entry
     runtime,
     `#!/bin/sh
 if [ "$1" = "--version" ]; then
-  printf '%s\\n' 'prompt-tripwire 0.1.9'
+  printf '%s\\n' 'prompt-tripwire 0.1.10'
   exit 0
 fi
 printf '%s' "$PROMPT_TRIPWIRE_PLUGIN_REENTRY" > "$MARKER"
@@ -336,7 +336,7 @@ test("plugin redacts common credential shapes from delegated runtime failures", 
     runtime,
     `#!/bin/sh
 if [ "$1" = "--version" ]; then
-  printf '%s\\n' 'prompt-tripwire 0.1.9'
+  printf '%s\\n' 'prompt-tripwire 0.1.10'
   exit 0
 fi
 printf '%s' "$PROMPT_TRIPWIRE_PLUGIN_REENTRY" > "$MARKER"
@@ -400,7 +400,7 @@ test("plugin fails closed when Codex is not logged in", () => {
   writeFileSync(
     runtime,
     `#!/bin/sh
-if [ "$1" = "--version" ]; then printf '%s\\n' 'prompt-tripwire 0.1.9'; fi
+if [ "$1" = "--version" ]; then printf '%s\\n' 'prompt-tripwire 0.1.10'; fi
 `,
     { mode: 0o700 },
   );
@@ -427,7 +427,7 @@ test("plugin requires the exact Codex CLI version", () => {
   const root = mkdtempSync(join(tmpdir(), "prompt-tripwire-plugin-version-test-"));
   const runtime = join(root, "tripwire");
   const codex = join(root, "codex");
-  writeFileSync(runtime, "#!/bin/sh\nprintf '%s\\n' 'prompt-tripwire 0.1.9'\n", {
+  writeFileSync(runtime, "#!/bin/sh\nprintf '%s\\n' 'prompt-tripwire 0.1.10'\n", {
     mode: 0o700,
   });
   writeFileSync(codex, "#!/bin/sh\nprintf '%s\\n' 'codex-cli 0.144.40'\n", { mode: 0o700 });

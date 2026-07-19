@@ -463,6 +463,29 @@ PromptTripwire correctly blocked the batch. Generation guidance removes the
 avoidable notation while preserving the structured-action, canonical-path, and
 raw-command cross-checks rather than weakening them.
 
+### D-040 — Add source-bound Japanese reference translations without changing authority
+
+**Decision:** Keep D-036's two-value locale preference and fixed chrome, then
+add a separate Japanese reference-presentation stage after authoritative
+comparison and deterministic decision normalization. Use a fresh ephemeral,
+tool-free, read-only, network-denied App Server turn through the existing
+logged-in Codex CLI to translate only the task and final decision questions,
+reasons, option labels, descriptions, and effects. Treat every source string as
+untrusted quoted data. Bind output to the exact decision and option IDs and
+effect counts, sanitize it, persist it in a separate `review_presentations`
+record, label it as a reference translation, and provide expandable access to
+the unchanged authoritative source text. Exclude the presentation from policy,
+decision IDs, human mutation fingerprints, contract content/identity, execution,
+and reports. On any invalid, secret-like, timed-out, or unavailable result, show
+an explicit source-text fallback without selecting or inferring a decision.
+
+**Reason:** Japanese chrome alone left the task and the compatibility effects a
+human actually had to judge in English. A separate, source-bound presentation
+adapter makes those choices understandable without turning probabilistic
+translation into approval evidence. Reusing the authenticated App Server adds
+no API-key or hosted-service path; strict binding, source disclosure, and
+identity tests preserve the existing human-approval and contract boundaries.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage
@@ -499,4 +522,4 @@ raw-command cross-checks rather than weakening them.
 
 ## Decision-change rule
 
-Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, D-034, D-035, D-036, D-037, D-038, or D-039 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.
+Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, D-034, D-035, D-036, D-037, D-038, D-039, or D-040 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.

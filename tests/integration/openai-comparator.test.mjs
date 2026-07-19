@@ -6,7 +6,9 @@ import test from "node:test";
 
 import {
   AppServerComparatorTransport,
+  AppServerReviewTranslationTransport,
   PlanComparator,
+  ReviewPresentationTranslator,
   createContractPreview,
   createReviewRound,
   normalizeReview as normalizeReviewBundle,
@@ -184,6 +186,82 @@ class QueueTransport {
   }
 }
 
+function reviewDecision() {
+  return {
+    decisionId: "decision_compatibility",
+    category: "compatibility",
+    question: "Allow all disclosed compatibility impacts?",
+    reason: "Two compatibility impacts require an explicit decision.",
+    impact: "medium",
+    options: [
+      {
+        id: "decision_compatibility_deny",
+        label: "Do not allow",
+        description: "Keep the impacts outside the execution contract.",
+        effects: ["Whitespace-only names keep the current behavior."],
+        supportedByProbeIds: ["probe_1"],
+        evidenceRefs: ["evidence_probe_1"],
+      },
+      {
+        id: "decision_compatibility_allow",
+        label: "Allow local implementation",
+        description: "Include every disclosed impact in the execution contract.",
+        effects: ["Whitespace-only names use the fallback.", "Surrounding whitespace is removed."],
+        supportedByProbeIds: ["probe_2"],
+        evidenceRefs: ["evidence_probe_2"],
+      },
+    ],
+    freeformAllowed: true,
+    defaultOptionId: null,
+    deterministicTriggers: ["compatibility"],
+    evidenceRefs: ["evidence_probe_1", "evidence_probe_2"],
+    status: "unresolved",
+  };
+}
+
+function translatedReview(overrides = {}) {
+  return {
+    task: "ローカルの入力検証ヘルパーを実装する",
+    decisions: [
+      {
+        decisionId: "decision_compatibility",
+        question: "開示された互換性への影響をすべて許可しますか？",
+        reason: "2件の互換性への影響について明示的な判断が必要です。",
+        options: [
+          {
+            optionId: "decision_compatibility_deny",
+            label: "許可しない",
+            description: "影響を実行契約の対象外にします。",
+            effects: ["空白のみの名前は現在の挙動を維持します。"],
+          },
+          {
+            optionId: "decision_compatibility_allow",
+            label: "ローカル実装を許可",
+            description: "開示された影響を実行契約に含めます。",
+            effects: ["空白のみの名前にはフォールバックを使用します。", "前後の空白を削除します。"],
+          },
+        ],
+      },
+    ],
+    ...overrides,
+  };
+}
+
+class TranslationQueueTransport {
+  constructor(entries) {
+    this.entries = [...entries];
+    this.requests = [];
+  }
+
+  async translate(request) {
+    this.requests.push(request);
+    const entry = this.entries.shift();
+    if (entry instanceof Error) throw entry;
+    if (entry === undefined) throw new Error("fixture translation transport exhausted");
+    return entry;
+  }
+}
+
 function compareInput(plans, overrides = {}) {
   return {
     snapshot: snapshot(),
@@ -276,6 +354,123 @@ test("AC-003/AC-008: validated App Server output is bound to the approved inputs
     "reasoningEffort",
     "task",
   ]);
+});
+
+test("Japanese review translations are source-bound presentation data", async () => {
+  const transport = new TranslationQueueTransport([
+    {
+      threadId: "thread_translation",
+      turnId: "turn_translation",
+      model: "gpt-5.6-terra",
+      output: translatedReview(),
+      usage: USAGE,
+    },
+  ]);
+  const result = await new ReviewPresentationTranslator(transport).translate({
+    task: snapshot().task,
+    taskHash: snapshot().taskHash,
+    decisions: [reviewDecision()],
+    model: "gpt-5.6-terra",
+    reasoningEffort: "low",
+  });
+  assert.equal(result.content.task, "ローカルの入力検証ヘルパーを実装する");
+  assert.equal(result.content.decisions[0].decisionId, reviewDecision().decisionId);
+  assert.deepEqual(
+    result.content.decisions[0].options.map((option) => option.optionId),
+    reviewDecision().options.map((option) => option.id),
+  );
+  assert.equal(transport.requests[0].task, snapshot().task);
+  assert.deepEqual(transport.requests[0].decisions, [reviewDecision()]);
+});
+
+test("Japanese review translations fail closed on changed bindings or secret-like output", async () => {
+  const changedBinding = translatedReview({
+    decisions: [
+      {
+        ...translatedReview().decisions[0],
+        decisionId: "decision_invented",
+      },
+    ],
+  });
+  await assert.rejects(
+    new ReviewPresentationTranslator(
+      new TranslationQueueTransport([
+        {
+          threadId: null,
+          turnId: null,
+          model: "gpt-5.6-terra",
+          output: changedBinding,
+          usage: USAGE,
+        },
+      ]),
+    ).translate({
+      task: snapshot().task,
+      taskHash: snapshot().taskHash,
+      decisions: [reviewDecision()],
+      model: "gpt-5.6-terra",
+      reasoningEffort: "low",
+    }),
+    (error) => error?.code === "TRANSLATION_RESPONSE_INVALID",
+  );
+  await assert.rejects(
+    new ReviewPresentationTranslator(
+      new TranslationQueueTransport([
+        {
+          threadId: null,
+          turnId: null,
+          model: "gpt-5.6-terra",
+          output: translatedReview({
+            task: ["sk", "proj", "abcdefghijklmnopqrstuvwxyz123456"].join("-"),
+          }),
+          usage: USAGE,
+        },
+      ]),
+    ).translate({
+      task: snapshot().task,
+      taskHash: snapshot().taskHash,
+      decisions: [reviewDecision()],
+      model: "gpt-5.6-terra",
+      reasoningEffort: "low",
+    }),
+    (error) => error?.code === "TRANSLATION_RESPONSE_INVALID",
+  );
+});
+
+test("review translation transport uses and removes an empty disposable directory", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "prompt-tripwire-translation-parent-"));
+  let observedRoot;
+  const abort = new AbortController();
+  const runner = {
+    async runReviewTranslation(input) {
+      observedRoot = input.cwd;
+      assert.deepEqual(await readdir(input.cwd), []);
+      assert.equal(input.signal, abort.signal);
+      return {
+        threadId: "thread_translation_transport",
+        turnId: "turn_translation_transport",
+        model: input.model,
+        output: translatedReview(),
+        usage: USAGE,
+      };
+    },
+  };
+  try {
+    const result = await new AppServerReviewTranslationTransport(runner, {
+      temporaryParent: parent,
+    }).translate(
+      {
+        task: snapshot().task,
+        decisions: [reviewDecision()],
+        model: "gpt-5.6-terra",
+        reasoningEffort: "low",
+      },
+      { signal: abort.signal },
+    );
+    assert.equal(result.output.task, translatedReview().task);
+    await assert.rejects(access(observedRoot));
+  } finally {
+    await rm(parent, { recursive: true, force: true });
+  }
 });
 
 test("AC-008/AC-018: comparator transport uses an empty disposable directory", async () => {
@@ -995,6 +1190,57 @@ test("M1: controller pipeline reaches approval or fail-closed review states", as
       0,
     );
     assert.match(stdout, /State: approved/u);
+  } finally {
+    await controller.stop();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("presentation translation failure falls back to source text without blocking inspection", async () => {
+  const root = await mkdtemp(join(tmpdir(), "prompt-tripwire-translation-fallback-"));
+  const store = new SqlitePersistence({
+    databasePath: join(root, "prompt-tripwire.sqlite3"),
+    artifactRoot: join(root, "artifacts"),
+  });
+  const plans = [plan("probe_1"), plan("probe_2"), plan("probe_3")];
+  const pipeline = new InspectionPipeline({
+    probes: {
+      async run() {
+        return probeBatch(plans);
+      },
+    },
+    comparator: new PlanComparator(new QueueTransport([response(safeContent())])),
+    presentationTranslator: {
+      async translate() {
+        throw Object.assign(new Error("translation timed out"), {
+          code: "TRANSLATION_TIMEOUT",
+        });
+      },
+    },
+    now: () => "2026-07-14T00:05:00.000Z",
+  });
+  const controller = new LocalController({
+    store,
+    inspectionPort: pipeline,
+    prepareSnapshot: async () => preparedSnapshot(),
+    now: () => "2026-07-14T00:05:00.000Z",
+  });
+  controller.start();
+  try {
+    const approved = snapshot();
+    const run = await controller.inspect({
+      runId: "run_translation_fallback",
+      repositoryPath: approved.repositoryPath,
+      task: approved.task,
+      model: approved.model,
+      codexVersion: approved.codexVersion,
+      promptTripwireVersion: approved.promptTripwireVersion,
+    });
+    assert.equal(run.state, "ready_for_approval");
+    const presentation = store.getReviewPresentation(run.runId);
+    assert.equal(presentation.status, "unavailable");
+    assert.equal(presentation.errorCode, "TRANSLATION_TIMEOUT");
+    assert.equal(presentation.content, null);
   } finally {
     await controller.stop();
     await rm(root, { recursive: true, force: true });

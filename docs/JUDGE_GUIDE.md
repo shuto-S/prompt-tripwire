@@ -1,13 +1,13 @@
 # PromptTripwire judge guide
 
-PromptTripwire is a local-first preflight and execution gate for Codex. This guide targets the compiled v0.1.9 macOS arm64 release; judges do not need the TypeScript source tree or a source build. Download the archive and `SHA256SUMS.txt` from the [v0.1.9 GitHub Release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.9). The public v0.1.2 through v0.1.8 releases remain immutable historical evidence and must not be substituted for the v0.1.9 judge artifact.
+PromptTripwire is a local-first preflight and execution gate for Codex. This guide targets the compiled v0.1.10 macOS arm64 release; judges do not need the TypeScript source tree or a source build. Download the archive and `SHA256SUMS.txt` from the [v0.1.10 GitHub Release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.10). The public v0.1.2 through v0.1.9 releases remain immutable historical evidence and must not be substituted for the v0.1.10 judge artifact.
 
-v0.1.9 preserves the v0.1.5 Japanese/English UI and the v0.1.4 Plugin
+v0.1.10 preserves the v0.1.5 Japanese/English UI and the v0.1.4 Plugin
 isolation, re-entry sentinel, custom Codex
 home handling, and explicit-path validation. v0.1.5 added Japanese Decision Inbox
 chrome selected from the browser locale plus a visible `日本語 / English`
-switch. Task text, model output, evidence, contracts, mutation data, reports,
-and approval state are not translated or rewritten. v0.1.6 corrected the
+switch. Authoritative task text, model output, evidence, decisions, contracts,
+mutation data, reports, and approval state are never rewritten. v0.1.6 corrected the
 packaged release references. v0.1.7 keeps explicit coordinated prohibition
 lists negated, removing false safe-fixture dependency, network, and publication
 questions without weakening positive-action detection. v0.1.8 additionally
@@ -15,6 +15,11 @@ keeps workflow/check prose out of plan `commands`, preventing avoidable unknown
 questions while malformed values remain fail-closed. v0.1.9 requires bare
 inspection program names so Codex 0.144.4 does not turn an otherwise safe
 `ls` into the fail-closed `unknown` shape `/bin/ls`; that shape remains denied.
+v0.1.10 additionally gives the Japanese UI source-bound reference translations
+for the task and decision content. The unchanged authoritative source is
+expandable, and translation cannot alter IDs, decisions, contracts, hashes,
+execution, or reports. Invalid or unavailable translation falls back visibly
+to source text without inferring approval.
 
 ## Supported platform and prerequisites
 
@@ -40,14 +45,14 @@ Place the `.tar.gz` and `SHA256SUMS.txt` files in the same directory, then run:
 
 ```sh
 shasum -a 256 -c SHA256SUMS.txt
-tar -xzf prompt-tripwire-v0.1.9-macos-arm64.tar.gz
-cd prompt-tripwire-v0.1.9-macos-arm64
+tar -xzf prompt-tripwire-v0.1.10-macos-arm64.tar.gz
+cd prompt-tripwire-v0.1.10-macos-arm64
 ./bin/tripwire --version
 ./bin/tripwire --help
 ```
 
 Do not use a historical release's SHA-256 for this archive. Verify only with
-the `SHA256SUMS.txt` downloaded alongside the v0.1.9 archive.
+the `SHA256SUMS.txt` downloaded alongside the v0.1.10 archive.
 
 The shortest user-local setup installs the runtime and Codex Plugin together
 and requires no `sudo`:
@@ -80,7 +85,7 @@ restrictions remain unchanged. If the permission is denied, preflight stops;
 do not configure an API key as a workaround.
 
 The default runtime and marketplace root is
-`~/.local/lib/prompt-tripwire/0.1.9`. The marketplace retains the relative
+`~/.local/lib/prompt-tripwire/0.1.10`. The marketplace retains the relative
 `./plugins/prompt-tripwire` source. The installer verifies macOS arm64, Node.js,
 Git, Codex 0.144.4, and the existing login; it never runs inspect, decisions,
 approval, or implementation. It does not require `OPENAI_API_KEY`.
@@ -95,7 +100,7 @@ Add `~/.local/bin` to `PATH` if using the runtime directly. To remove the
 Plugin, its owned marketplace registration, and runtime together:
 
 ```sh
-~/.local/lib/prompt-tripwire/0.1.9/uninstall.sh --with-codex-plugin
+~/.local/lib/prompt-tripwire/0.1.10/uninstall.sh --with-codex-plugin
 ```
 
 The targeted uninstall leaves every other Plugin and marketplace untouched and
@@ -116,7 +121,7 @@ For a Git-marketplace fallback, first keep the artifact's `tripwire` launcher
 on `PATH` or set `PROMPT_TRIPWIRE_BIN`, then run:
 
 ```sh
-codex plugin marketplace add shuto-S/prompt-tripwire --ref v0.1.9
+codex plugin marketplace add shuto-S/prompt-tripwire --ref v0.1.10
 codex plugin add prompt-tripwire@prompt-tripwire-local
 codex plugin list --marketplace prompt-tripwire-local
 ```
@@ -150,6 +155,15 @@ and isolated installation enabled Plugin version 0.1.8 with API-key variables
 unset. Its caller-sandbox attempt stopped safely; two permitted adapter runs
 then failed closed when one probe emitted `/bin/ls` as `unknown`. v0.1.9 keeps
 that unknown-action gate intact and corrects only the generation notation.
+The v0.1.9 public archive and checksum were downloaded anonymously and matched
+the clean candidate byte-for-byte: SHA-256
+`8e1fa4ea296eb7d64c3fb453d21121037c63fe68a919c0fd51de483d6436d9c0`,
+2,314,606 bytes, 921 files, source commit
+`de6c4bb458793d3395155f370b0c0e22d24ef773`. An isolated API-key-free install
+enabled Plugin 0.1.9, and its real preflight reached one explicit compatibility
+decision without changing the source checkout. The remaining English effects
+observed in that Japanese UI directly motivated v0.1.10's separately bound
+reference translation.
 
 ## Demo evidence
 
@@ -164,7 +178,7 @@ notes](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/demo/README.m
 embedded default English subtitles. These repository files are excluded from
 the compact release archive.
 
-This media is explicitly a v0.1.2 capture, not footage of the v0.1.9 judge
+This media is explicitly a v0.1.2 capture, not footage of the v0.1.10 judge
 distribution. The Inbox capture is an actual API-key-free v0.1.2 Plugin
 inspect. It has one
 unresolved compatibility decision, no dependency blocker, no selected option,
