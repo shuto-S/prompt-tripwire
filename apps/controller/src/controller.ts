@@ -417,8 +417,14 @@ export class LocalController {
     this.assertStarted();
     const run = this.store.getRun(runId).run;
     let report: RunReport | null = null;
+    let presentation: ReviewResult["presentation"] = null;
     try {
       report = this.store.getReport(runId).report;
+    } catch (error) {
+      if (!(error instanceof PersistenceError) || error.code !== "NOT_FOUND") throw error;
+    }
+    try {
+      presentation = this.store.getReviewPresentation(runId);
     } catch (error) {
       if (!(error instanceof PersistenceError) || error.code !== "NOT_FOUND") throw error;
     }
@@ -429,6 +435,7 @@ export class LocalController {
       humanDecisions: this.store.listHumanDecisions(runId),
       contract: run.activeContractId === null ? null : this.store.getContract(run.activeContractId),
       report,
+      presentation,
     };
   }
 

@@ -16,7 +16,7 @@ import type {
   PrepareSnapshotRequest,
   PreparedRepositorySnapshot,
 } from "@prompt-tripwire/git-snapshot";
-import type { SqlitePersistence } from "@prompt-tripwire/persistence";
+import type { PersistedReviewPresentation, SqlitePersistence } from "@prompt-tripwire/persistence";
 
 export interface InspectionContext {
   readonly run: RunRecord;
@@ -116,6 +116,7 @@ export interface ReviewResult {
   readonly humanDecisions: readonly HumanDecision[];
   readonly contract: ExecutionContract | null;
   readonly report: RunReport | null;
+  readonly presentation: PersistedReviewPresentation | null;
 }
 
 export interface ReviewEvidence {

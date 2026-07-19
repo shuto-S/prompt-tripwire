@@ -54,6 +54,8 @@ flowchart TB
     Controller --> Comparator["GPT-5.6 comparator"]
     Comparator --> AppAdapter
     Controller --> Policy["Deterministic policy engine"]
+    Controller --> Translation["Japanese reference translator"]
+    Translation --> AppAdapter
     Controller --> Contracts["Contract service"]
     Controller --> Gate["Execution gate"]
     Gate --> AppAdapter
@@ -104,6 +106,26 @@ whole-value, unambiguous dependency no-change declarations; contrast clauses
 remain eligible for positive action matching. Contract previews identify this
 behavior as `deterministic-v2`.
 
+### Japanese reference translator
+
+After comparison and deterministic normalization have produced the final
+authoritative decision points, the controller sends only the authoritative task
+and displayable decision strings to a fresh ephemeral App Server thread. The
+thread uses the same logged-in Codex CLI, an empty user-only temporary directory,
+read-only sandboxing, network disabled, `untrusted` approval, no
+MCP/apps/subagents, and a strict Zod-derived output schema. Source strings are
+explicitly treated as untrusted quoted data rather than instructions. Any tool
+request, permission request, file change, or diff fails the translation turn.
+
+The translation result is presentation-only. The binding layer requires the
+exact original decision and option IDs plus identical decision, option, and
+effect counts, rejects secret-like output, and normalizes ordering to the source
+records. It is stored in `review_presentations` with a source hash that excludes
+mutable review status. It is never passed to policy, decision normalization,
+human mutation fingerprints, contract creation/hashing, execution, or reports.
+A failed turn stores only a bounded error code and produces an explicit UI
+fallback to escaped source text; it does not fail or approve the inspection.
+
 ### Contract service
 
 Creates canonical immutable contracts, records human decisions, calculates hashes, invalidates stale versions, and provides matching predicates to the runtime gate.
@@ -127,10 +149,12 @@ process without persisting either listener's bearer token.
 The bundled React client owns a presentation-only Japanese/English dictionary.
 It derives the initial locale from the browser preference, stores only the
 `ja`/`en` choice in origin-scoped browser storage, and updates the document
-language for assistive technology. Exact PromptTripwire-owned templates may be
-localized at render time; task, model, repository, contract, ID, and mutation
-data cross the existing API unchanged. Locale state is not sent to the
-controller and cannot alter a decision or approval fingerprint.
+language for assistive technology. The aggregate review API returns authoritative
+source records and, separately, an optional source-bound Japanese presentation.
+Japanese rendering labels it as a reference translation and exposes the source
+task and full source decision text in expandable sections. English rendering
+uses source records. Locale state is not sent to the controller and neither the
+locale nor reference presentation can alter a decision or approval fingerprint.
 
 ### Codex Plugin adapter
 
@@ -451,8 +475,14 @@ Conceptual tables:
 - `deviations`
 - `reports`
 - `review_capability_leases`
+- `review_presentations`
 
 Large sanitized artifacts are stored as user-private files referenced by content hash. Database writes for state transition, event ingestion, decision resolution, contract creation, and approval are transactional. Final-answer resolution and its ready-or-cancel outcome share one transaction; approval does not.
+
+`review_presentations` contains only Japanese reference text or a bounded
+unavailable status. Its source hash binds task and immutable decision/option
+content while excluding mutable review status. It is not a source for contract
+or report construction.
 
 The local controller uses one defensive `DatabaseSync` connection per process. Optimistic writes match the persisted run version, and each mutating retry key stores its operation, canonical request fingerprint, and original result in the same transaction as the state change. Reusing a key for different input fails closed. A non-secret per-run review generation coordinates live listeners across those connections; bearer capabilities are never stored. On startup, persisted `running` records pass through `pausing` to `paused` with `CONTROLLER_RESTART`; review, approved, paused, failed, and stale states are never auto-launched. Report and log payloads pass the deterministic sanitizer before storage, while immutable snapshots and contracts are hash-verified on both write and read.
 

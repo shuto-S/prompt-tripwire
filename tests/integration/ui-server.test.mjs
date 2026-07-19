@@ -170,6 +170,94 @@ test("AC-003/006/017: Decision Inbox API is bounded, authenticated, and fail-clo
   }
 });
 
+test("Japanese reference translations are returned separately from authoritative review text", async () => {
+  const fixture = await createReviewFixture({
+    decisionCount: 1,
+    runId: "run_ui_japanese_presentation",
+    presentationStatus: "available",
+  });
+  const server = await startReviewServer({
+    controller: fixture.controller,
+    runId: fixture.run.runId,
+  });
+  try {
+    const endpoint = `${server.origin}/api/runs/${fixture.run.runId}`;
+    const review = await (await fetch(endpoint, { headers: apiHeaders(server) })).json();
+    assert.equal(review.presentation.status, "available");
+    assert.equal(review.presentation.locale, "ja");
+    assert.match(review.presentation.task, /永続レコード/u);
+    assert.equal(review.presentation.decisions[0].decisionId, review.decisions[0].decisionId);
+    assert.equal(
+      review.presentation.decisions[0].options[0].optionId,
+      review.decisions[0].options[0].id,
+    );
+    assert.match(review.presentation.decisions[0].options[0].effects[0], /選択肢1の影響1/u);
+    assert.match(review.snapshot.task, /^Implement /u);
+    assert.match(review.decisions[0].question, /^How /u);
+
+    const before = fixture.store.getRun(fixture.run.runId).run;
+    const contractBefore = fixture.controller.review(fixture.run.runId).contract;
+    assert.equal(contractBefore, null);
+    assert.deepEqual(fixture.store.getRun(fixture.run.runId).run, before);
+  } finally {
+    await server.close();
+    await fixture.close();
+  }
+});
+
+test("an unavailable translation exposes only fallback status, not internal failure details", async () => {
+  const fixture = await createReviewFixture({
+    runId: "run_ui_unavailable_presentation",
+    presentationStatus: "unavailable",
+  });
+  const server = await startReviewServer({
+    controller: fixture.controller,
+    runId: fixture.run.runId,
+  });
+  try {
+    const endpoint = `${server.origin}/api/runs/${fixture.run.runId}`;
+    const review = await (await fetch(endpoint, { headers: apiHeaders(server) })).json();
+    assert.deepEqual(review.presentation.decisions, []);
+    assert.equal(review.presentation.task, null);
+    assert.equal(review.presentation.status, "unavailable");
+    assert.equal("errorCode" in review.presentation, false);
+    assert.equal("model" in review.presentation, false);
+  } finally {
+    await server.close();
+    await fixture.close();
+  }
+});
+
+test("presentation translations do not change decision or contract identity", async () => {
+  const runId = "run_presentation_contract_identity";
+  const sourceOnly = await createReviewFixture({ runId });
+  const localized = await createReviewFixture({
+    runId,
+    presentationStatus: "available",
+  });
+  try {
+    const choose = (fixture) =>
+      fixture.controller.decide({
+        runId,
+        decisionId: fixture.decisions[0].decisionId,
+        selectedOptionId: fixture.decisions[0].options[0].id,
+        freeformOverride: null,
+        expectedVersion: fixture.run.version,
+        idempotencyKey: "same-human-decision",
+      });
+    const sourceRun = choose(sourceOnly);
+    const localizedRun = choose(localized);
+    const sourceContract = sourceOnly.store.getContract(sourceRun.activeContractId);
+    const localizedContract = localized.store.getContract(localizedRun.activeContractId);
+    assert.equal(localizedContract.contractId, sourceContract.contractId);
+    assert.equal(localizedContract.contentHash, sourceContract.contentHash);
+    assert.deepEqual(localizedContract, sourceContract);
+  } finally {
+    await sourceOnly.close();
+    await localized.close();
+  }
+});
+
 test("contract decisions can be edited before explicit approval", async () => {
   const fixture = await createReviewFixture({ decisionCount: 1, runId: "run_ui_contract" });
   const server = await startReviewServer({

@@ -6,6 +6,7 @@ import type {
   HumanDecision,
   PlanArtifact,
   RepositorySnapshot,
+  ReviewPresentationContent,
 } from "@prompt-tripwire/domain";
 
 export interface ComparatorUsage {
@@ -102,4 +103,44 @@ export interface ContractPreviewInput {
 export interface ContractPreview {
   readonly contract: ExecutionContract;
   readonly selectedDecisionCount: number;
+}
+
+export interface ReviewTranslationTransportRequest {
+  readonly task: string;
+  readonly decisions: readonly DecisionPoint[];
+  readonly model: string;
+  readonly reasoningEffort: string;
+}
+
+export interface ReviewTranslationTransportResult {
+  readonly threadId: string | null;
+  readonly turnId: string | null;
+  readonly model: string;
+  readonly output: ReviewPresentationContent;
+  readonly usage: ComparatorUsage;
+}
+
+export interface ReviewTranslationTransport {
+  translate(
+    request: ReviewTranslationTransportRequest,
+    options: { readonly signal: AbortSignal },
+  ): Promise<ReviewTranslationTransportResult>;
+}
+
+export interface TranslateReviewInput {
+  readonly task: string;
+  readonly taskHash: string;
+  readonly decisions: readonly DecisionPoint[];
+  readonly model: "gpt-5.6-sol" | "gpt-5.6-terra";
+  readonly reasoningEffort: "low" | "medium" | "high";
+  readonly timeoutMs?: number;
+  readonly signal?: AbortSignal;
+}
+
+export interface TranslateReviewResult {
+  readonly content: ReviewPresentationContent;
+  readonly model: string;
+  readonly threadId: string | null;
+  readonly turnId: string | null;
+  readonly usage: ComparatorUsage;
 }

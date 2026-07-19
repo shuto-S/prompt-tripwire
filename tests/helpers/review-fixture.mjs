@@ -93,6 +93,7 @@ export async function createReviewFixture({
   decisionCount = 1,
   runId = "run_ui",
   includeCancellationOption = false,
+  presentationStatus = null,
 } = {}) {
   const root = await mkdtemp(join(tmpdir(), "prompt-tripwire-ui-"));
   const store = new SqlitePersistence({
@@ -165,6 +166,46 @@ export async function createReviewFixture({
     decisions,
     createdAt: CREATED_AT,
   });
+  if (presentationStatus !== null) {
+    store.saveReviewPresentation({
+      runId,
+      taskHash: snapshot.taskHash,
+      status: presentationStatus,
+      content:
+        presentationStatus === "available"
+          ? {
+              task: "永続レコードを明示的に削除する方針を実装する",
+              decisions: decisions.map((item, index) => ({
+                decisionId: item.decisionId,
+                question: `永続レコードグループ${String(index + 1)}をどのように削除しますか？`,
+                reason: "計画プローブ間で永続データ削除の意味が一致していません。",
+                options: item.options.map((option, optionIndex) => ({
+                  optionId: option.id,
+                  label:
+                    optionIndex === 0
+                      ? "直ちに削除"
+                      : optionIndex === 1
+                        ? "復旧のため保持"
+                        : "この実行をキャンセル",
+                  description:
+                    optionIndex === 0
+                      ? "同じ操作で永続レコードを削除します。"
+                      : optionIndex === 1
+                        ? "復旧データを保持したまま削除済みにします。"
+                        : "実行契約を作成せず停止します。",
+                  effects: option.effects.map(
+                    (_, effectIndex) =>
+                      `選択肢${String(optionIndex + 1)}の影響${String(effectIndex + 1)}`,
+                  ),
+                })),
+              })),
+            }
+          : null,
+      model: "gpt-5.6-terra",
+      errorCode: presentationStatus === "available" ? null : "TRANSLATION_TIMEOUT",
+      createdAt: CREATED_AT,
+    });
+  }
   const snapshotting = store.transitionRun(runId, "snapshotting", 0, CREATED_AT);
   const probing = store.transitionRun(runId, "probing", snapshotting.version, CREATED_AT);
   const comparing = store.setBlockingDecisionsAndTransition(

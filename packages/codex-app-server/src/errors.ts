@@ -11,6 +11,10 @@ export type AppServerErrorCode =
   | "COMPARISON_TIMEOUT"
   | "COMPARISON_TOOL_VIOLATION"
   | "INVALID_COMPARISON_ARTIFACT"
+  | "TRANSLATION_CANCELLED"
+  | "TRANSLATION_TIMEOUT"
+  | "TRANSLATION_TOOL_VIOLATION"
+  | "INVALID_TRANSLATION_ARTIFACT"
   | "EXECUTION_CANCELLED"
   | "EXECUTION_TIMEOUT"
   | "PROTOCOL_CORRUPTION"
@@ -44,6 +48,16 @@ export class AppServerComparisonError extends AppServerError {
   constructor(error: AppServerError, metadata: AppServerComparisonFailureMetadata) {
     super(error.code, error.message, { cause: error });
     this.name = "AppServerComparisonError";
+    this.metadata = metadata;
+  }
+}
+
+export class AppServerTranslationError extends AppServerError {
+  readonly metadata: AppServerComparisonFailureMetadata;
+
+  constructor(error: AppServerError, metadata: AppServerComparisonFailureMetadata) {
+    super(error.code, error.message, { cause: error });
+    this.name = "AppServerTranslationError";
     this.metadata = metadata;
   }
 }

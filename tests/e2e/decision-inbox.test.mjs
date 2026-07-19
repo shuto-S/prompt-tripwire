@@ -117,6 +117,7 @@ test("AC-015: Decision Inbox follows Japanese locale and keeps an explicit langu
   const fixture = await createReviewFixture({
     decisionCount: 1,
     runId: "run_ui_browser_japanese",
+    presentationStatus: "available",
   });
   const server = await startReviewServer({
     controller: fixture.controller,
@@ -134,7 +135,22 @@ test("AC-015: Decision Inbox follows Japanese locale and keeps an explicit langu
     assert.equal(await page.getByText("破壊的操作", { exact: true }).count(), 1);
     assert.equal(await page.getByRole("button", { name: "判断を記録" }).count(), 1);
     assert.equal(await page.getByRole("button", { name: "実行をキャンセル" }).count(), 1);
-    assert.equal(await page.getByText(/契約に結び付いた原文で表示します/u).count(), 1);
+    assert.equal(await page.getByText("日本語の参考訳", { exact: true }).count(), 2);
+    assert.equal(
+      await page
+        .getByRole("heading", {
+          name: "永続レコードグループ1をどのように削除しますか？",
+        })
+        .count(),
+      1,
+    );
+    assert.equal(await page.getByRole("radio", { name: /直ちに削除/u }).count(), 1);
+    assert.equal(await page.getByText(/承認、契約、ハッシュには/u).count(), 1);
+    const originalDecision = page.getByText("正本の判断原文", { exact: true });
+    assert.equal(await originalDecision.isVisible(), false);
+    await page.getByText("正本の原文を表示", { exact: true }).last().click();
+    assert.equal(await originalDecision.isVisible(), true);
+    assert.equal(await page.getByText("Delete immediately", { exact: true }).count(), 1);
     assert.deepEqual(
       await page.getByRole("radio").evaluateAll((items) => items.map((item) => item.checked)),
       [false, false],

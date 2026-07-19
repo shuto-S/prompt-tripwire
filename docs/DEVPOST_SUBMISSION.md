@@ -10,9 +10,9 @@ This file prepares the English submission fields. It is not a saved or final Dev
 - **Repository URL:** `https://github.com/shuto-S/prompt-tripwire`
 - **Repository access:** Public, Apache-2.0
 - **Supported platform:** macOS arm64
-- **Release artifact:** [v0.1.9 macOS arm64](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.9), prepared for publication and anonymous verification; [v0.1.8 remains immutable historical evidence](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.8)
-- **Release SHA-256:** `<PENDING: record after the v0.1.9 public asset is downloaded and verified>`
-- **Demo video:** `<PENDING HUMAN CONFIRMATION: upload to YouTube, then add the anonymously verified public URL>`; [local v0.1.2 review copy](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4), 2:52.862 with audio. The recording predates the v0.1.3 launcher hardening, v0.1.4 child-Plugin isolation, v0.1.5 Japanese UI presentation, v0.1.6 packaged-documentation correction, v0.1.7 deterministic-policy precision patch, v0.1.8 plan-command guidance, and v0.1.9 bare-program guidance described below.
+- **Release artifact:** [v0.1.10 macOS arm64](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.10), pending publication and anonymous verification; [v0.1.9 remains immutable historical evidence](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.9) with SHA-256 `8e1fa4ea296eb7d64c3fb453d21121037c63fe68a919c0fd51de483d6436d9c0`
+- **Release SHA-256:** `<PENDING: record after the v0.1.10 public asset is downloaded and verified>`
+- **Demo video:** `<PENDING HUMAN CONFIRMATION: upload to YouTube, then add the anonymously verified public URL>`; [local v0.1.2 review copy](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4), 2:52.862 with audio. The recording predates the v0.1.3 launcher hardening through v0.1.10 Japanese reference-presentation improvements described below.
 - **Codex /feedback Session ID:** `<PENDING: paste the formal Session ID captured outside source into Devpost>`
 
 The formal Session ID was captured on 2026-07-15 and is intentionally retained outside source until Devpost entry. Do not replace the placeholder with a local task/thread UUID.
@@ -34,9 +34,10 @@ PromptTripwire uses observed plan divergence as early evidence. It asks only abo
 3. Uses GPT-5.6 Structured Outputs in a separate tool-free App Server thread to normalize consensus, divergence, unknowns, and evidence references.
 4. Applies `deterministic-v2` fail-closed rules to the original task and the validated plans for destructive, external, privileged, production, dependency, API, and irreversible effects, while preserving task-only provenance instead of claiming probe support.
 5. Shows at most three focused decision cards at a time in a loopback-only Decision Inbox or terminal fallback.
-6. Creates an immutable, content-addressed execution contract bound to the approved snapshot.
-7. Runs Codex in a disposable worktree, denies network/remote/high-impact effects, correlates approvals to contract evidence, and interrupts deviations.
-8. Produces a sanitized JSON/Markdown report with decisions, contract hash, threads/models, observed actions, checks, diff scope, and remaining unknowns.
+6. When Japanese is selected, shows a source-bound reference translation of the task and decision content while keeping expandable authoritative source text and unchanged approval identity.
+7. Creates an immutable, content-addressed execution contract bound to the approved snapshot.
+8. Runs Codex in a disposable worktree, denies network/remote/high-impact effects, correlates approvals to contract evidence, and interrupts deviations.
+9. Produces a sanitized JSON/Markdown report with decisions, contract hash, threads/models, observed actions, checks, diff scope, and remaining unknowns.
 
 ## How it was built
 
@@ -73,6 +74,14 @@ v0.1.9 requires planning probes to invoke allowlisted inspection programs by
 bare name. A real v0.1.8 flow twice stopped fail-closed when Codex 0.144.4 chose
 `/bin/ls` and App Server reported it as `unknown`. v0.1.9 removes that notation
 at generation while keeping the unknown-action and canonical-path gates intact.
+
+v0.1.10 adds a separate Japanese reference-presentation turn after final
+decision normalization. It reuses the authenticated Codex App Server with no
+tools or network and binds output to exact source decision/option IDs and effect
+counts. The UI labels the translation as reference text and exposes the source;
+policy, decision IDs, mutations, contracts, hashes, execution, and reports never
+consume the translation. Invalid or unavailable output falls back visibly to
+source text without inferring approval.
 
 ## Challenges
 
@@ -117,7 +126,7 @@ Hosted backends, account systems, team approvals, non-Codex adapters, and automa
 
 ## Judge instructions
 
-Download the v0.1.9 macOS arm64 release artifact and its matching checksum, verify them together, and follow `JUDGE_GUIDE.md`. Its packaged README and Judge Guide self-reference v0.1.9. Public-asset digest and anonymous-install evidence must be recorded after publication; v0.1.8 is immutable historical evidence with SHA-256 `0b5ca45f3cf497917df9f0b1c531aa4e8cf5b9e75eb46e47128c5fa3d09e351c`. It supports:
+Download the v0.1.10 macOS arm64 release artifact and its matching checksum, verify them together, and follow `JUDGE_GUIDE.md`. Its packaged README and Judge Guide self-reference v0.1.10. Public-asset digest and anonymous-install evidence must be recorded after publication; v0.1.9 is immutable historical evidence with SHA-256 `8e1fa4ea296eb7d64c3fb453d21121037c63fe68a919c0fd51de483d6436d9c0`. It supports:
 
 - direct `./bin/tripwire` execution;
 - one-command user-local install/uninstall;
@@ -151,7 +160,7 @@ review/offline fallback.
 
 ## YouTube confirmation packet (upload pending)
 
-The media is the completed v0.1.2 capture; v0.1.9 is the current judge
+The media is the completed v0.1.2 capture; v0.1.10 is the current judge
 distribution and includes later compatibility, safety, localization,
 documentation, and deterministic-policy precision patches. Before opening the upload flow,
 present this entire packet to the human and wait for explicit confirmation.
@@ -171,10 +180,10 @@ The public URL and anonymous playback verification remain pending.
   > gpt-5.6-sol planning probes, and a tool-free gpt-5.6-terra comparator.
   >
   > Repository: https://github.com/shuto-S/prompt-tripwire
-  > Release (macOS arm64): https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.9
+  > Release (macOS arm64): https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.10
   >
-  > This video is the completed v0.1.2 capture. v0.1.9 is the current judge
-  > distribution to install; the footage is not presented as a v0.1.9
+  > This video is the completed v0.1.2 capture. v0.1.10 is the current judge
+  > distribution to install; the footage is not presented as a v0.1.10
   > recording.
   >
   > No separate OPENAI_API_KEY is required. PromptTripwire reuses the logged-in
@@ -189,7 +198,7 @@ The public URL and anonymous playback verification remain pending.
 - **Category:** Science & Technology
 - **License:** Standard YouTube License
 
-The Release line targets v0.1.9 and must be rechecked after publication.
+The Release line targets v0.1.10 and must be rechecked after publication.
 Show the complete title, description, visibility, captions, thumbnail, and
 settings once more and wait for explicit human confirmation. Uploading,
 publishing, or changing visibility before that confirmation is prohibited by
@@ -202,8 +211,8 @@ before final submission, show the human the complete assembled entry and wait
 for explicit confirmation. The confirmation view must include:
 
 - project name, Developer Tools category, tagline, public repository, Apache-2.0 license, and macOS arm64 support;
-- the anonymously verified v0.1.9 Release URL and checksum evidence;
-- the anonymously verified public YouTube URL, thumbnail, and v0.1.2-capture/v0.1.9-distribution disclosure;
+- the anonymously verified v0.1.10 Release URL and checksum evidence;
+- the anonymously verified public YouTube URL, thumbnail, and v0.1.2-capture/v0.1.10-distribution disclosure;
 - the exact body from **One-line pitch** through **What's next**, plus **Judge instructions**, known limitations, and tags;
 - the README, Judge Guide, release notes, demo documentation, screenshots, captions, and repository review-copy links;
 - the formal Codex `/feedback` Session ID in Devpost's dedicated field, copied from the retained external record and never written into this repository; and
@@ -232,7 +241,8 @@ packet.
 - [x] Publish and anonymously verify the v0.1.6 artifact, checksum, and packaged instructions.
 - [x] Build, publish, and anonymously verify the v0.1.7 deterministic-policy precision artifact and packaged instructions; its real Plugin flow exposed the plan-command issue corrected in v0.1.8.
 - [x] Build, publish, and anonymously verify the v0.1.8 plan-command guidance artifact, checksum, and packaged instructions; its real Plugin flow exposed the bare-program issue corrected in v0.1.9.
-- [ ] Build, publish, and anonymously verify the v0.1.9 bare-program guidance artifact, checksum, packaged instructions, and real Plugin flow.
+- [x] Build, publish, and anonymously verify the v0.1.9 bare-program guidance artifact, checksum, packaged instructions, isolated install, and real pre-approval Plugin flow.
+- [ ] Build, publish, and anonymously verify the v0.1.10 Japanese-reference artifact, checksum, packaged instructions, API-key-free Plugin flow, human review, contained execution, report, and targeted uninstall.
 - [x] Obtain the formal `/feedback` Session ID from the primary Codex task and retain it outside source.
 - [x] Regenerate the owned local v0.1.2 demo with audio under three minutes, English captions, thumbnail, and screenshots.
 - [ ] Obtain explicit human confirmation for the resolved YouTube packet, upload the completed v0.1.2 demo/captions, and verify public playback anonymously.

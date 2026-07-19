@@ -10,10 +10,13 @@ import {
   type ProbeBatchResult,
   type RunProbeBatchInput,
 } from "@prompt-tripwire/codex-app-server";
+import type { DecisionPoint } from "@prompt-tripwire/domain";
 import {
   AppServerComparatorTransport,
+  AppServerReviewTranslationTransport,
   ComparatorRunError,
   PlanComparator,
+  ReviewPresentationTranslator,
   createContractPreview,
   createManualComparisonFallback,
   normalizeReview,
@@ -38,11 +41,78 @@ export interface ProbeBatchRunner {
 export interface InspectionPipelineOptions {
   readonly probes: ProbeBatchRunner;
   readonly comparator: PlanComparator;
+  readonly presentationTranslator?: ReviewPresentationTranslator;
   readonly comparatorModel?: "gpt-5.6-sol" | "gpt-5.6-terra";
   readonly comparatorReasoningEffort?: "low" | "medium" | "high";
   readonly probeTimeoutMs?: number;
   readonly comparatorTimeoutMs?: number;
+  readonly translationTimeoutMs?: number;
   readonly now?: () => string;
+}
+
+const TRANSLATION_ERROR_CODES = new Set([
+  "TRANSLATION_CANCELLED",
+  "TRANSLATION_TIMEOUT",
+  "TRANSLATION_TOOL_VIOLATION",
+  "INVALID_TRANSLATION_ARTIFACT",
+  "TRANSLATION_RESPONSE_INVALID",
+  "PROTOCOL_VALIDATION_FAILED",
+  "APP_SERVER_DISCONNECTED",
+]);
+
+function translationErrorCode(error: unknown): string {
+  if (error === null || typeof error !== "object" || !("code" in error)) {
+    return "TRANSLATION_FAILED";
+  }
+  const code = error.code;
+  return typeof code === "string" && TRANSLATION_ERROR_CODES.has(code)
+    ? code
+    : "TRANSLATION_FAILED";
+}
+
+async function saveReviewPresentation(
+  context: InspectionContext,
+  translator: ReviewPresentationTranslator | undefined,
+  decisions: readonly DecisionPoint[],
+  model: "gpt-5.6-sol" | "gpt-5.6-terra",
+  reasoningEffort: "low" | "medium" | "high",
+  timeoutMs: number | undefined,
+  createdAt: string,
+): Promise<void> {
+  if (translator === undefined) return;
+  try {
+    const result = await translator.translate({
+      task: context.preparedSnapshot.snapshot.task,
+      taskHash: context.preparedSnapshot.snapshot.taskHash,
+      decisions,
+      model,
+      reasoningEffort,
+      signal: context.signal,
+      ...(timeoutMs === undefined ? {} : { timeoutMs }),
+    });
+    context.store.saveReviewPresentation({
+      runId: context.run.runId,
+      taskHash: context.preparedSnapshot.snapshot.taskHash,
+      status: "available",
+      content: result.content,
+      model: result.model,
+      errorCode: null,
+      createdAt,
+    });
+    return;
+  } catch (error) {
+    throwIfAborted(context.signal);
+    context.store.saveReviewPresentation({
+      runId: context.run.runId,
+      taskHash: context.preparedSnapshot.snapshot.taskHash,
+      status: "unavailable",
+      content: null,
+      model,
+      errorCode: translationErrorCode(error),
+      createdAt,
+    });
+    return;
+  }
 }
 
 function throwIfAborted(signal: AbortSignal): void {
@@ -174,6 +244,16 @@ export class InspectionPipeline implements InspectionPort {
       decisions: review.decisions,
       createdAt,
     });
+    await saveReviewPresentation(
+      context,
+      this.options.presentationTranslator,
+      decisions,
+      model,
+      reasoningEffort,
+      this.options.translationTimeoutMs,
+      createdAt,
+    );
+    throwIfAborted(context.signal);
     if (decisions.length > 0) {
       return {
         blockingDecisionIds: decisions.map((decision) => decision.decisionId),
@@ -220,9 +300,13 @@ export class DefaultInspectionPort implements InspectionPort {
       const comparatorTransport = new AppServerComparatorTransport(client, {
         temporaryParent: runtimeRoot,
       });
+      const presentationTransport = new AppServerReviewTranslationTransport(client, {
+        temporaryParent: runtimeRoot,
+      });
       return await new InspectionPipeline({
         probes: new ProbeCoordinator(client),
         comparator: new PlanComparator(comparatorTransport),
+        presentationTranslator: new ReviewPresentationTranslator(presentationTransport),
         ...(this.options.comparatorModel === undefined
           ? {}
           : { comparatorModel: this.options.comparatorModel }),

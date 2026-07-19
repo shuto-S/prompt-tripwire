@@ -1,7 +1,9 @@
 import type {
   ComparisonCandidateContent,
+  DecisionPoint,
   PlanArtifact,
   RepositorySnapshot,
+  ReviewPresentationContent,
 } from "@prompt-tripwire/domain";
 import type {
   CleanupResult,
@@ -91,6 +93,24 @@ export interface ComparisonTurnResult {
   readonly turnId: string;
   readonly model: string;
   readonly output: ComparisonCandidateContent;
+  readonly usage: AppServerTokenUsage | null;
+}
+
+export interface ReviewTranslationTurnInput {
+  readonly cwd: string;
+  readonly task: string;
+  readonly decisions: readonly DecisionPoint[];
+  readonly model: string;
+  readonly reasoningEffort: string;
+  readonly timeoutMs?: number;
+  readonly signal?: AbortSignal;
+}
+
+export interface ReviewTranslationTurnResult {
+  readonly threadId: string;
+  readonly turnId: string;
+  readonly model: string;
+  readonly output: ReviewPresentationContent;
   readonly usage: AppServerTokenUsage | null;
 }
 

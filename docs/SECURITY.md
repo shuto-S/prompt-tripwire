@@ -50,6 +50,7 @@ Repository text, model output, tool requests, App Server events, local HTTP requ
 | Stale approval | Bind to task/snapshot/config/model hashes; invalidate on drift | Undetected external state drift is possible |
 | External or production side effect | Network and remote tools disabled; deterministic decision separates implementation intent from operation authority | User can perform a separately authorized action outside the P0 executor |
 | Approval confusion | Concrete effects, no high-impact default, expected version/idempotency checks | Human review can still be mistaken |
+| Reference translation changes or obscures approval meaning | Source text remains authoritative and directly accessible; translation runs tool-free, is strict-schema/source-ID/count bound, sanitized, stored separately, and excluded from decisions/contracts/hashes/mutations | A faithful-looking translation can still be linguistically imperfect, so the UI labels it as reference text |
 | Malicious model output or plan omission | Strict schemas plus `deterministic-v2` evaluation of original-task and plan evidence; task-only provenance never claims probe support; model cannot approve | Policy pattern omissions or semantic misclassification |
 | Denial of service/cost runaway | Probe/time/token limits, capped concurrency/retry, usage display, cancel | Provider-side cost estimates may be unavailable |
 | Audit data leakage | Private OS storage, retention, sanitized export, no telemetry | Local disk is not application-level encrypted |
@@ -223,7 +224,7 @@ promoting a bare repository, branch, or object-store mention into authority.
 - Escape all task, repository, command, path, and model-provided text.
 - Do not render model-provided HTML.
 - Do not load third-party scripts, fonts, analytics, or images.
-- Keep locale selection presentation-only: store only `ja` or `en`, never a run ID or capability, and do not translate or rewrite task, model, evidence, contract, or mutation data.
+- Keep locale selection presentation-only: store only `ja` or `en`, never a run ID or capability. Never rewrite task, model, evidence, decision, contract, report, or mutation data; keep optional Japanese reference translations in a separate source-bound record and expose the unchanged source text.
 - Expire access when the run leaves `needs_review`, `ready_for_approval`, or `paused`, when it is archived, or after 30 minutes with no authenticated API activity and no active authenticated SSE connection.
 - Permit only the current per-run live generation across all local database connections; persist the non-secret generation, never the bearer capability.
 - Require every mutation body to remain under the size cap and finish within five seconds, revalidate the lifecycle and generation after the body, and atomically require an unarchived run with the current generation in the persistence transaction.
@@ -235,8 +236,20 @@ The implemented CLI starts one server on `127.0.0.1` with an OS-assigned port an
 The client-side locale preference contains only `ja` or `en` and is scoped to
 the current random-port loopback origin. Language switching never sends a
 request, never persists the capability, and never changes source review data or
-the idempotent mutation payload. React continues to render localized templates
-and unmodified source content as escaped text.
+the idempotent mutation payload. React renders both reference translations and
+unmodified source content as escaped text and never accepts model-provided
+HTML.
+
+Japanese reference translation is generated only after authoritative decisions
+exist. The source strings are treated as untrusted data in a fresh ephemeral,
+tool-free, read-only, network-denied App Server thread using the existing local
+Codex login. Output must preserve every decision/option ID and every effect
+count, pass the presentation schema and deterministic secret scan, and bind to
+a hash of the source task and immutable decision content. The database keeps it
+outside decision and contract records. The aggregate API does not expose the
+translation model, internal thread/turn IDs, or failure detail. Invalid or
+unavailable translation falls back to escaped source with an explicit warning;
+it never resolves a decision, expands a contract, or authorizes execution.
 
 ## 8.1 Codex Plugin adapter
 

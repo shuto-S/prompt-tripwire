@@ -9,4 +9,6 @@ export * from "./fallback.js";
 export * from "./normalizer.js";
 export * from "./renderer.js";
 export * from "./transport.js";
+export * from "./translation.js";
+export * from "./translation-transport.js";
 export * from "./types.js";

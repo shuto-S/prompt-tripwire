@@ -15,6 +15,7 @@ import {
   PlanArtifactSchema,
   renderRunReportMarkdown,
   RepositorySnapshotSchema,
+  ReviewPresentationContentSchema,
   RunRecordSchema,
   RunReportSchema,
   startExecution,
@@ -28,6 +29,7 @@ import {
   type HumanDecision,
   type PlanArtifact,
   type RepositorySnapshot,
+  type ReviewPresentationContent,
   type RunRecord,
   type RunReport,
   type RunState,
@@ -61,10 +63,12 @@ import type {
   ReopenReviewPersistenceInput,
   SaveComparisonInput,
   SaveDecisionPointsInput,
+  SaveReviewPresentationInput,
   StartExecutionPersistenceInput,
   StartExecutionPersistenceResult,
   StoredEvent,
   StoredReport,
+  PersistedReviewPresentation,
   StructuredLog,
   WorktreeCleanupInput,
   WorktreeRecordInput,
@@ -144,6 +148,18 @@ interface DecisionPointRow {
   readonly record_json: string;
 }
 
+interface ReviewPresentationRow {
+  readonly run_id: string;
+  readonly locale: "ja";
+  readonly source_hash: string;
+  readonly task_hash: string;
+  readonly status: "available" | "unavailable";
+  readonly model: string;
+  readonly error_code: string | null;
+  readonly record_json: string | null;
+  readonly created_at: string;
+}
+
 interface ProbeRunRow {
   readonly run_id: string;
   readonly probe_id: string;
@@ -168,6 +184,66 @@ const NO_OMITTED_FINGERPRINT_KEYS = new Set<string>();
 
 function requestFingerprint(value: unknown): string {
   return canonicalHash(value, { omitKeys: NO_OMITTED_FINGERPRINT_KEYS });
+}
+
+function reviewPresentationSourceHash(
+  taskHash: string,
+  decisions: readonly DecisionPoint[],
+): string {
+  return canonicalHash({
+    taskHash,
+    decisions: decisions.map((decision) => ({
+      decisionId: decision.decisionId,
+      question: decision.question,
+      reason: decision.reason,
+      options: decision.options.map((option) => ({
+        optionId: option.id,
+        label: option.label,
+        description: option.description,
+        effects: option.effects,
+      })),
+    })),
+  });
+}
+
+function validateReviewPresentationBindings(
+  decisions: readonly DecisionPoint[],
+  content: ReviewPresentationContent,
+): void {
+  const translated = new Map(content.decisions.map((decision) => [decision.decisionId, decision]));
+  if (translated.size !== decisions.length || content.decisions.length !== decisions.length) {
+    throw new PersistenceError(
+      "DATABASE_CORRUPTION",
+      "review presentation changed decision bindings",
+    );
+  }
+  for (const decision of decisions) {
+    const translatedDecision = translated.get(decision.decisionId);
+    if (translatedDecision === undefined) {
+      throw new PersistenceError(
+        "DATABASE_CORRUPTION",
+        "review presentation omitted a decision binding",
+      );
+    }
+    const options = new Map(translatedDecision.options.map((option) => [option.optionId, option]));
+    if (
+      options.size !== decision.options.length ||
+      options.size !== translatedDecision.options.length
+    ) {
+      throw new PersistenceError(
+        "DATABASE_CORRUPTION",
+        "review presentation changed option bindings",
+      );
+    }
+    for (const option of decision.options) {
+      if (options.get(option.id)?.effects.length !== option.effects.length) {
+        throw new PersistenceError(
+          "DATABASE_CORRUPTION",
+          "review presentation changed effect bindings",
+        );
+      }
+    }
+  }
 }
 
 function parseJson(value: string, label: string): unknown {
@@ -738,6 +814,101 @@ export class SqlitePersistence {
     return rows.map((row) =>
       DecisionPointSchema.parse(parseJson(row.record_json, "decision point")),
     );
+  }
+
+  saveReviewPresentation(input: SaveReviewPresentationInput): PersistedReviewPresentation {
+    const run = this.getRun(input.runId).run;
+    if (run.taskHash !== input.taskHash) {
+      throw new PersistenceError(
+        "DATABASE_CORRUPTION",
+        "review presentation does not match the run task",
+      );
+    }
+    if (input.model.length === 0) throw new TypeError("presentation model is required");
+    const decisions = this.listDecisionPoints(input.runId);
+    const sourceHash = reviewPresentationSourceHash(input.taskHash, decisions);
+    let content: ReviewPresentationContent | null = null;
+    if (input.status === "available") {
+      if (input.content === null || input.errorCode !== null) {
+        throw new TypeError("available presentation requires content and no error code");
+      }
+      content = ReviewPresentationContentSchema.parse(
+        sanitizeStructured(input.content, "review presentation"),
+      );
+      validateReviewPresentationBindings(decisions, content);
+    } else if (input.content !== null || input.errorCode === null || input.errorCode.length === 0) {
+      throw new TypeError("unavailable presentation requires an error code and no content");
+    }
+    this.database
+      .prepare(
+        `INSERT INTO review_presentations(
+          run_id, locale, source_hash, task_hash, status, model, error_code, record_json, created_at
+        ) VALUES (?, 'ja', ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        input.runId,
+        sourceHash,
+        input.taskHash,
+        input.status,
+        input.model,
+        input.errorCode,
+        content === null ? null : JSON.stringify(content),
+        input.createdAt,
+      );
+    return {
+      runId: input.runId,
+      locale: "ja",
+      sourceHash,
+      taskHash: input.taskHash,
+      status: input.status,
+      content,
+      model: input.model,
+      errorCode: input.errorCode,
+      createdAt: input.createdAt,
+    };
+  }
+
+  getReviewPresentation(runId: string): PersistedReviewPresentation {
+    this.getRun(runId);
+    const row = this.database
+      .prepare(
+        `SELECT run_id, locale, source_hash, task_hash, status, model, error_code,
+                record_json, created_at
+         FROM review_presentations WHERE run_id = ?`,
+      )
+      .get(runId) as ReviewPresentationRow | undefined;
+    if (row === undefined) {
+      throw new PersistenceError("NOT_FOUND", `review presentation for run ${runId} was not found`);
+    }
+    const content =
+      row.record_json === null
+        ? null
+        : ReviewPresentationContentSchema.parse(parseJson(row.record_json, "review presentation"));
+    const decisions = this.listDecisionPoints(runId);
+    if (row.source_hash !== reviewPresentationSourceHash(row.task_hash, decisions)) {
+      throw new PersistenceError(
+        "DATABASE_CORRUPTION",
+        "review presentation source hash does not match current review content",
+      );
+    }
+    if (content !== null) validateReviewPresentationBindings(decisions, content);
+    if (
+      (row.status === "available" && (content === null || row.error_code !== null)) ||
+      (row.status === "unavailable" && (content !== null || row.error_code === null))
+    ) {
+      throw new PersistenceError("DATABASE_CORRUPTION", "invalid review presentation state");
+    }
+    return {
+      runId: row.run_id,
+      locale: row.locale,
+      sourceHash: row.source_hash,
+      taskHash: row.task_hash,
+      status: row.status,
+      content,
+      model: row.model,
+      errorCode: row.error_code,
+      createdAt: row.created_at,
+    };
   }
 
   recordHumanDecision(input: RecordHumanDecisionInput): RecordHumanDecisionResult {
