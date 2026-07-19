@@ -123,13 +123,15 @@ The Skill always stops for human Decision Inbox choices and explicit contract
 approval. Neither the installer nor the calling Codex task may approve on the
 user's behalf.
 
-The published v0.1.5 archive and checksum were anonymously downloaded and
-matched byte-for-byte with the clean tag-aware candidate. An isolated-prefix
-install with API-key variables unset enabled Plugin version 0.1.5, and a real
+The published v0.1.6 archive and checksum were anonymously downloaded and
+matched byte-for-byte with the clean tag-aware candidate; its packaged README
+and this guide self-reference v0.1.6. An isolated-prefix install with API-key
+variables unset enabled Plugin version 0.1.6, and a real
 logged-in `prompt-tripwire:preflight` invocation stopped at `needs_review` with
 four blocking decisions and no approved contract. The fixture's status, HEAD,
 and sole-worktree inventory remained unchanged; targeted uninstall removed only
-the test Plugin, marketplace, and runtime.
+the test Plugin, marketplace, and runtime. The temporary authentication copy and
+token-bearing private invocation log were deleted after verification.
 
 ## Demo evidence
 

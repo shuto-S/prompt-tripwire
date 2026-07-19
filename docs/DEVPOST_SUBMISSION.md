@@ -10,8 +10,8 @@ This file prepares the English submission fields. It is not a saved or final Dev
 - **Repository URL:** `https://github.com/shuto-S/prompt-tripwire`
 - **Repository access:** Public, Apache-2.0
 - **Supported platform:** macOS arm64
-- **Release artifact:** [v0.1.6 macOS arm64](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.6), pending publication and anonymous verification; [v0.1.5 remains immutable historical evidence](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.5)
-- **Release SHA-256:** `<PENDING: insert the v0.1.6 archive digest after anonymous download and checksum verification>`
+- **Release artifact:** [v0.1.6 macOS arm64](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.6), published and anonymously verified on 2026-07-19 JST; [v0.1.5 remains immutable historical evidence](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.5)
+- **Release SHA-256:** `1b74c4c935e0fec1857b88b2a592f776c01f104a4042d224ef3ac1265fe83c33`
 - **Demo video:** `<PENDING HUMAN CONFIRMATION: upload to YouTube, then add the anonymously verified public URL>`; [local v0.1.2 review copy](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4), 2:52.862 with audio. The recording predates the v0.1.3 launcher hardening, v0.1.4 child-Plugin isolation, v0.1.5 Japanese UI presentation, and v0.1.6 packaged-documentation correction described below.
 - **Codex /feedback Session ID:** `<PENDING: paste the formal Session ID captured outside source into Devpost>`
 
@@ -99,7 +99,7 @@ Hosted backends, account systems, team approvals, non-Codex adapters, and automa
 
 ## Judge instructions
 
-After publication, download the v0.1.6 macOS arm64 release artifact and its matching checksum, verify them together, and follow `JUDGE_GUIDE.md`. The tag-aware candidate must pass the complete release verifier and then match the anonymously downloaded archive byte-for-byte. It supports:
+Download the v0.1.6 macOS arm64 release artifact and its matching checksum, verify them together, and follow `JUDGE_GUIDE.md`. The tag-aware candidate passed the complete release verifier and matched the anonymously downloaded archive byte-for-byte. Its packaged README and Judge Guide self-reference v0.1.6, and an isolated real Plugin invocation stopped at human review with no approved contract and an unchanged fixture. It supports:
 
 - direct `./bin/tripwire` execution;
 - one-command user-local install/uninstall;
@@ -170,11 +170,11 @@ The public URL and anonymous playback verification remain pending.
 - **Category:** Science & Technology
 - **License:** Standard YouTube License
 
-Resolve the Release line only after v0.1.6 and its checksum are anonymously
-reachable. Then show the complete title, description, visibility, captions,
-thumbnail, and settings once more and wait for explicit human confirmation.
-Uploading, publishing, or changing visibility before that confirmation is
-prohibited by this preparation checklist.
+The Release line is resolved from the anonymously verified v0.1.6 publication.
+Show the complete title, description, visibility, captions, thumbnail, and
+settings once more and wait for explicit human confirmation. Uploading,
+publishing, or changing visibility before that confirmation is prohibited by
+this preparation checklist.
 
 ## Final Devpost confirmation packet (submission pending)
 
@@ -210,7 +210,7 @@ packet.
 - [x] Build, publish, and anonymously verify the distinct v0.1.2 artifact and checksum.
 - [x] Build, publish, and anonymously verify the v0.1.4 compatibility-patch artifact and checksum.
 - [x] Build and locally verify the v0.1.6 documentation-correction artifact and checksum.
-- [ ] Publish and anonymously verify the v0.1.6 artifact, checksum, and packaged instructions.
+- [x] Publish and anonymously verify the v0.1.6 artifact, checksum, and packaged instructions.
 - [x] Obtain the formal `/feedback` Session ID from the primary Codex task and retain it outside source.
 - [x] Regenerate the owned local v0.1.2 demo with audio under three minutes, English captions, thumbnail, and screenshots.
 - [ ] Obtain explicit human confirmation for the resolved YouTube packet, upload the completed v0.1.2 demo/captions, and verify public playback anonymously.

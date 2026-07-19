@@ -149,8 +149,8 @@ is excluded from the judge release archive.
 
 - [x] Apache-2.0 selected as the project license for the public repository.
 - [x] README includes installation, supported platforms, test instructions, architecture summary, and Codex collaboration.
-- [x] Public repository and `v0.1.2` / `v0.1.3` / `v0.1.4` / `v0.1.5` Releases verified anonymously.
-- [ ] Publish the verified `v0.1.6` macOS arm64 artifact and checksum, then verify both anonymously.
+- [x] Public repository and `v0.1.2` / `v0.1.3` / `v0.1.4` / `v0.1.5` / `v0.1.6` Releases verified anonymously.
+- [x] Publish the verified `v0.1.6` macOS arm64 artifact and checksum, then verify both anonymously.
 - [x] Dated commits distinguish specification, implementation, and submission work.
 - [x] Dependency licenses and third-party assets reviewed.
 - [x] No secrets in Git history.
@@ -180,7 +180,7 @@ is excluded from the judge release archive.
 - Present the prepared YouTube video, title, description, visibility, captions, and thumbnail for human confirmation; only then upload and verify playback anonymously.
 - Replace the Devpost public video placeholder after YouTube publication and prepare the complete draft; present the final field/attachment/link packet for a separate human confirmation before final submission.
 
-Publication evidence: repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0. The public v0.1.5 release and its downloaded artifact/checksum were verified anonymously on 2026-07-19 JST; its macOS arm64 archive SHA-256 is `b9df44c8a44d255a98f00953003d41e743e53059eec26ef79980730dccc5beaf`. The same public artifact matched the clean tag-aware candidate byte-for-byte, installed into an isolated prefix without API-key environment variables, enabled Plugin version 0.1.5, and reached an unapproved `needs_review` state through a real logged-in Skill invocation without changing the fixture checkout. Its runtime is valid, but its packaged quickstart still names v0.1.4; v0.1.6 supersedes it as the judge-facing documentation correction without rewriting the v0.1.5 tag or assets. The public v0.1.4 archive remains immutable historical evidence with SHA-256 `02a30d1f202e18da556aff576ef6d01d82970973e2566639e116615cc6aea4fa`; the public v0.1.3 archive SHA-256 is `2328e2673ab2fd67d4bd3043dc2c838fc584fad1a10719da28dcbcfd38156682`, the public v0.1.2 archive SHA-256 is `73d61b8262b5c81be558a89b800ddaa0f5d71c4c9e46679893c3c93b1bbfee3f`, and the earlier public v0.1.1 release remains historical evidence with SHA-256 `7a29de3241bab426b2e9b9edd84a6d6f01dd0fc1bf13d71da3927a4a83277f50`. Historical checksums do not verify the v0.1.6 archive.
+Publication evidence: repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0. The public v0.1.6 release and its downloaded artifact/checksum were verified anonymously on 2026-07-19 JST; its macOS arm64 archive SHA-256 is `1b74c4c935e0fec1857b88b2a592f776c01f104a4042d224ef3ac1265fe83c33`. The public bytes matched the clean tag-aware candidate, the packaged README and Judge Guide self-reference v0.1.6, and an isolated-prefix install enabled Plugin version 0.1.6 without API-key environment variables. A real logged-in Skill invocation exited successfully at unapproved `needs_review` with four blocking decisions; fixture status, HEAD, and sole-worktree inventory remained unchanged. Targeted uninstall removed only the test Plugin, marketplace, and runtime, and the copied authentication plus token-bearing private log were deleted. The valid public v0.1.5 runtime remains immutable historical evidence with SHA-256 `b9df44c8a44d255a98f00953003d41e743e53059eec26ef79980730dccc5beaf`, but its packaged quickstart still names v0.1.4 and is superseded by v0.1.6. The public v0.1.4 archive SHA-256 is `02a30d1f202e18da556aff576ef6d01d82970973e2566639e116615cc6aea4fa`; the public v0.1.3 archive SHA-256 is `2328e2673ab2fd67d4bd3043dc2c838fc584fad1a10719da28dcbcfd38156682`, the public v0.1.2 archive SHA-256 is `73d61b8262b5c81be558a89b800ddaa0f5d71c4c9e46679893c3c93b1bbfee3f`, and the earlier public v0.1.1 release remains historical evidence with SHA-256 `7a29de3241bab426b2e9b9edd84a6d6f01dd0fc1bf13d71da3927a4a83277f50`. Historical checksums do not verify the v0.1.6 archive.
 
 A final local v0.1.2 H.264/AAC English demo, caption/narration copy, thumbnail,
 and owned UI captures are now in `docs/demo/` and `docs/assets/demo/`. The live
@@ -189,7 +189,6 @@ scenes use an earlier human-approved safe-fixture run. These files are present
 in the repository but intentionally excluded from the compact judge archive.
 They are local review evidence, not proof of public YouTube publication.
 
-The v0.1.6 product and local release gates are complete; publication and
-anonymous artifact verification remain to be recorded after the immutable tag
-is created. YouTube upload and Devpost final submission remain blocked on their
+The v0.1.6 product, Release, checksum, packaged instructions, and anonymous
+artifact/Plugin verification are complete. YouTube upload and Devpost final submission remain blocked on their
 respective explicit human confirmations.
