@@ -82,7 +82,7 @@ function snapshot(repositoryPath) {
     task: "Implement the fixture change",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.7",
+    promptTripwireVersion: "0.1.8",
     createdAt: "2026-07-14T00:00:00.000Z",
   });
 }
@@ -167,6 +167,20 @@ test("AC-001: three probes use fresh threads and byte-equivalent planning inputs
         (request) =>
           request.params.sandboxPolicy.type === "readOnly" &&
           request.params.sandboxPolicy.networkAccess === false,
+      ),
+    );
+    assert.ok(
+      threadStarts.every((request) =>
+        /commands must contain only literal shell-free argv command strings/u.test(
+          request.params.developerInstructions,
+        ),
+      ),
+    );
+    assert.ok(
+      turnStarts.every(
+        (request) =>
+          request.params.outputSchema.properties.commands.items.description ===
+          "Literal shell-free argv command only, for example npm test. Do not include prose, backticks, workflow directives, ordering words, or explanations; put explanatory verification prose in verificationSteps.",
       ),
     );
   } finally {
@@ -1462,7 +1476,7 @@ async function createPreparedRepository() {
     task: "Implement the fixture change",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.7",
+    promptTripwireVersion: "0.1.8",
     effectiveConfig: { probeCount: 3 },
     createdAt: "2026-07-14T00:00:00.000Z",
   });
@@ -1539,7 +1553,7 @@ test("AC-002: an external tracked symlink blocks the batch before any probe thre
     task: "Inspect the fixture without changing it",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.7",
+    promptTripwireVersion: "0.1.8",
     effectiveConfig: { probeCount: 3 },
     createdAt: "2026-07-14T00:00:00.000Z",
   });

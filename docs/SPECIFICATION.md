@@ -2,7 +2,7 @@
 
 Status: P0 implementation baseline verified
 
-Version: 0.1.7
+Version: 0.1.8
 
 Date: 2026-07-19
 
@@ -357,6 +357,13 @@ sequence through the command policy and evaluates actual path/config/output
 operands; ambiguous syntax is unknown, while absolute or parent-traversing
 paths, write outputs, and protected read targets create the corresponding
 scope, unknown, or secret evidence.
+
+Planning probes must put only literal shell-free argv command strings in
+`commands` (for example, `npm test`). Prose wrappers, backticks, ordering
+phrases, and workflow directives such as the already-active PromptTripwire
+preflight invocation belong outside `commands`; explanatory check prose belongs
+in `verificationSteps`. Schema descriptions and probe developer instructions
+state this rule, while malformed command values remain fail-closed as `unknown`.
 
 For P0, confirming one of these effects can authorize only the local code changes that prepare it. It does not authorize PromptTripwire to perform a network, remote-write, deploy, release, migration-application, production-data, billing, credential, or permission-expansion operation. Those runtime effects remain denied and require a separate, explicitly authorized workflow outside the P0 executor.
 

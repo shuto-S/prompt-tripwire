@@ -76,7 +76,14 @@ export const PlanArtifactSchema = z
     dataChanges: z.array(z.string()),
     publicApiChanges: z.array(z.string()),
     dependencyChanges: z.array(z.string()),
-    commands: z.array(z.string()),
+    commands: z.array(
+      z
+        .string()
+        .min(1)
+        .describe(
+          "Literal shell-free argv command only, for example npm test. Do not include prose, backticks, workflow directives, ordering words, or explanations; put explanatory verification prose in verificationSteps.",
+        ),
+    ),
     externalEffects: z.array(z.string()),
     permissionChanges: z.array(z.string()),
     compatibilityImpacts: z.array(z.string()),
