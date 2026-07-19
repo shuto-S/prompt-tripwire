@@ -36,7 +36,7 @@ async function repositoryFixture() {
     task: "Implement the approved runtime fixture change",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.8",
+    promptTripwireVersion: "0.1.9",
     dirtyChoice: "committed_only",
   });
   return { root, prepared };

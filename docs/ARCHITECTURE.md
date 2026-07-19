@@ -81,7 +81,10 @@ completed plan items, validates plan artifacts, applies timeout/retry behavior,
 and records degradation. Plan `commands` fields are instructed and
 schema-described as literal shell-free argv strings only; workflow directives
 and explanatory check prose belong outside that field. Malformed values are not
-normalized and remain fail-closed as `unknown`. A symlink-containment failure blocks the whole batch
+normalized and remain fail-closed as `unknown`. Probe instructions likewise
+require bare allowlisted inspection program names; model-authored absolute or
+relative executable paths and explicit shells remain unknown or unsafe rather
+than being rewritten into an allowed command. A symlink-containment failure blocks the whole batch
 and is not retried or reduced to a two-probe degraded result.
 
 ### GPT-5.6 comparator

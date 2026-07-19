@@ -94,7 +94,11 @@ absolute-path escape, shell expansion or ambiguity in structured CWD/path text,
 or missing resolution evidence remains deny-by-default. Structured action type
 and path do not make raw command text trusted: the actual command must parse as
 one allowlisted static-read program, use only bounded non-executing flags, and
-name operands that match the structured action. Before any child command,
+name operands that match the structured action. Probe instructions require the
+program itself to use its exact bare allowlisted name. A model-authored
+executable path such as `/bin/ls`, a relative executable path, or an explicit
+shell is never normalized into an allowed action; the pinned App Server's own
+exact envelope remains the only shell form that can be unwrapped. Before any child command,
 PromptTripwire sets `ZDOTDIR` to a fresh empty mode-`0700` directory inside the
 disposable App Server runtime root, excluding user-controlled zsh startup files.
 Root-owned global zsh startup files such as `/etc/zshenv` and, for `-lc`,

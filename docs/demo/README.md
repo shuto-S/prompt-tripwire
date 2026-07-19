@@ -51,14 +51,14 @@ Description:
 > gpt-5.6-sol planning probes, and a tool-free gpt-5.6-terra comparator.
 >
 > Repository: https://github.com/shuto-S/prompt-tripwire
-> Release (macOS arm64): https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.8
+> Release (macOS arm64): https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.9
 >
-> This video is the completed v0.1.2 capture. v0.1.8 is the current judge
-> distribution to install; the footage is not presented as a v0.1.8 recording.
+> This video is the completed v0.1.2 capture. v0.1.9 is the current judge
+> distribution to install; the footage is not presented as a v0.1.9 recording.
 >
 > No separate OPENAI_API_KEY is required. PromptTripwire reuses the logged-in
 > Codex CLI / App Server session and never auto-approves human decisions.
 
 The video itself remains the disclosed v0.1.2 capture described above. The
-Release line points viewers to the v0.1.8 judge distribution they should
-install; it does not represent the footage as a v0.1.8 recording.
+Release line points viewers to the v0.1.9 judge distribution they should
+install; it does not represent the footage as a v0.1.9 recording.

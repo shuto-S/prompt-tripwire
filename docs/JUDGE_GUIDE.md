@@ -1,8 +1,8 @@
 # PromptTripwire judge guide
 
-PromptTripwire is a local-first preflight and execution gate for Codex. This guide targets the compiled v0.1.8 macOS arm64 release; judges do not need the TypeScript source tree or a source build. Download the archive and `SHA256SUMS.txt` from the [v0.1.8 GitHub Release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.8). The public v0.1.2 through v0.1.6 releases remain immutable historical evidence and must not be substituted for the v0.1.8 judge artifact.
+PromptTripwire is a local-first preflight and execution gate for Codex. This guide targets the compiled v0.1.9 macOS arm64 release; judges do not need the TypeScript source tree or a source build. Download the archive and `SHA256SUMS.txt` from the [v0.1.9 GitHub Release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.9). The public v0.1.2 through v0.1.8 releases remain immutable historical evidence and must not be substituted for the v0.1.9 judge artifact.
 
-v0.1.8 preserves the v0.1.5 Japanese/English UI and the v0.1.4 Plugin
+v0.1.9 preserves the v0.1.5 Japanese/English UI and the v0.1.4 Plugin
 isolation, re-entry sentinel, custom Codex
 home handling, and explicit-path validation. v0.1.5 added Japanese Decision Inbox
 chrome selected from the browser locale plus a visible `日本語 / English`
@@ -12,7 +12,9 @@ packaged release references. v0.1.7 keeps explicit coordinated prohibition
 lists negated, removing false safe-fixture dependency, network, and publication
 questions without weakening positive-action detection. v0.1.8 additionally
 keeps workflow/check prose out of plan `commands`, preventing avoidable unknown
-questions while malformed values remain fail-closed.
+questions while malformed values remain fail-closed. v0.1.9 requires bare
+inspection program names so Codex 0.144.4 does not turn an otherwise safe
+`ls` into the fail-closed `unknown` shape `/bin/ls`; that shape remains denied.
 
 ## Supported platform and prerequisites
 
@@ -38,14 +40,14 @@ Place the `.tar.gz` and `SHA256SUMS.txt` files in the same directory, then run:
 
 ```sh
 shasum -a 256 -c SHA256SUMS.txt
-tar -xzf prompt-tripwire-v0.1.8-macos-arm64.tar.gz
-cd prompt-tripwire-v0.1.8-macos-arm64
+tar -xzf prompt-tripwire-v0.1.9-macos-arm64.tar.gz
+cd prompt-tripwire-v0.1.9-macos-arm64
 ./bin/tripwire --version
 ./bin/tripwire --help
 ```
 
 Do not use a historical release's SHA-256 for this archive. Verify only with
-the `SHA256SUMS.txt` downloaded alongside the v0.1.8 archive.
+the `SHA256SUMS.txt` downloaded alongside the v0.1.9 archive.
 
 The shortest user-local setup installs the runtime and Codex Plugin together
 and requires no `sudo`:
@@ -78,7 +80,7 @@ restrictions remain unchanged. If the permission is denied, preflight stops;
 do not configure an API key as a workaround.
 
 The default runtime and marketplace root is
-`~/.local/lib/prompt-tripwire/0.1.8`. The marketplace retains the relative
+`~/.local/lib/prompt-tripwire/0.1.9`. The marketplace retains the relative
 `./plugins/prompt-tripwire` source. The installer verifies macOS arm64, Node.js,
 Git, Codex 0.144.4, and the existing login; it never runs inspect, decisions,
 approval, or implementation. It does not require `OPENAI_API_KEY`.
@@ -93,7 +95,7 @@ Add `~/.local/bin` to `PATH` if using the runtime directly. To remove the
 Plugin, its owned marketplace registration, and runtime together:
 
 ```sh
-~/.local/lib/prompt-tripwire/0.1.8/uninstall.sh --with-codex-plugin
+~/.local/lib/prompt-tripwire/0.1.9/uninstall.sh --with-codex-plugin
 ```
 
 The targeted uninstall leaves every other Plugin and marketplace untouched and
@@ -114,7 +116,7 @@ For a Git-marketplace fallback, first keep the artifact's `tripwire` launcher
 on `PATH` or set `PROMPT_TRIPWIRE_BIN`, then run:
 
 ```sh
-codex plugin marketplace add shuto-S/prompt-tripwire --ref v0.1.8
+codex plugin marketplace add shuto-S/prompt-tripwire --ref v0.1.9
 codex plugin add prompt-tripwire@prompt-tripwire-local
 codex plugin list --marketplace prompt-tripwire-local
 ```
@@ -141,7 +143,13 @@ version 0.1.7 with API-key variables unset. A real Skill invocation stopped
 safely in the caller sandbox; the permitted thin-adapter retry reached
 `needs_review` without changing the fixture and exposed four plan-command prose
 unknowns corrected in v0.1.8. v0.1.8 public-download and real-Plugin evidence
-will be recorded after publication.
+was recorded on 2026-07-19 JST: the public archive matched the clean candidate
+byte-for-byte with SHA-256
+`0b5ca45f3cf497917df9f0b1c531aa4e8cf5b9e75eb46e47128c5fa3d09e351c`,
+and isolated installation enabled Plugin version 0.1.8 with API-key variables
+unset. Its caller-sandbox attempt stopped safely; two permitted adapter runs
+then failed closed when one probe emitted `/bin/ls` as `unknown`. v0.1.9 keeps
+that unknown-action gate intact and corrects only the generation notation.
 
 ## Demo evidence
 
@@ -156,7 +164,7 @@ notes](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/demo/README.m
 embedded default English subtitles. These repository files are excluded from
 the compact release archive.
 
-This media is explicitly a v0.1.2 capture, not footage of the v0.1.8 judge
+This media is explicitly a v0.1.2 capture, not footage of the v0.1.9 judge
 distribution. The Inbox capture is an actual API-key-free v0.1.2 Plugin
 inspect. It has one
 unresolved compatibility decision, no dependency blocker, no selected option,
