@@ -414,6 +414,22 @@ adapter preserves immutable contract identity and avoids making translation a
 new probabilistic input to approval. A two-value local preference adds no
 credential path and cannot select, defer, approve, or cancel a run.
 
+### D-037 — Keep explicit coordinated prohibition lists under one negation
+
+**Decision:** When an English prohibition has the explicit shape
+`Do not A, B, C, or D` or the equivalent terminal `and` form, keep the opening
+negation over every bare comma-separated action in that coordinated list. Do
+not extend this exemption to a comma splice without a terminal coordinator, or
+past `but`, `then`, a new subject/modal, or a new sentence. Continue to classify
+those independently positive operations with the existing fail-closed rules.
+
+**Reason:** The real safe fixture said not to change package metadata, add
+dependencies, access the network, commit, push, publish, deploy, or perform an
+external action. Treating its middle list items as positive requests created
+three false blockers and contradicted AC-005. Requiring a visible terminal
+coordinator makes the no-change reading bounded, while the existing comma-splice
+and contrast tests prevent a negated item from hiding a later requested action.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage
@@ -450,4 +466,4 @@ credential path and cannot select, defer, approve, or cancel a run.
 
 ## Decision-change rule
 
-Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, D-034, D-035, or D-036 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.
+Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, D-034, D-035, D-036, or D-037 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.

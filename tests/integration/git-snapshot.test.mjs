@@ -62,7 +62,7 @@ function snapshotRequest(repositoryPath, overrides = {}) {
     task: "Implement the approved fixture change",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.6",
+    promptTripwireVersion: "0.1.7",
     effectiveConfig: { probeCount: 3, network: "deny" },
     createdAt: "2026-07-14T00:00:00.000Z",
     ...overrides,

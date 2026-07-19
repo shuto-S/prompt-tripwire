@@ -10,9 +10,9 @@ This file prepares the English submission fields. It is not a saved or final Dev
 - **Repository URL:** `https://github.com/shuto-S/prompt-tripwire`
 - **Repository access:** Public, Apache-2.0
 - **Supported platform:** macOS arm64
-- **Release artifact:** [v0.1.6 macOS arm64](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.6), published and anonymously verified on 2026-07-19 JST; [v0.1.5 remains immutable historical evidence](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.5)
-- **Release SHA-256:** `1b74c4c935e0fec1857b88b2a592f776c01f104a4042d224ef3ac1265fe83c33`
-- **Demo video:** `<PENDING HUMAN CONFIRMATION: upload to YouTube, then add the anonymously verified public URL>`; [local v0.1.2 review copy](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4), 2:52.862 with audio. The recording predates the v0.1.3 launcher hardening, v0.1.4 child-Plugin isolation, v0.1.5 Japanese UI presentation, and v0.1.6 packaged-documentation correction described below.
+- **Release artifact:** [v0.1.7 macOS arm64](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.7), prepared for publication and anonymous verification; [v0.1.6 remains immutable historical evidence](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.6)
+- **Release SHA-256:** `<PENDING: record after the v0.1.7 public asset is downloaded and verified>`
+- **Demo video:** `<PENDING HUMAN CONFIRMATION: upload to YouTube, then add the anonymously verified public URL>`; [local v0.1.2 review copy](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4), 2:52.862 with audio. The recording predates the v0.1.3 launcher hardening, v0.1.4 child-Plugin isolation, v0.1.5 Japanese UI presentation, v0.1.6 packaged-documentation correction, and v0.1.7 deterministic-policy precision patch described below.
 - **Codex /feedback Session ID:** `<PENDING: paste the formal Session ID captured outside source into Devpost>`
 
 The formal Session ID was captured on 2026-07-15 and is intentionally retained outside source until Devpost entry. Do not replace the placeholder with a local task/thread UUID.
@@ -57,6 +57,13 @@ v0.1.6 keeps the runtime behavior unchanged and corrects every release name,
 archive path, install root, uninstall command, and Git marketplace tag shipped
 inside the judge documentation. The v0.1.5 tag and assets remain untouched.
 
+v0.1.7 fixes a deterministic-policy false positive found during a real
+approval-to-execution rehearsal. An explicit coordinated prohibition such as
+`Do not add dependencies, access the network, publish, deploy, or perform any
+external action` now remains one negated list. Ambiguous comma splices and
+later positive clauses still fail closed. The approval, contract, containment,
+report, authentication, Plugin, and platform boundaries are unchanged.
+
 ## Challenges
 
 - Codex 0.144.4 reports some apparently read-only commands such as `pwd` and `sed` as `unknown`. PromptTripwire kept fail-closed denial and changed probe instructions instead of trusting raw shell text.
@@ -99,7 +106,7 @@ Hosted backends, account systems, team approvals, non-Codex adapters, and automa
 
 ## Judge instructions
 
-Download the v0.1.6 macOS arm64 release artifact and its matching checksum, verify them together, and follow `JUDGE_GUIDE.md`. The tag-aware candidate passed the complete release verifier and matched the anonymously downloaded archive byte-for-byte. Its packaged README and Judge Guide self-reference v0.1.6, and an isolated real Plugin invocation stopped at human review with no approved contract and an unchanged fixture. It supports:
+Download the v0.1.7 macOS arm64 release artifact and its matching checksum, verify them together, and follow `JUDGE_GUIDE.md`. Its packaged README and Judge Guide self-reference v0.1.7. Public-asset digest and anonymous-install evidence must be recorded after publication; the v0.1.6 release remains the last anonymously verified historical distribution. It supports:
 
 - direct `./bin/tripwire` execution;
 - one-command user-local install/uninstall;
@@ -133,8 +140,9 @@ review/offline fallback.
 
 ## YouTube confirmation packet (upload pending)
 
-The media is the completed v0.1.2 capture; v0.1.6 is the current judge
-distribution and includes later compatibility, safety, localization, and documentation patches. Before opening the upload flow,
+The media is the completed v0.1.2 capture; v0.1.7 is the current judge
+distribution and includes later compatibility, safety, localization,
+documentation, and deterministic-policy precision patches. Before opening the upload flow,
 present this entire packet to the human and wait for explicit confirmation.
 The public URL and anonymous playback verification remain pending.
 
@@ -152,10 +160,10 @@ The public URL and anonymous playback verification remain pending.
   > gpt-5.6-sol planning probes, and a tool-free gpt-5.6-terra comparator.
   >
   > Repository: https://github.com/shuto-S/prompt-tripwire
-  > Release (macOS arm64): https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.6
+  > Release (macOS arm64): https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.7
   >
-  > This video is the completed v0.1.2 capture. v0.1.6 is the current judge
-  > distribution to install; the footage is not presented as a v0.1.6
+  > This video is the completed v0.1.2 capture. v0.1.7 is the current judge
+  > distribution to install; the footage is not presented as a v0.1.7
   > recording.
   >
   > No separate OPENAI_API_KEY is required. PromptTripwire reuses the logged-in
@@ -170,7 +178,7 @@ The public URL and anonymous playback verification remain pending.
 - **Category:** Science & Technology
 - **License:** Standard YouTube License
 
-The Release line is resolved from the anonymously verified v0.1.6 publication.
+The Release line targets v0.1.7 and must be rechecked after publication.
 Show the complete title, description, visibility, captions, thumbnail, and
 settings once more and wait for explicit human confirmation. Uploading,
 publishing, or changing visibility before that confirmation is prohibited by
@@ -183,8 +191,8 @@ before final submission, show the human the complete assembled entry and wait
 for explicit confirmation. The confirmation view must include:
 
 - project name, Developer Tools category, tagline, public repository, Apache-2.0 license, and macOS arm64 support;
-- the anonymously verified v0.1.6 Release URL and checksum evidence;
-- the anonymously verified public YouTube URL, thumbnail, and v0.1.2-capture/v0.1.6-distribution disclosure;
+- the anonymously verified v0.1.7 Release URL and checksum evidence;
+- the anonymously verified public YouTube URL, thumbnail, and v0.1.2-capture/v0.1.7-distribution disclosure;
 - the exact body from **One-line pitch** through **What's next**, plus **Judge instructions**, known limitations, and tags;
 - the README, Judge Guide, release notes, demo documentation, screenshots, captions, and repository review-copy links;
 - the formal Codex `/feedback` Session ID in Devpost's dedicated field, copied from the retained external record and never written into this repository; and
@@ -211,6 +219,7 @@ packet.
 - [x] Build, publish, and anonymously verify the v0.1.4 compatibility-patch artifact and checksum.
 - [x] Build and locally verify the v0.1.6 documentation-correction artifact and checksum.
 - [x] Publish and anonymously verify the v0.1.6 artifact, checksum, and packaged instructions.
+- [ ] Build, publish, and anonymously verify the v0.1.7 deterministic-policy precision artifact, checksum, packaged instructions, and real Plugin flow.
 - [x] Obtain the formal `/feedback` Session ID from the primary Codex task and retain it outside source.
 - [x] Regenerate the owned local v0.1.2 demo with audio under three minutes, English captions, thumbnail, and screenshots.
 - [ ] Obtain explicit human confirmation for the resolved YouTube packet, upload the completed v0.1.2 demo/captions, and verify public playback anonymously.

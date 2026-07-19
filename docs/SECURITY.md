@@ -179,9 +179,11 @@ forms such as `dependency-free`, `no new dependencies`, `without adding
 dependencies`, unchanged/preserved dependencies, and supported Japanese
 equivalents do not create a dependency blocker. A contrast clause disables that
 exemption so a later positive action remains visible. General negation handling
-also prevents a prohibited-operation instruction from becoming a request while
-ensuring that one negated clause cannot mask a later positive clause. Unknown
-classification remains blocking.
+also prevents a prohibited-operation instruction from becoming a request. A
+terminal `and`/`or` coordinator extends the opening negation across its bare
+comma-separated list, while a comma splice without that coordinator and a
+later `but`/`then`/new-subject/new-sentence action remain independently
+classified. Unknown classification remains blocking.
 
 Task vocabulary uses bounded action-and-target pairs for external services; a
 service or artifact noun alone is not authority and is not automatically a

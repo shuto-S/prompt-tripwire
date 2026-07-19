@@ -301,7 +301,11 @@ plan omission without presenting the task as independent probe consensus.
 Dependency matching distinguishes positive add/install/update/upgrade/replace/
 remove/change intent from whole-field no-change declarations. Exact
 dependency-free, no-new-dependency, unchanged/preserved, and supported Japanese
-forms are suppressed only when they contain no contrast clause.
+forms are suppressed only when they contain no contrast clause. A terminal
+`and`/`or` coordinator keeps an opening negation over the preceding bare
+comma-separated list; without that coordinator, or after `but`, `then`, a new
+subject/modal, or a new sentence, positive actions remain independently
+eligible for blocking classification.
 
 External-effect task matching is action-and-target oriented. Bounded English
 and Japanese forms cover repository archive/rename, issue transfer, S3 artifact
