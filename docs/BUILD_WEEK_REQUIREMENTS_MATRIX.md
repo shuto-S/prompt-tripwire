@@ -7,13 +7,13 @@ Authoritative sources:
 - [OpenAI Build Week Official Rules](https://openai.devpost.com/rules)
 - [OpenAI Build Week Resources](https://openai.devpost.com/resources)
 
-The official rules take precedence if they change. This matrix records the requirement text as checked against the judge-facing repository and v0.1.6 release candidate. The public v0.1.2 demo capture and v0.1.3/v0.1.4/v0.1.5 releases remain historical evidence.
+The official rules take precedence if they change. This matrix records the requirement text as checked against the judge-facing repository and published v0.1.6 release. The public v0.1.2 demo capture and v0.1.3/v0.1.4/v0.1.5 releases remain historical evidence.
 
 | Official requirement or guidance | PromptTripwire evidence | Status |
 |---|---|---|
 | Submission period ends July 21, 2026 at 17:00 PT (July 22 at 09:00 JST). | `docs/BUILD_WEEK.md` uses the JST deadline and keeps the final day for verification/submission. | Ready |
 | Build a project with Codex and GPT-5.6 in an eligible track. | Developer Tools; Codex App Server runs planning/execution and GPT-5.6 performs schema-constrained comparison. | Ready |
-| The project installs and runs consistently on the declared platform. | Clean v0.1.6 macOS arm64 candidate, pinned Node/Codex requirements, transactional install/upgrade, owned uninstall boundaries, artifact smoke script, and two-build reproducibility gate. It preserves v0.1.5 Japanese/English UI and v0.1.4 child-Plugin isolation while correcting packaged release references. The public v0.1.5 runtime was anonymously verified and reached human review through a real API-key-free Plugin invocation without changing the fixture. | Pending v0.1.6 publication and anonymous verification |
+| The project installs and runs consistently on the declared platform. | Published v0.1.6 macOS arm64 artifact, pinned Node/Codex requirements, transactional install/upgrade, owned uninstall boundaries, artifact smoke script, and two-build reproducibility gate. It preserves v0.1.5 Japanese/English UI and v0.1.4 child-Plugin isolation while correcting packaged release references. The public archive/checksum and self-referencing packaged instructions were anonymously verified, then a real API-key-free Plugin invocation reached human review without changing the fixture. | Ready |
 | New work must be created during the submission period, or pre-existing work must be clearly separated. | Repository starts during the event; dated specification and implementation commits are listed in `docs/CODEX_COLLABORATION.md`. | Ready |
 | Third-party SDKs, APIs, data, and open-source software must be used with authorization and license compliance. | Apache-2.0 project license, `docs/DEPENDENCIES.md`, lockfile license gate, and no third-party data/assets in the judge fixture. | Ready |
 | Include an English text description of features and functionality. | `docs/DEVPOST_SUBMISSION.md` contains the English submission draft. | Ready |
@@ -22,8 +22,8 @@ The official rules take precedence if they change. This matrix records the requi
 | Provide a repository URL; public with relevant licensing, or private and shared with both judge addresses. | Public repository: `https://github.com/shuto-S/prompt-tripwire`; Apache-2.0 is recorded in `LICENSE`, package metadata, and README. Anonymous `HTTP 200` checks passed for the repository and LICENSE URL. | Ready |
 | README must explain Codex collaboration, acceleration, human decisions, and GPT-5.6/Codex contributions. | README summary plus the detailed accepted/changed/rejected and dated record in `docs/CODEX_COLLABORATION.md`. | Ready |
 | Provide the `/feedback` Codex Session ID for the task where most core functionality was built. | The retained primary session was uploaded through App Server `feedback/upload` on 2026-07-15 and the returned Session ID was captured outside the repository for Devpost entry. | Pending final Devpost entry |
-| Developer tools need installation instructions, supported platforms, and a way to test without rebuilding. | `docs/JUDGE_GUIDE.md`; v0.1.6 compiled JavaScript/runtime candidate; safe local fixture; recorded read-only replay. | Pending v0.1.6 publication |
-| Provide free, unrestricted working-project access through the judging period. | The public repository and v0.1.2/v0.1.3/v0.1.4/v0.1.5 releases are reachable without authentication and were anonymously verified. v0.1.6 publication remains pending. No hosted account or paid PromptTripwire service is required; Codex usage remains under the judge's own OpenAI access. | Pending v0.1.6 publication; then continue monitoring availability |
+| Developer tools need installation instructions, supported platforms, and a way to test without rebuilding. | `docs/JUDGE_GUIDE.md`; published v0.1.6 compiled JavaScript/runtime artifact; safe local fixture; recorded read-only replay. | Ready |
+| Provide free, unrestricted working-project access through the judging period. | The public repository and v0.1.2/v0.1.3/v0.1.4/v0.1.5/v0.1.6 releases are reachable without authentication and were anonymously verified. No hosted account or paid PromptTripwire service is required; Codex usage remains under the judge's own OpenAI access. | Ready; continue monitoring availability |
 | Submission and testing materials must be English or have English translations. | README, Judge Guide, release notes, fixture, Devpost draft, demo narration, and 74-cue caption file are English. | Ready |
 | Submission must be original, owned by the entrant, and not violate IP/privacy rights. | Final repository media is owned and reviewed; no copied media or private repository fixture is used; dependency licenses are reviewed; secret/local-path scans gate the artifact. | Ready |
 | Stage-one viability: fit the theme and reasonably apply the required tools. | Real Codex/GPT-5.6 vertical slice and executable P0 evidence. | Ready |
@@ -32,9 +32,8 @@ The official rules take precedence if they change. This matrix records the requi
 
 ## Remaining rule-owned actions
 
-1. Publish the verified v0.1.6 archive/checksum and verify the repository, release, packaged instructions, and real Plugin review stop anonymously.
-2. Present the completed v0.1.2-capture demo, title, description, visibility, English captions, and thumbnail for explicit human confirmation; only then upload it to public YouTube and verify playback anonymously.
-3. Prepare the complete Devpost fields, attachments, links, and dedicated Session ID placement, then obtain a separate explicit human confirmation before final submission. The Session ID remains outside the repository.
+1. Present the completed v0.1.2-capture demo, title, description, visibility, English captions, and thumbnail for explicit human confirmation; only then upload it to public YouTube and verify playback anonymously.
+2. Prepare the complete Devpost fields, attachments, links, and dedicated Session ID placement, then obtain a separate explicit human confirmation before final submission. The Session ID remains outside the repository.
 
 Publication evidence through 2026-07-19 JST:
 
@@ -43,7 +42,9 @@ Publication evidence through 2026-07-19 JST:
 - child-Plugin isolation release PR: [#26](https://github.com/shuto-S/prompt-tripwire/pull/26), merge commit `58119517e3bd128d36467f8cf1315b8d18f091d6`
 - Decision Inbox localization PR: [#28](https://github.com/shuto-S/prompt-tripwire/pull/28), merge commit `da19c01c30df58d0eff44a2c0f5a55bf7b177a5e`
 - v0.1.5 release PR: [#29](https://github.com/shuto-S/prompt-tripwire/pull/29), merge commit `26882c31d76e4f388ca59420d3fb41494c2b5973`
-- public releases: [v0.1.5](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.5), [v0.1.4](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.4), [v0.1.3](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.3), and [v0.1.2](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.2); v0.1.1 and v0.1.0 remain preserved as earlier evidence
+- v0.1.6 documentation-correction release PR: [#30](https://github.com/shuto-S/prompt-tripwire/pull/30), merge commit `cf54fb767b6677bfe60f2f5a4ffd6e3b74dd1400`
+- public releases: [v0.1.6](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.6), [v0.1.5](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.5), [v0.1.4](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.4), [v0.1.3](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.3), and [v0.1.2](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.2); v0.1.1 and v0.1.0 remain preserved as earlier evidence
+- anonymously verified v0.1.6 macOS arm64 artifact SHA-256: `1b74c4c935e0fec1857b88b2a592f776c01f104a4042d224ef3ac1265fe83c33`
 - anonymously verified v0.1.5 macOS arm64 artifact SHA-256: `b9df44c8a44d255a98f00953003d41e743e53059eec26ef79980730dccc5beaf`
 - anonymously verified v0.1.4 macOS arm64 artifact SHA-256: `02a30d1f202e18da556aff576ef6d01d82970973e2566639e116615cc6aea4fa`
 - anonymously verified v0.1.3 macOS arm64 artifact SHA-256: `2328e2673ab2fd67d4bd3043dc2c838fc584fad1a10719da28dcbcfd38156682`
@@ -57,6 +58,6 @@ judge archive. Its live Inbox scene is an untouched API-key-free v0.1.2 inspect;
 the separately disclosed contract/execution/report scenes use an earlier
 human-approved safe-fixture run. It is not represented as footage of the
 v0.1.6 judge distribution. Its GitHub Release URL, archive digest, packaged
-instruction check, and anonymous download remain pending; the public YouTube URL
-also remains pending. No checksum from v0.1.1 through v0.1.5 verifies the
-v0.1.6 archive.
+instruction check, anonymous download, isolated install, and unapproved real
+Plugin review stop are complete; the public YouTube URL remains pending. No
+checksum from v0.1.1 through v0.1.5 verifies the v0.1.6 archive.
