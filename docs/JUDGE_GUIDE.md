@@ -1,6 +1,6 @@
 # PromptTripwire judge guide
 
-PromptTripwire is a local-first preflight and execution gate for Codex. This guide targets the compiled v0.1.11 macOS arm64 candidate produced by `npm run package:macos-arm64`; judges do not need the TypeScript source tree or a source build once that archive and its matching `SHA256SUMS.txt` are provided. The public v0.1.10 release and earlier releases remain immutable historical evidence and must not be substituted for the v0.1.11 candidate.
+PromptTripwire is a local-first preflight and execution gate for Codex. This guide targets the compiled v0.1.11 macOS arm64 release produced by `npm run package:macos-arm64`; judges do not need the TypeScript source tree or a source build once that archive and its matching `SHA256SUMS.txt` are provided. Earlier releases remain immutable historical evidence and must not be substituted for v0.1.11.
 
 v0.1.10 preserves the v0.1.5 Japanese/English UI and the v0.1.4 Plugin
 isolation, re-entry sentinel, custom Codex
@@ -136,13 +136,12 @@ For a Git-marketplace fallback, first keep the artifact's `tripwire` launcher
 on `PATH` or set `PROMPT_TRIPWIRE_BIN`, then run:
 
 ```sh
-codex plugin marketplace add shuto-S/prompt-tripwire --ref main
+codex plugin marketplace add shuto-S/prompt-tripwire --ref v0.1.11
 codex plugin add prompt-tripwire@prompt-tripwire-local
 codex plugin list --marketplace prompt-tripwire-local
 ```
 
-Replace `main` with the matching v0.1.11 tag after publication. The Plugin and
-runtime versions must match.
+The Plugin and runtime versions must match the v0.1.11 release tag.
 
 The Skill always stops for human Decision Inbox choices and explicit contract
 approval. Neither the installer nor the calling Codex task may approve on the

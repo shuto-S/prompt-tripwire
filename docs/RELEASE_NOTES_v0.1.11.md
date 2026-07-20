@@ -1,8 +1,8 @@
-# PromptTripwire v0.1.11 candidate release notes
+# PromptTripwire v0.1.11
 
-Status: unreleased source candidate. No GitHub Release, tag, npm publication,
-public Plugin Directory submission, deployment, YouTube upload, or Devpost
-submission is performed by this change.
+Final Build Week judge distribution for macOS arm64. This release does not add
+npm publication, public Plugin Directory submission, deployment, YouTube
+upload, or Devpost submission.
 
 ## What changed
 
@@ -70,7 +70,7 @@ selected nothing, approved nothing, and left the safe fixture unchanged. The
 isolated Plugin, marketplace, runtime, and copied authentication directory were
 then removed.
 
-## Install candidate archive
+## Install
 
 ```sh
 shasum -a 256 -c SHA256SUMS.txt
