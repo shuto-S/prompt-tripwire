@@ -106,6 +106,7 @@ interface DecisionCardProps {
   readonly disabled: boolean;
   readonly locale: UiLocale;
   readonly messages: UiMessages;
+  readonly validProbeCount: number;
   readonly translation: ReviewPresentationDecisionDto | null;
   readonly onResolve: (
     decision: DecisionCardDto,
@@ -118,6 +119,7 @@ function DecisionCard({
   disabled,
   locale,
   messages,
+  validProbeCount,
   translation,
   onResolve,
 }: DecisionCardProps): JSX.Element {
@@ -149,6 +151,13 @@ function DecisionCard({
         </span>
         <span>{displayLabel(messages.categories, decision.category)}</span>
         {decision.status === "deferred" ? <span>{messages.deferred}</span> : null}
+      </div>
+      <div className={`decision-origin origin-${decision.origin.source}`}>
+        <strong>{displayLabel(messages.decisionSources, decision.origin.source)}</strong>
+        <span>{messages.materialAlternatives(decision.origin.materialAlternativeCount)}</span>
+        {decision.origin.source === "unknown" ? (
+          <span>{messages.decisionSourceUnknownWarning}</span>
+        ) : null}
       </div>
       {locale === "ja" && translation !== null ? (
         <p className="reference-label">{messages.referenceTranslation}</p>
@@ -196,8 +205,7 @@ function DecisionCard({
                     </ul>
                   ) : null}
                   <span className="support">
-                    {messages.probeSupport}:{" "}
-                    {option.supportedByProbeIds.join(", ") || messages.none}
+                    {messages.optionSupport(option.supportCount, validProbeCount)}
                   </span>
                 </label>
               );
@@ -277,6 +285,14 @@ function DecisionCard({
                 .join(", ") || messages.none}
             </dd>
           </div>
+          {decision.options.map((option) => (
+            <div key={`evidence:${option.id}`}>
+              <dt>
+                {messages.optionProbeIds}: {option.label}
+              </dt>
+              <dd>{option.supportedByProbeIds.join(", ") || messages.none}</dd>
+            </div>
+          ))}
         </dl>
       </details>
     </article>
@@ -533,6 +549,19 @@ function App(): JSX.Element {
                   {messages.shownDecisions(review.decisions.length, review.remainingDecisionCount)}
                 </p>
               </div>
+              <div className={`origin-strip probe-set-${review.probeSet.status}`}>
+                <strong>
+                  {messages.probeCount(
+                    review.probeSet.validProbeCount,
+                    review.probeSet.expectedProbeCount,
+                  )}
+                </strong>
+                <span>
+                  {review.probeSet.status === "default"
+                    ? messages.defaultProbeSet
+                    : messages.degradedProbeSet}
+                </span>
+              </div>
               <p className="source-text-notice">{messages.sourceTextNotice}</p>
               <div className="decision-grid">
                 {review.decisions.map((decision) => (
@@ -542,6 +571,7 @@ function App(): JSX.Element {
                     disabled={busy || review.mode === "recorded"}
                     locale={locale}
                     messages={messages}
+                    validProbeCount={review.probeSet.validProbeCount}
                     translation={
                       japanesePresentation?.decisions.find(
                         (candidate) => candidate.decisionId === decision.decisionId,
@@ -566,7 +596,14 @@ function App(): JSX.Element {
               <p>{translatedTask ?? review.contract.approvedGoal}</p>
               <div className="contract-columns">
                 <div>
-                  <h3>{messages.allowedPaths}</h3>
+                  <h3>{messages.whatCodexMayChange}</h3>
+                  <h4>{messages.approvedComponents}</h4>
+                  <ul>
+                    {review.contract.allowedComponents.map((component) => (
+                      <li key={component}>{component}</li>
+                    ))}
+                  </ul>
+                  <h4>{messages.approvedPaths}</h4>
                   <ul>
                     {review.contract.allowedPaths.map((path) => (
                       <li key={path}>{path}</li>
@@ -574,7 +611,7 @@ function App(): JSX.Element {
                   </ul>
                 </div>
                 <div>
-                  <h3>{messages.requiredChecks}</h3>
+                  <h3>{messages.whatMustPass}</h3>
                   <ul>
                     {review.contract.requiredChecks.map((check) => (
                       <li key={check}>{check}</li>
@@ -582,7 +619,28 @@ function App(): JSX.Element {
                   </ul>
                 </div>
                 <div>
-                  <h3>{messages.stopConditions}</h3>
+                  <h3>{messages.whatRemainsBlocked}</h3>
+                  <h4>{messages.deniedCommandClasses}</h4>
+                  <ul>
+                    {review.contract.deniedCommandClasses.map((commandClass) => (
+                      <li key={commandClass}>{commandClass}</li>
+                    ))}
+                  </ul>
+                  <h4>{messages.runtimePolicies}</h4>
+                  <dl className="policy-list">
+                    {[
+                      ["network", review.contract.networkPolicy.mode],
+                      ["dependency", review.contract.dependencyPolicy.mode],
+                      ["data", review.contract.dataPolicy.mode],
+                      ["external_effect", review.contract.externalEffectPolicy.mode],
+                    ].map(([name, mode]) => (
+                      <div key={name}>
+                        <dt>{displayLabel(messages.policyNames, name ?? "")}</dt>
+                        <dd>{displayLabel(messages.policyModes, mode ?? "")}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <h4>{messages.stopConditions}</h4>
                   <ul>
                     {review.contract.stopConditions.map((condition) => (
                       <li key={condition}>{displayProductText(condition, locale)}</li>

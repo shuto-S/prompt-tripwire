@@ -1,5 +1,7 @@
 # OpenAI Build Week plan and compliance
 
+The demo is a v0.1.2 capture. The judge distribution is v0.1.12. Releases v0.1.3 through v0.1.12 improved compatibility, safety, localization, and presentation precision without changing the video's human-approval or contract boundary.
+
 Status date: 2026-07-20
 
 Official source: [OpenAI Build Week Official Rules](https://openai.devpost.com/rules)
@@ -7,6 +9,10 @@ Official source: [OpenAI Build Week Official Rules](https://openai.devpost.com/r
 The official rules remain the source of truth. This document is an implementation checklist, not a substitute for rechecking the rules before submission.
 
 ## 1. Submission fit
+
+> Codex asks when it knows it is uncertain. PromptTripwire detects when
+> reasonable Codex runs silently disagree—and turns the human answer into an
+> execution contract.
 
 - **Track:** Developer Tools
 - **Project type:** local CLI plus lightweight local web UI
@@ -76,7 +82,7 @@ If the schedule slips, retain the differentiated vertical slice. Cut P1 features
 
 ## 6. Judge-ready distribution
 
-The selected target is a relocatable compiled/runtime macOS arm64 archive that does not require a TypeScript source build. It includes:
+The selected target is a relocatable compiled/runtime macOS arm64 archive that does not require a TypeScript source build. Its judge path is split into a 30-second recorded/read-only replay and a complete live proof with explicit distribution version, artifact CWD, fixture, `RUN_ID`, and `CONTRACT_ID`. It includes:
 
 - supported OS/architecture and minimum versions;
 - Codex authentication prerequisites;
@@ -145,6 +151,11 @@ invocation is `$prompt-tripwire:preflight`. It redacts secret-like source text
 before Japanese translation and browser serialization while preserving
 canonical persistence and approval identity.
 
+v0.1.12 makes the judge-facing decision chain explicit: validated provenance,
+valid-probe and option-support counts, and a direct immutable-contract preview.
+The new fields are presentation-only projections and do not change decisions,
+approval authority, contract identity, policy, containment, or reports.
+
 The captured flow is:
 
 1. the hidden-decision problem and explicit Plugin invocation;
@@ -166,7 +177,7 @@ is excluded from the judge release archive.
 ### Product
 
 - [x] All P0 functional requirements implemented.
-- [x] Run the complete v0.1.11 source and release gates after the version bump.
+- [x] Run the complete v0.1.12 source and release gates after the version bump.
 - [x] Real Codex App Server integration; no mocked core demo.
 - [x] Real GPT-5.6 Structured Outputs integration.
 - [x] Judge-ready install that does not require rebuilding.
@@ -184,6 +195,7 @@ is excluded from the judge release archive.
 - [x] Publish the verified `v0.1.9` macOS arm64 artifact and checksum, then verify both anonymously.
 - [x] Publish the verified `v0.1.10` macOS arm64 artifact and checksum.
 - [x] Publish the verified `v0.1.11` macOS arm64 artifact and checksum, then verify both anonymously.
+- [ ] Publish the verified `v0.1.12` macOS arm64 artifact and checksum, then verify both anonymously.
 - [x] Dated commits distinguish specification, implementation, and submission work.
 - [x] Dependency licenses and third-party assets reviewed.
 - [x] No secrets in Git history.
@@ -210,10 +222,10 @@ is excluded from the judge release archive.
 
 ## 9. Remaining submission actions
 
-- Present the prepared YouTube video, title, description, visibility, captions, and thumbnail for human confirmation; only then upload and verify playback anonymously.
+- Human authorization for the prepared YouTube packet has been received; upload it after v0.1.12 publication, then verify playback anonymously.
 - Replace the Devpost public video placeholder after YouTube publication and prepare the complete draft; present the final field/attachment/link packet for a separate human confirmation before final submission.
 
-Publication evidence: repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0. [v0.1.11](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.11) is the final public judge distribution. Its public archive and checksum were downloaded anonymously on 2026-07-20 JST and matched the clean tag-aware candidate byte-for-byte at SHA-256 `33efb9b1d9cca9f22f0b843169d9d59efd80c744aee5601cc7fb1e1ad36b816b`, 2,341,471 bytes, 927 verified files, and source commit `7f5d55c8bbdc6e54cdd448fdf2b9b2751cc5c099`. The Release page and tagged LICENSE returned anonymous HTTP 200. The downloaded runtime reported 0.1.11; runtime-only and Plugin-enabled installs succeeded in isolated prefixes, the Plugin reported installed/enabled at 0.1.11 with API-key variables unset, and targeted uninstall removed only the isolated Plugin, marketplace, and runtime before the copied authentication directory was deleted. v0.1.10 remains immutable historical evidence at SHA-256 `15574604ef5476ae22db0396986b470a550af597880f82f32936c9bc67e587a5`, 2,322,813 bytes. The public v0.1.9 archive remains historical evidence at SHA-256 `8e1fa4ea296eb7d64c3fb453d21121037c63fe68a919c0fd51de483d6436d9c0`, 2,314,606 bytes, 921 verified files, and source commit `de6c4bb458793d3395155f370b0c0e22d24ef773`.
+Publication evidence: repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0. [v0.1.11](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.11) is the last anonymously verified public judge distribution before the v0.1.12 candidate. Its public archive and checksum were downloaded anonymously on 2026-07-20 JST and matched the clean tag-aware candidate byte-for-byte at SHA-256 `33efb9b1d9cca9f22f0b843169d9d59efd80c744aee5601cc7fb1e1ad36b816b`, 2,341,471 bytes, 927 verified files, and source commit `7f5d55c8bbdc6e54cdd448fdf2b9b2751cc5c099`. The Release page and tagged LICENSE returned anonymous HTTP 200. The downloaded runtime reported 0.1.11; runtime-only and Plugin-enabled installs succeeded in isolated prefixes, the Plugin reported installed/enabled at 0.1.11 with API-key variables unset, and targeted uninstall removed only the isolated Plugin, marketplace, and runtime before the copied authentication directory was deleted. v0.1.10 remains immutable historical evidence at SHA-256 `15574604ef5476ae22db0396986b470a550af597880f82f32936c9bc67e587a5`, 2,322,813 bytes. The public v0.1.9 archive remains historical evidence at SHA-256 `8e1fa4ea296eb7d64c3fb453d21121037c63fe68a919c0fd51de483d6436d9c0`, 2,314,606 bytes, 921 verified files, and source commit `de6c4bb458793d3395155f370b0c0e22d24ef773`.
 
 A final local v0.1.2 H.264/AAC English demo, caption/narration copy, thumbnail,
 and owned UI captures are now in `docs/demo/` and `docs/assets/demo/`. The live
@@ -226,8 +238,8 @@ The public v0.1.10 artifact preserves the Japanese reference-presentation
 release. The public v0.1.11 artifact adds measured compatibility and
 explicit-only Plugin metadata, with tag-aware reproducibility, isolated
 installer/uninstaller, API-key-free inspect, and Plugin-adapter verification.
-YouTube upload and Devpost final submission remain blocked on their respective
-explicit human confirmations.
+YouTube upload is authorized after v0.1.12 publication. Devpost final
+submission remains blocked on its separate explicit human confirmation.
 
 On 2026-07-20 JST, an isolated v0.1.11 archive install enabled the Plugin with
 only a copied existing Codex login and both API-key variables unset. A new

@@ -25,7 +25,7 @@ import {
 import { SqlitePersistence } from "@prompt-tripwire/persistence";
 import { startReviewServer } from "@prompt-tripwire/ui";
 
-export const CLI_FOUNDATION = Object.freeze({ name: "cli", version: "0.1.11" });
+export const CLI_FOUNDATION = Object.freeze({ name: "cli", version: "0.1.12" });
 
 const HELP = `PromptTripwire ${CLI_FOUNDATION.version}
 

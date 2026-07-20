@@ -1,6 +1,6 @@
 {
   "name": "prompt-tripwire",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "private": true,
   "license": "Apache-2.0",
   "description": "Local-first preflight and execution gate for Codex",
@@ -14,6 +14,9 @@
     "npm": ">=11.0.0"
   },
   "packageManager": "npm@11.17.0",
+  "promptTripwire": {
+    "demoCaptureVersion": "0.1.2"
+  },
   "scripts": {
     "build": "tsc -b --pretty false && npm run build:web --workspace @prompt-tripwire/ui",
     "clean": "node scripts/clean.mjs",
@@ -37,6 +40,7 @@
     "check:diff": "node scripts/check-diff.mjs",
     "eval:comparator": "npm run build && node scripts/eval-comparator.mjs",
     "smoke:real-probes": "npm run build && node scripts/smoke-real-probes.mjs",
+    "capture:issue-43-media": "npm run build && node scripts/capture-issue-43-media.mjs",
     "package:macos-arm64": "npm run build && node scripts/package-macos-arm64.mjs",
     "check:release-reproducibility": "node scripts/check-release-reproducibility.mjs",
     "verify:release": "node scripts/verify-release-artifact.mjs"

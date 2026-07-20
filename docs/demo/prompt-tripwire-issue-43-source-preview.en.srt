@@ -1,0 +1,31 @@
+1
+00:00:00,000 --> 00:00:05,500
+Codex asks when it knows it is uncertain.
+
+2
+00:00:05,500 --> 00:00:11,000
+PromptTripwire detects when reasonable Codex runs silently disagree.
+
+3
+00:00:11,000 --> 00:00:17,500
+Three independent read-only planning probes expose a material alternative.
+
+4
+00:00:17,500 --> 00:00:23,500
+The source label and support counts explain why this question needs a human.
+
+5
+00:00:23,500 --> 00:00:29,500
+Only the human selects the bounded local implementation.
+
+6
+00:00:29,500 --> 00:00:36,000
+The answer becomes an immutable execution contract with explicit change scope and checks.
+
+7
+00:00:36,000 --> 00:00:43,000
+Dependencies, network, remote writes, deploy, release, and external effects stay blocked.
+
+8
+00:00:43,000 --> 00:00:49,000
+This v0.1.12 source preview uses a deterministic fixture and is not live execution evidence.

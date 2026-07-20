@@ -20,6 +20,15 @@ test("AC-003/015: keyboard-only review, approval, and state announcements", asyn
   try {
     await page.goto(server.url);
     await page.getByRole("heading", { name: "Decisions requiring review" }).waitFor();
+    await page.getByText("3 of 3 independent planning probes are valid", { exact: true }).waitFor();
+    await page.getByText("Full three-probe comparison", { exact: true }).waitFor();
+    await page.getByText("Required by deterministic policy", { exact: true }).waitFor();
+    await page.getByText("1 of 3 probes support this option", { exact: true }).waitFor();
+    await page.getByText("2 of 3 probes support this option", { exact: true }).waitFor();
+    const rawProbeId = page.getByText(/probe_1/u).first();
+    assert.equal(await rawProbeId.isVisible(), false);
+    await page.getByText("Evidence and policy triggers", { exact: true }).click();
+    assert.equal(await rawProbeId.isVisible(), true);
     assert.equal(await page.getByRole("radio").count(), 2);
     assert.deepEqual(
       await page.getByRole("radio").evaluateAll((items) => items.map((item) => item.checked)),
@@ -30,6 +39,9 @@ test("AC-003/015: keyboard-only review, approval, and state announcements", asyn
     await page.getByRole("button", { name: "Record decision" }).focus();
     await page.keyboard.press("Enter");
     await page.getByRole("heading", { name: "Approve the bounded execution" }).waitFor();
+    await page.getByRole("heading", { name: "What Codex may change" }).waitFor();
+    await page.getByRole("heading", { name: "What must pass" }).waitFor();
+    await page.getByRole("heading", { name: "What remains blocked" }).waitFor();
     assert.equal(await page.getByRole("status").textContent(), "Contract is ready for approval");
     assert.equal(await page.getByText(/FULL PLAN SHOULD NOT LEAK/u).count(), 0);
     await page.getByText("Open full sanitized plan artifacts", { exact: true }).click();
@@ -136,6 +148,9 @@ test("AC-015: Decision Inbox follows Japanese locale and keeps an explicit langu
     assert.equal(await page.getByRole("button", { name: "判断を記録" }).count(), 1);
     assert.equal(await page.getByRole("button", { name: "実行をキャンセル" }).count(), 1);
     assert.equal(await page.getByText("日本語の参考訳", { exact: true }).count(), 2);
+    await page.getByText("3件中3件の独立計画プローブが有効", { exact: true }).waitFor();
+    await page.getByText("決定論的ポリシーによる確認", { exact: true }).waitFor();
+    await page.getByText("3件中2件のプローブがこの選択肢を支持", { exact: true }).waitFor();
     assert.equal(
       await page
         .getByRole("heading", {
@@ -165,6 +180,48 @@ test("AC-015: Decision Inbox follows Japanese locale and keeps an explicit langu
     await page.getByRole("heading", { name: "Decisions requiring review" }).waitFor();
     assert.equal(await page.locator("html").getAttribute("lang"), "en");
     assert.equal(fixture.controller.status(fixture.run.runId).run.state, "needs_review");
+  } finally {
+    await page.close();
+    await browser.close();
+    await server.close();
+    await fixture.close();
+  }
+});
+
+test("Issue 43: mobile review keeps origin, options, and contract groups readable", async () => {
+  const fixture = await createReviewFixture({
+    decisionCount: 1,
+    runId: "run_ui_browser_mobile_origin",
+  });
+  const server = await startReviewServer({
+    controller: fixture.controller,
+    runId: fixture.run.runId,
+    closeGraceMs: 5_000,
+  });
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  try {
+    await page.goto(server.url);
+    await page.getByText("3 of 3 independent planning probes are valid", { exact: true }).waitFor();
+    assert.equal(await page.getByRole("radio").count(), 2);
+    assert.equal(
+      await page.evaluate(
+        () => globalThis.document.documentElement.scrollWidth <= globalThis.innerWidth,
+      ),
+      true,
+    );
+
+    await page.getByRole("radio", { name: /Delete immediately/u }).check();
+    await page.getByRole("button", { name: "Record decision" }).click();
+    await page.getByRole("heading", { name: "What Codex may change" }).waitFor();
+    await page.getByRole("heading", { name: "What must pass" }).waitFor();
+    await page.getByRole("heading", { name: "What remains blocked" }).waitFor();
+    assert.equal(
+      await page.evaluate(
+        () => globalThis.document.documentElement.scrollWidth <= globalThis.innerWidth,
+      ),
+      true,
+    );
   } finally {
     await page.close();
     await browser.close();

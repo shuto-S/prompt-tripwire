@@ -26,6 +26,10 @@ export interface UiMessages {
   readonly detached: string;
   readonly explicitChoices: string;
   readonly decisionsRequiringReview: string;
+  readonly defaultProbeSet: string;
+  readonly degradedProbeSet: string;
+  readonly decisionSources: Readonly<Record<string, string>>;
+  readonly decisionSourceUnknownWarning: string;
   readonly sourceTextNotice: string;
   readonly referenceTranslation: string;
   readonly showSourceText: string;
@@ -35,6 +39,7 @@ export interface UiMessages {
   readonly chooseDirection: string;
   readonly chooseOrEnter: string;
   readonly probeSupport: string;
+  readonly optionProbeIds: string;
   readonly none: string;
   readonly freeformDecision: string;
   readonly freeformPlaceholder: string;
@@ -47,9 +52,16 @@ export interface UiMessages {
   readonly deterministicTriggers: string;
   readonly consolidatedContract: string;
   readonly approveBoundedExecution: string;
-  readonly allowedPaths: string;
-  readonly requiredChecks: string;
+  readonly whatCodexMayChange: string;
+  readonly approvedComponents: string;
+  readonly approvedPaths: string;
+  readonly whatMustPass: string;
+  readonly whatRemainsBlocked: string;
+  readonly deniedCommandClasses: string;
+  readonly runtimePolicies: string;
   readonly stopConditions: string;
+  readonly policyNames: Readonly<Record<string, string>>;
+  readonly policyModes: Readonly<Record<string, string>>;
   readonly contractHash: string;
   readonly approveContract: string;
   readonly editDecisions: string;
@@ -67,6 +79,9 @@ export interface UiMessages {
   readonly impacts: Readonly<Record<string, string>>;
   readonly categories: Readonly<Record<string, string>>;
   readonly triggers: Readonly<Record<string, string>>;
+  probeCount(valid: number, expected: number): string;
+  materialAlternatives(count: number): string;
+  optionSupport(count: number, total: number): string;
   shownDecisions(shown: number, remaining: number): string;
   impactLabel(impact: string): string;
   requestFailed(kind: "review" | "event" | "evidence", status: number): string;
@@ -98,6 +113,16 @@ const en: UiMessages = {
   detached: "Detached",
   explicitChoices: "Explicit choices",
   decisionsRequiringReview: "Decisions requiring review",
+  defaultProbeSet: "Full three-probe comparison",
+  degradedProbeSet: "Degraded comparison · review coverage explicitly",
+  decisionSources: {
+    observed_divergence: "Observed divergence across independent probes",
+    deterministic_policy: "Required by deterministic policy",
+    both: "Observed divergence and deterministic policy",
+    unknown: "Decision source is unknown",
+  },
+  decisionSourceUnknownWarning:
+    "Available provenance cannot classify this decision as agreement or safety.",
   sourceTextNotice:
     "Japanese reference translations are presentation-only. The expandable source is a deterministically sanitized copy; canonical records remain authoritative for decisions and the execution contract.",
   referenceTranslation: "Japanese reference translation",
@@ -109,6 +134,7 @@ const en: UiMessages = {
   chooseDirection: "Choose an explicit direction",
   chooseOrEnter: "Choose one option or enter a free-form decision.",
   probeSupport: "Probe support",
+  optionProbeIds: "Supporting probe IDs",
   none: "none",
   freeformDecision: "Free-form decision",
   freeformPlaceholder: "Describe the exact behavior you want",
@@ -121,9 +147,21 @@ const en: UiMessages = {
   deterministicTriggers: "Deterministic triggers",
   consolidatedContract: "Consolidated contract",
   approveBoundedExecution: "Approve the bounded execution",
-  allowedPaths: "Allowed paths",
-  requiredChecks: "Required checks",
+  whatCodexMayChange: "What Codex may change",
+  approvedComponents: "Approved components",
+  approvedPaths: "Approved paths",
+  whatMustPass: "What must pass",
+  whatRemainsBlocked: "What remains blocked",
+  deniedCommandClasses: "Denied command classes",
+  runtimePolicies: "Runtime policies",
   stopConditions: "Stop conditions",
+  policyNames: {
+    network: "Network",
+    dependency: "Dependencies",
+    data: "Data operations",
+    external_effect: "External effects",
+  },
+  policyModes: { deny: "denied", allowlist: "allowlist" },
   contractHash: "Contract hash",
   approveContract: "Approve contract",
   editDecisions: "Edit decisions",
@@ -156,6 +194,13 @@ const en: UiMessages = {
   impacts: { low: "low", medium: "medium", high: "high" },
   categories: {},
   triggers: {},
+  probeCount: (valid, expected) =>
+    `${String(valid)} of ${String(expected)} independent planning probes are valid`,
+  materialAlternatives: (count) => `${String(count)} material alternative${count === 1 ? "" : "s"}`,
+  optionSupport: (count, total) =>
+    count === 0
+      ? "No probe support recorded"
+      : `${String(count)} of ${String(total)} probes support this option`,
   shownDecisions: (shown, remaining) =>
     `${String(shown)} shown${remaining > 0 ? ` · ${String(remaining)} remaining after these` : ""}`,
   impactLabel: (impact) => `${impact} impact`,
@@ -192,6 +237,16 @@ const ja: UiMessages = {
   detached: "デタッチ状態",
   explicitChoices: "明示的な選択",
   decisionsRequiringReview: "確認が必要な判断",
+  defaultProbeSet: "3件のプローブによる通常比較",
+  degradedProbeSet: "縮退した比較・比較範囲を明示的に確認してください",
+  decisionSources: {
+    observed_divergence: "独立プローブ間で観測された差分",
+    deterministic_policy: "決定論的ポリシーによる確認",
+    both: "観測された差分と決定論的ポリシーの両方",
+    unknown: "判断の由来は不明",
+  },
+  decisionSourceUnknownWarning:
+    "利用可能な来歴だけでは、この判断を合意または安全と分類できません。",
   sourceTextNotice:
     "日本語は判断を助ける参考訳です。展開できる原文は機密らしい値を決定的に伏せた写しで、承認、契約、ハッシュには永続化された正本を使用します。",
   referenceTranslation: "日本語の参考訳",
@@ -203,6 +258,7 @@ const ja: UiMessages = {
   chooseDirection: "方針を明示してください",
   chooseOrEnter: "選択肢を1つ選ぶか、自由記述で判断を入力してください。",
   probeSupport: "支持するプローブ",
+  optionProbeIds: "支持するプローブID",
   none: "なし",
   freeformDecision: "自由記述の判断",
   freeformPlaceholder: "希望する正確な挙動を記述してください",
@@ -215,9 +271,21 @@ const ja: UiMessages = {
   deterministicTriggers: "決定論的トリガー",
   consolidatedContract: "統合された契約",
   approveBoundedExecution: "制約された実行を承認",
-  allowedPaths: "許可されたパス",
-  requiredChecks: "必須チェック",
+  whatCodexMayChange: "Codexが変更できるもの",
+  approvedComponents: "承認されたコンポーネント",
+  approvedPaths: "承認されたパス",
+  whatMustPass: "成功が必須のチェック",
+  whatRemainsBlocked: "引き続き禁止されるもの",
+  deniedCommandClasses: "禁止されたコマンド分類",
+  runtimePolicies: "実行時ポリシー",
   stopConditions: "停止条件",
+  policyNames: {
+    network: "ネットワーク",
+    dependency: "依存関係",
+    data: "データ操作",
+    external_effect: "外部影響",
+  },
+  policyModes: { deny: "禁止", allowlist: "許可リスト" },
   contractHash: "契約ハッシュ",
   approveContract: "契約を承認",
   editDecisions: "判断を編集",
@@ -286,6 +354,13 @@ const ja: UiMessages = {
     unknown: "未分類",
     degraded_probe_set: "縮退したプローブセット",
   },
+  probeCount: (valid, expected) =>
+    `${String(expected)}件中${String(valid)}件の独立計画プローブが有効`,
+  materialAlternatives: (count) => `重要な代替案：${String(count)}件`,
+  optionSupport: (count, total) =>
+    count === 0
+      ? "プローブによる支持は記録されていません"
+      : `${String(total)}件中${String(count)}件のプローブがこの選択肢を支持`,
   shownDecisions: (shown, remaining) =>
     `${String(shown)}件表示${remaining > 0 ? `・この後に残り${String(remaining)}件` : ""}`,
   impactLabel: (impact) => `影響：${ja.impacts[impact] ?? impact}`,

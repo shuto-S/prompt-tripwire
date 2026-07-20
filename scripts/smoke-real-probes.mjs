@@ -70,7 +70,7 @@ async function main() {
       model: { id: selected.model, reasoningEffort },
       codexVersion: session.attestation.codexVersion,
       compatibilityAttestation: session.attestation,
-      promptTripwireVersion: "0.1.11",
+      promptTripwireVersion: "0.1.12",
       effectiveConfig: { probeCount: 3, network: "deny" },
     });
     const result = await new ProbeCoordinator(session.client).run({

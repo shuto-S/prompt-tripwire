@@ -310,7 +310,7 @@ test("an additive ThreadItem enum is allowed in schema but denied if it actually
     task: "Plan without changing files",
     model: { id: "gpt-5.6-sol", reasoningEffort: "low" },
     codexVersion: "9.9.9",
-    promptTripwireVersion: "0.1.11",
+    promptTripwireVersion: "0.1.12",
     createdAt: "2026-07-20T00:00:00.000Z",
   });
   await assert.rejects(

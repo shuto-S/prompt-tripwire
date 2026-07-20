@@ -12,7 +12,15 @@ export interface DecisionOptionDto {
   readonly description: string;
   readonly effects: readonly string[];
   readonly supportedByProbeIds: readonly string[];
+  readonly supportCount: number;
   readonly evidenceRefs: readonly string[];
+}
+
+export type DecisionSourceDto = "observed_divergence" | "deterministic_policy" | "both" | "unknown";
+
+export interface DecisionOriginSummaryDto {
+  readonly source: DecisionSourceDto;
+  readonly materialAlternativeCount: number;
 }
 
 export interface DecisionCardDto {
@@ -27,6 +35,13 @@ export interface DecisionCardDto {
   readonly deterministicTriggers: readonly string[];
   readonly evidenceRefs: readonly string[];
   readonly status: "unresolved" | "deferred";
+  readonly origin: DecisionOriginSummaryDto;
+}
+
+export interface ProbeSetSummaryDto {
+  readonly validProbeCount: number;
+  readonly expectedProbeCount: 3;
+  readonly status: "default" | "degraded";
 }
 
 export interface ReviewPresentationOptionDto {
@@ -56,8 +71,27 @@ export interface ContractPreviewDto {
   readonly contentHash: string;
   readonly approvedGoal: string;
   readonly approvedBehaviors: readonly string[];
+  readonly allowedComponents: readonly string[];
   readonly allowedPaths: readonly string[];
   readonly protectedPaths: readonly string[];
+  readonly deniedCommandClasses: readonly string[];
+  readonly networkPolicy: {
+    readonly mode: "deny" | "allowlist";
+    readonly hosts: readonly string[];
+    readonly actions: readonly ("read" | "write")[];
+  };
+  readonly dependencyPolicy: {
+    readonly mode: "deny" | "allowlist";
+    readonly allowed: readonly string[];
+  };
+  readonly dataPolicy: {
+    readonly mode: "deny" | "allowlist";
+    readonly allowed: readonly string[];
+  };
+  readonly externalEffectPolicy: {
+    readonly mode: "deny" | "allowlist";
+    readonly allowed: readonly string[];
+  };
   readonly requiredChecks: readonly string[];
   readonly stopConditions: readonly string[];
   readonly approvedAt: string | null;
@@ -79,6 +113,7 @@ export interface RunReviewDto {
   readonly updatedAt: string;
   readonly lastErrorCode: string | null;
   readonly snapshot: SnapshotSummaryDto | null;
+  readonly probeSet: ProbeSetSummaryDto;
   readonly decisions: readonly DecisionCardDto[];
   readonly remainingDecisionCount: number;
   readonly resolvedDecisionCount: number;

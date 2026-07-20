@@ -47,6 +47,45 @@ function openIncompleteJsonPost(url, headers, body) {
   return { request, settled };
 }
 
+function comparisonDivergence(decision) {
+  return {
+    subject: {
+      id: `subject_${decision.decisionId}`,
+      summary: "Validated comparison provenance",
+      affectedBehaviors: [],
+      affectedFiles: [],
+      affectedData: ["persisted records"],
+      affectedApis: [],
+      affectedCommands: [],
+      affectedExternalSystems: [],
+      evidenceRefs: decision.evidenceRefs,
+    },
+    alternatives: decision.options.map((option, index) => ({
+      id: `alternative_${decision.decisionId}_${String(index)}`,
+      label: option.label,
+      description: option.description,
+      effects: option.effects,
+      supportedByProbeIds: option.supportedByProbeIds,
+      evidenceRefs: option.evidenceRefs,
+      reversibility: index === 0 ? "irreversible" : "reversible",
+    })),
+    suggestedQuestion: decision.question,
+    recommendation: null,
+  };
+}
+
+function completeDecisionEvidence(decision) {
+  return {
+    ...decision,
+    evidenceRefs: [
+      ...new Set([
+        ...decision.evidenceRefs,
+        ...decision.options.flatMap((option) => option.evidenceRefs),
+      ]),
+    ],
+  };
+}
+
 test("AC-003/006/017: Decision Inbox API is bounded, authenticated, and fail-closed", async () => {
   const fixture = await createReviewFixture({ decisionCount: 5, runId: "run_ui_security" });
   const server = await startReviewServer({
@@ -205,6 +244,109 @@ test("Japanese reference translations are returned separately from authoritative
   }
 });
 
+test("decision origin summaries use validated provenance without exposing plan bodies", async (t) => {
+  for (const scenario of [
+    {
+      name: "observed divergence",
+      source: "observed_divergence",
+      triggers: [],
+      includeDivergence: true,
+      alternatives: 2,
+    },
+    {
+      name: "deterministic policy",
+      source: "deterministic_policy",
+      triggers: ["persistent_data"],
+      includeDivergence: false,
+      alternatives: 0,
+    },
+    {
+      name: "both",
+      source: "both",
+      triggers: ["persistent_data"],
+      includeDivergence: true,
+      alternatives: 2,
+    },
+    {
+      name: "unknown",
+      source: "unknown",
+      triggers: [],
+      includeDivergence: false,
+      alternatives: 0,
+    },
+  ]) {
+    await t.test(scenario.name, async () => {
+      const fixture = await createReviewFixture({
+        runId: `run_ui_origin_${scenario.source}`,
+        transformDecision: (decision) =>
+          completeDecisionEvidence({ ...decision, deterministicTriggers: scenario.triggers }),
+        transformCandidate: (candidate, decisions) => ({
+          ...candidate,
+          divergences: scenario.includeDivergence ? [comparisonDivergence(decisions[0])] : [],
+        }),
+      });
+      const server = await startReviewServer({
+        controller: fixture.controller,
+        runId: fixture.run.runId,
+      });
+      try {
+        const endpoint = `${server.origin}/api/runs/${fixture.run.runId}`;
+        const responseText = await (await fetch(endpoint, { headers: apiHeaders(server) })).text();
+        const review = JSON.parse(responseText);
+        assert.deepEqual(review.probeSet, {
+          validProbeCount: 3,
+          expectedProbeCount: 3,
+          status: "default",
+        });
+        assert.equal(review.decisions[0].origin.source, scenario.source);
+        assert.equal(review.decisions[0].origin.materialAlternativeCount, scenario.alternatives);
+        assert.deepEqual(
+          review.decisions[0].options.map((option) => option.supportCount),
+          [1, 2],
+        );
+        assert.doesNotMatch(responseText, /FULL PLAN SHOULD NOT LEAK/u);
+      } finally {
+        await server.close();
+        await fixture.close();
+      }
+    });
+  }
+});
+
+test("degraded probe sets are explicit and do not count missing probe support", async () => {
+  const fixture = await createReviewFixture({
+    runId: "run_ui_origin_degraded",
+    probeIds: ["probe_1", "probe_2"],
+    transformDecision: (decision) => ({
+      ...decision,
+      options: decision.options.map((option) => ({
+        ...option,
+        supportedByProbeIds: option.supportedByProbeIds.filter((probeId) => probeId !== "probe_3"),
+      })),
+    }),
+  });
+  const server = await startReviewServer({
+    controller: fixture.controller,
+    runId: fixture.run.runId,
+  });
+  try {
+    const endpoint = `${server.origin}/api/runs/${fixture.run.runId}`;
+    const review = await (await fetch(endpoint, { headers: apiHeaders(server) })).json();
+    assert.deepEqual(review.probeSet, {
+      validProbeCount: 2,
+      expectedProbeCount: 3,
+      status: "degraded",
+    });
+    assert.deepEqual(
+      review.decisions[0].options.map((option) => option.supportCount),
+      [1, 1],
+    );
+  } finally {
+    await server.close();
+    await fixture.close();
+  }
+});
+
 test("browser review source is sanitized without changing canonical persistence", async () => {
   const secret = "synthetic-secret-value";
   const task = `日本語 task with English context api_key=${secret}`;
@@ -324,6 +466,20 @@ test("contract decisions can be edited before explicit approval", async () => {
     review = await (await fetch(endpoint, { headers: apiHeaders(server) })).json();
     assert.equal(review.state, "ready_for_approval");
     assert.notEqual(review.contract, null);
+    assert.deepEqual(review.contract.allowedComponents, ["records"]);
+    assert.deepEqual(review.contract.deniedCommandClasses, [
+      "destructive",
+      "permission",
+      "secret_access",
+      "remote_write",
+      "deploy",
+      "release",
+      "migration",
+    ]);
+    assert.equal(review.contract.networkPolicy.mode, "deny");
+    assert.equal(review.contract.dependencyPolicy.mode, "deny");
+    assert.equal(review.contract.dataPolicy.mode, "deny");
+    assert.equal(review.contract.externalEffectPolicy.mode, "deny");
 
     response = await fetch(`${endpoint}/contracts/reopen`, {
       method: "POST",

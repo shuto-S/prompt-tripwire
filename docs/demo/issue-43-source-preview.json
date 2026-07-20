@@ -1,0 +1,61 @@
+{
+  "kind": "v0.1.12-deterministic-ui-preview",
+  "issue": 43,
+  "capturedFrom": "v0.1.12 source tree",
+  "generatedBy": "npm run capture:issue-43-media",
+  "video": {
+    "path": "../assets/demo/prompt-tripwire-issue-43-source-preview.mp4",
+    "sha256": "91a40d44709102950aeb2e51cc7c3aebb52f0f3269c1b56fd00d059f8fbcccf5",
+    "sizeBytes": 5015071,
+    "durationSeconds": 49,
+    "width": 1280,
+    "height": 720,
+    "framesPerSecond": 25,
+    "videoCodec": "h264",
+    "audioCodec": "aac",
+    "audioSampleRate": 48000,
+    "audioChannels": 2,
+    "subtitleCodec": "mov_text",
+    "subtitleLanguage": "eng"
+  },
+  "screenshots": [
+    {
+      "path": "../assets/demo/decision-origin-issue-43-source-preview-en.png",
+      "sha256": "ba6a32a08abfe2c09dfd41d90b92eb5bbc6cb44cfd8bc94323e16bf6da999411",
+      "width": 1440,
+      "height": 1893
+    },
+    {
+      "path": "../assets/demo/decision-origin-issue-43-source-preview-ja.png",
+      "sha256": "cb111788e304c6a6e982be011bf3ff2e000bac120730b9de55d710554d34cf57",
+      "width": 1440,
+      "height": 2122
+    },
+    {
+      "path": "../assets/demo/decision-origin-issue-43-source-preview-mobile-ja.png",
+      "sha256": "fe554ea236576d62018bce876a5eaeb3d4f1f484b7a8e33b00f4b61c4aea9460",
+      "width": 390,
+      "height": 2781
+    },
+    {
+      "path": "../assets/demo/contract-preview-issue-43-source-preview-en.png",
+      "sha256": "d674ebd2a27f27de63ae2ee8f26d6584676e07d59c38beefa9225845dcc13b45",
+      "width": 1440,
+      "height": 1851
+    }
+  ],
+  "thumbnail": {
+    "path": "../assets/demo/prompt-tripwire-issue-43-source-preview-thumbnail.png",
+    "sha256": "e7d38df11f193a5796c53a43d575139df5f682d532a1743a9d615a356294bce9",
+    "width": 1280,
+    "height": 720
+  },
+  "provenance": {
+    "fixture": "deterministic safe greeting review fixture",
+    "browser": "headless Chromium through Playwright",
+    "narration": "original project copy spoken by the macOS Samantha system voice",
+    "music": "none",
+    "thirdPartyAssets": "none"
+  },
+  "disclosure": "This is a deterministic v0.1.12 UI source preview for Issue #43. It is not a live Codex inspect, execution, or report recording."
+}

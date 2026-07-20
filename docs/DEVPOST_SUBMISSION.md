@@ -2,6 +2,8 @@
 
 This file prepares the English submission fields. It is not a saved or final Devpost submission.
 
+The demo is a v0.1.2 capture. The judge distribution is v0.1.12. Releases v0.1.3 through v0.1.12 improved compatibility, safety, localization, and presentation precision without changing the video's human-approval or contract boundary.
+
 ## Project identity
 
 - **Name:** PromptTripwire
@@ -10,22 +12,39 @@ This file prepares the English submission fields. It is not a saved or final Dev
 - **Repository URL:** `https://github.com/shuto-S/prompt-tripwire`
 - **Repository access:** Public, Apache-2.0
 - **Supported platform:** macOS arm64
-- **Release artifact:** [v0.1.11 macOS arm64](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.11), published and anonymously verified
+- **Release artifact:** [v0.1.12 macOS arm64](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.12), release candidate pending publication and anonymous verification
 - **Release SHA-256:** `33efb9b1d9cca9f22f0b843169d9d59efd80c744aee5601cc7fb1e1ad36b816b` (2,341,471 bytes; 927 files; source `7f5d55c8bbdc6e54cdd448fdf2b9b2751cc5c099`)
-- **Demo video:** `<PENDING HUMAN CONFIRMATION: upload to YouTube, then add the anonymously verified public URL>`; [local v0.1.2 review copy](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4), 2:52.862 with audio. The recording predates the v0.1.3 launcher hardening through v0.1.11 measured-compatibility and explicit-only Plugin improvements described below.
+- **Demo video:** `<PENDING HUMAN CONFIRMATION: upload to YouTube, then add the anonymously verified public URL>`; [local v0.1.2 review copy](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4), 2:52.862 with audio. The recording predates the v0.1.3 launcher hardening through v0.1.12 measured-compatibility and explicit-only Plugin improvements described below.
 - **Codex /feedback Session ID:** `<PENDING: paste the formal Session ID captured outside source into Devpost>`
 
 The formal Session ID was captured on 2026-07-15 and is intentionally retained outside source until Devpost entry. Do not replace the placeholder with a local task/thread UUID.
 
 ## One-line pitch
 
-PromptTripwire runs the same repository task through three independent Codex plans, turns implementation-changing disagreement into explicit human decisions, and enforces the approved result as a contract around the final Codex run.
+Codex asks when it knows it is uncertain. PromptTripwire detects when reasonable Codex runs silently disagree—and turns the human answer into an execution contract.
 
 ## Inspiration
 
 A coding agent can produce a confident plan while silently choosing deletion semantics, API compatibility, dependency scope, or an external action the developer never approved. Reviewing one plan does not reveal that another equally reasonable Codex run would make a different product decision. Action approvals arrive later, after the ambiguity has already shaped the implementation.
 
 PromptTripwire uses observed plan divergence as early evidence. It asks only about choices that change behavior, scope, data, APIs, permissions, reversibility, or verification, then carries the answer into execution.
+
+## Concrete judge story
+
+The safe judge task looks small: update `greeting(name)` so it trims surrounding
+whitespace and returns `Hello, stranger!` for an empty trimmed name. The hidden
+decision is compatibility. Reasonable same-input Codex plans may disagree about
+whether callers that relied on the old whitespace behavior should change.
+
+PromptTripwire runs three read-only probes, reports how many valid probes
+support each material alternative, and labels whether the decision came from
+observed divergence, deterministic policy, both, or insufficient provenance.
+The judge—not Codex—chooses **Allow local implementation**. The resulting
+contract permits only `src/greeting.js` and `test/greeting.test.js`, requires
+`npm test`, and keeps dependencies, network, remote writes, publish, deploy,
+release, and other external effects blocked. Execution occurs in a disposable
+worktree; the report ties the observed diff and passing check back to the
+approved contract hash while the original fixture remains unchanged.
 
 ## What it does
 
@@ -83,7 +102,7 @@ policy, decision IDs, mutations, contracts, hashes, execution, and reports never
 consume the translation. Invalid or unavailable output falls back visibly to
 source text without inferring approval.
 
-v0.1.11 replaces numeric Codex version gates with measured normal-schema,
+v0.1.12 replaces numeric Codex version gates with measured normal-schema,
 handshake, and bounded-canary compatibility. The attestation is bound to the
 snapshot and contract and is remeasured before approval and execution; any
 drift makes the prior approval stale. The bundled Plugin Skill also declares
@@ -104,7 +123,7 @@ No hook, MCP server, hosted backend, API key, or automatic approval is added.
 - A literal token comparison was too strict for the real App Server launcher representation, but broadly trusting shell wrappers would have introduced startup-file and command-smuggling risks. v0.1.3 normalizes only the two observed zsh envelopes, requires exact inner-action equality, isolates `ZDOTDIR`, and rejects every other shell, flag, argument, compound command, redirection, or substitution.
 - A prompt-only re-entry warning cannot stop Plugin discovery that happens before the adapter runs. v0.1.4 preserves the request as task evidence but disables Plugin contributions at process startup and keeps the sentinel as a second control. Lossy search metadata is never trusted in place of validating every command operand.
 - A safe read can still become an `unknown` action when a model chooses an executable path such as `/bin/ls`. v0.1.9 requires bare program names in probe instructions and keeps the unknown action denied instead of normalizing raw command text.
-- A numeric CLI version can reject compatible updates without proving behavior. v0.1.11 instead validates the exact consumed schema and a bounded semantic canary, then fails closed on missing surfaces or measured drift.
+- A numeric CLI version can reject compatible updates without proving behavior. v0.1.12 instead validates the exact consumed schema and a bounded semantic canary, then fails closed on missing surfaces or measured drift.
 
 ## Accomplishments
 
@@ -119,7 +138,7 @@ No hook, MCP server, hosted backend, API key, or automatic approval is added.
 - Release packaging normalizes entry order, ownership, modes, timestamps, and gzip metadata, then compares two builds for the same digest.
 - The v0.1.4 compatibility patch was derived from a real logged-in Codex CLI/App Server invocation without API-key environment variables and backed by Plugin-context A/B, exact-task live probe, search-operand, environment-isolation, and adversarial containment checks.
 - The published v0.1.5 archive was anonymously downloaded, matched byte-for-byte with the clean tagged candidate, installed into an isolated prefix, and invoked from a real logged-in Codex task with API-key variables unset. It stopped at human review with no approved contract and left the fixture unchanged.
-- The published v0.1.11 release accepts compatible Codex behavior without version branches, packages an explicit-only thin Plugin, and retains transactional install/uninstall plus the existing human approval and containment gates.
+- The v0.1.12 release candidate accepts compatible Codex behavior without version branches, packages an explicit-only thin Plugin, adds judge-facing provenance/support/contract-preview UX, and retains transactional install/uninstall plus the existing human approval and containment gates.
 
 ## What was learned
 
@@ -138,7 +157,7 @@ Hosted backends, account systems, team approvals, non-Codex adapters, and automa
 
 ## Judge instructions
 
-Download the v0.1.11 macOS arm64 release artifact and its matching checksum, verify them together, and follow `JUDGE_GUIDE.md`. Its packaged README and Judge Guide self-reference v0.1.11. The public asset, checksum, isolated install, and targeted uninstall were anonymously verified; v0.1.10 and earlier releases remain immutable historical evidence. It supports:
+After publication, download the v0.1.12 macOS arm64 release artifact and its matching checksum, verify them together, and follow `JUDGE_GUIDE.md`. Its packaged README and Judge Guide self-reference v0.1.12. v0.1.11 and earlier releases remain immutable historical evidence. It supports:
 
 - direct `./bin/tripwire` execution;
 - one-command user-local install/uninstall;
@@ -153,6 +172,15 @@ Known limitations are visible in the README, Judge Guide, and security document.
 `codex`, `gpt-5.6`, `developer-tools`, `agentic-workflows`, `security`, `code-review`, `typescript`, `local-first`
 
 ## Prepared media
+
+Issue #43 also has a repository-local 49-second source preview with English
+narration and subtitles plus English, Japanese, mobile Japanese, and contract
+screenshots. It demonstrates the updated judge-facing presentation using a
+deterministic safe fixture. It is supplemental review material only: it is not
+a live Codex run, not execution evidence, and not footage of the published
+v0.1.12 judge distribution. It must not silently replace the canonical v0.1.2
+submission demo or be uploaded as final evidence without a separate version and
+human review.
 
 - **Thumbnail:** [original PromptTripwire thumbnail](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-thumbnail.png)
 - **Demo video:** [local v0.1.2 review copy](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4) — 2:52.862, 1920×1080 H.264, AAC stereo 48 kHz, embedded default English `mov_text` subtitles
@@ -172,7 +200,7 @@ review/offline fallback.
 
 ## YouTube confirmation packet (upload pending)
 
-The media is the completed v0.1.2 capture; v0.1.11 is the final judge
+The media is the completed v0.1.2 capture; v0.1.12 is the final judge
 distribution and includes later compatibility, safety, localization,
 documentation, and deterministic-policy precision patches. Before opening the upload flow,
 present this entire packet to the human and wait for explicit confirmation.
@@ -192,10 +220,10 @@ The public URL and anonymous playback verification remain pending.
   > gpt-5.6-sol planning probes, and a tool-free gpt-5.6-terra comparator.
   >
   > Repository: https://github.com/shuto-S/prompt-tripwire
-  > Release (macOS arm64): https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.11
+  > Release (macOS arm64): https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.12
   >
-  > This video is the completed v0.1.2 capture. v0.1.11 is the final judge
-  > distribution to install; the footage is not presented as a v0.1.11
+  > This video is the completed v0.1.2 capture. v0.1.12 is the final judge
+  > distribution to install; the footage is not presented as a v0.1.12
   > recording.
   >
   > No separate OPENAI_API_KEY is required. PromptTripwire reuses the logged-in
@@ -210,7 +238,7 @@ The public URL and anonymous playback verification remain pending.
 - **Category:** Science & Technology
 - **License:** Standard YouTube License
 
-The Release line targets the published and anonymously verified v0.1.11 asset.
+The Release line targets the v0.1.12 asset after publication and anonymous verification.
 Show the complete title, description, visibility, captions, thumbnail, and
 settings once more and wait for explicit human confirmation. Uploading,
 publishing, or changing visibility before that confirmation is prohibited by
@@ -223,8 +251,8 @@ before final submission, show the human the complete assembled entry and wait
 for explicit confirmation. The confirmation view must include:
 
 - project name, Developer Tools category, tagline, public repository, Apache-2.0 license, and macOS arm64 support;
-- the anonymously verified v0.1.11 Release URL and checksum evidence;
-- the anonymously verified public YouTube URL, thumbnail, and v0.1.2-capture/v0.1.11-distribution disclosure;
+- the anonymously verified v0.1.12 Release URL and checksum evidence;
+- the anonymously verified public YouTube URL, thumbnail, and v0.1.2-capture/v0.1.12-distribution disclosure;
 - the exact body from **One-line pitch** through **What's next**, plus **Judge instructions**, known limitations, and tags;
 - the README, Judge Guide, release notes, demo documentation, screenshots, captions, and repository review-copy links;
 - the formal Codex `/feedback` Session ID in Devpost's dedicated field, copied from the retained external record and never written into this repository; and
@@ -256,6 +284,7 @@ packet.
 - [x] Build, publish, and anonymously verify the v0.1.9 bare-program guidance artifact, checksum, packaged instructions, isolated install, and real pre-approval Plugin flow.
 - [x] Build, publish, and verify the v0.1.10 Japanese-reference artifact and checksum as historical evidence.
 - [x] Publish and anonymously verify the completed v0.1.11 measured-compatibility artifact, checksum, packaged instructions, API-key-free explicit Plugin installation, and targeted uninstall.
+- [ ] Publish and anonymously verify the v0.1.12 Issue #43 judge-UX artifact, checksum, packaged instructions, API-key-free explicit Plugin installation, and targeted uninstall.
 - [x] Obtain the formal `/feedback` Session ID from the primary Codex task and retain it outside source.
 - [x] Regenerate the owned local v0.1.2 demo with audio under three minutes, English captions, thumbnail, and screenshots.
 - [ ] Obtain explicit human confirmation for the resolved YouTube packet, upload the completed v0.1.2 demo/captions, and verify public playback anonymously.

@@ -557,6 +557,30 @@ model or browser. Reusing one deterministic sanitizer closes both presentation
 paths without making probabilistic translation authoritative or changing any
 contract-bound value.
 
+### D-044 — Explain decision origin and contract authority without creating a second policy
+
+**Decision:** Add an additive Decision Inbox origin summary derived only from
+persisted validated probe IDs, verified comparison alternative provenance,
+`supportedByProbeIds`, and existing deterministic triggers. Report the valid
+count against the default three probes, complete/degraded status,
+`observed_divergence`/`deterministic_policy`/`both`/`unknown`, material
+alternative count, and distinct option support count. Do not parse task or
+option prose, include raw plan bodies in the aggregate DTO, or treat unknown
+provenance as consensus. Keep raw probe IDs in the evidence disclosure.
+
+Render the immutable contract under three action-based groups: existing
+allowed components/paths, required checks, and the existing denied command
+classes/policy modes/stop conditions. The UI may translate fixed headings but
+must not synthesize permission, change contract identity, or feed a summary
+back into mutation, approval, matching, or execution.
+
+**Reason:** A normal confirmation question and a PromptTripwire decision card
+look similar when the primary view exposes only prose and opaque probe IDs.
+Bounded provenance counts show whether the question came from disagreement,
+policy, or both without asking judges to open plan artifacts. Direct contract
+grouping then makes the enforcement consequence legible while preserving one
+source of runtime authority.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage
@@ -593,4 +617,4 @@ contract-bound value.
 
 ## Decision-change rule
 
-Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, D-034, D-035, D-036, D-037, D-038, D-039, D-040, D-041, D-042, or D-043 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.
+Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, D-034, D-035, D-036, D-037, D-038, D-039, D-040, D-041, D-042, D-043, or D-044 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.

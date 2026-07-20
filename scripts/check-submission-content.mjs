@@ -2,7 +2,11 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { dirname, join, normalize } from "node:path";
+
+import { submissionMetadataViolations } from "./submission-metadata.mjs";
 
 const allowedSecretPaths = new Set([
   "fixtures/security/secret-redaction.json",
@@ -35,6 +39,28 @@ const patterns = [
   },
 ];
 const emailPattern = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu;
+const packageMetadata = JSON.parse(readFileSync("package.json", "utf8"));
+const judgeFacingDocuments = [
+  "README.md",
+  "docs/BUILD_WEEK.md",
+  "docs/BUILD_WEEK_REQUIREMENTS_MATRIX.md",
+  "docs/DEVPOST_SUBMISSION.md",
+  "docs/JUDGE_GUIDE.md",
+  "docs/demo/README.md",
+];
+const sourcePreviewManifestPath = "docs/demo/issue-43-source-preview.json";
+
+assert.equal(typeof packageMetadata.version, "string", "package version is required");
+assert.equal(
+  typeof packageMetadata.promptTripwire?.demoCaptureVersion,
+  "string",
+  "demo capture version is required",
+);
+assert.notEqual(
+  packageMetadata.version,
+  packageMetadata.promptTripwire.demoCaptureVersion,
+  "recorded demo and judge distribution must remain explicitly distinct",
+);
 
 assert.equal(
   slackApiTokenPattern.test(["xoxb", "1234567890", "abcdefghijklmnop"].join("-")),
@@ -80,6 +106,38 @@ for (const path of currentFiles) {
   const bytes = readFileSync(path);
   if (bytes.includes(0)) continue;
   violations.push(...scan(path, bytes.toString("utf8"), "working-tree"));
+}
+for (const path of judgeFacingDocuments) {
+  violations.push(
+    ...submissionMetadataViolations({
+      content: readFileSync(path, "utf8"),
+      demoCaptureVersion: packageMetadata.promptTripwire.demoCaptureVersion,
+      distributionVersion: packageMetadata.version,
+      path,
+    }),
+  );
+}
+
+const sourcePreviewManifest = JSON.parse(readFileSync(sourcePreviewManifestPath, "utf8"));
+const sourcePreviewEntries = [
+  sourcePreviewManifest.video,
+  ...sourcePreviewManifest.screenshots,
+  sourcePreviewManifest.thumbnail,
+];
+for (const entry of sourcePreviewEntries) {
+  const relativePath = normalize(join(dirname(sourcePreviewManifestPath), entry.path));
+  if (!relativePath.startsWith("docs/assets/demo/")) {
+    violations.push(`${sourcePreviewManifestPath}: source preview path escapes media root`);
+    continue;
+  }
+  const bytes = readFileSync(relativePath);
+  const digest = createHash("sha256").update(bytes).digest("hex");
+  if (digest !== entry.sha256) {
+    violations.push(`${relativePath}: source preview digest does not match manifest`);
+  }
+  if (entry === sourcePreviewManifest.video && bytes.byteLength !== entry.sizeBytes) {
+    violations.push(`${relativePath}: source preview size does not match manifest`);
+  }
 }
 
 // Review every revision that can ship from the current branch, a tag, or a

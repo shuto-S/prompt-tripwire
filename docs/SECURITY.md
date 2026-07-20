@@ -273,6 +273,17 @@ unavailable translation falls back to the escaped sanitized source copy with
 an explicit warning; it never resolves a decision, expands a contract, or
 authorizes execution.
 
+Decision-origin and contract-group summaries are deterministic projections of
+already validated provenance and immutable contract fields. The aggregate
+response includes only valid probe counts, complete/degraded state, bounded
+source labels, material-alternative counts, distinct option-support counts, and
+the existing contract values required for the three display groups. It does
+not embed raw plan bodies or reparse untrusted prose. A missing or ambiguous
+provenance match is labeled `unknown`, never consensus or safe. The complete DTO
+still passes the shared export sanitizer before serialization, and these
+presentation fields are never accepted by decision, contract, approval, or
+runtime mutation routes.
+
 ## 8.1 Codex Plugin adapter
 
 The repo-scoped Plugin is an untrusted caller of the existing local CLI. Its

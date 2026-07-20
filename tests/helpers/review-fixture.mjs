@@ -94,8 +94,13 @@ export async function createReviewFixture({
   runId = "run_ui",
   includeCancellationOption = false,
   presentationStatus = null,
+  presentationContent = null,
+  probeIds = ["probe_1", "probe_2", "probe_3"],
+  repositoryPath = "/tmp/prompt-tripwire-ui-fixture",
   task = "Implement an explicit persisted-record deletion policy",
+  transformCandidate = (value) => value,
   transformDecision = (value) => value,
+  transformPlan = (value) => value,
 } = {}) {
   const root = await mkdtemp(join(tmpdir(), "prompt-tripwire-ui-"));
   const store = new SqlitePersistence({
@@ -103,7 +108,7 @@ export async function createReviewFixture({
     artifactRoot: join(root, "artifacts"),
   });
   const snapshot = createRepositorySnapshot({
-    repositoryPath: "/tmp/prompt-tripwire-ui-fixture",
+    repositoryPath,
     commitSha: "1".repeat(40),
     branch: "main",
     submodules: {},
@@ -128,18 +133,24 @@ export async function createReviewFixture({
     updatedAt: CREATED_AT,
   });
   store.saveSnapshot(runId, snapshot);
-  const plans = ["probe_1", "probe_2", "probe_3"].map((probeId) =>
-    store.savePlanArtifact(runId, plan(snapshot, probeId), CREATED_AT),
+  const plans = probeIds.map((probeId, index) =>
+    store.savePlanArtifact(runId, transformPlan(plan(snapshot, probeId), index), CREATED_AT),
   );
-  const candidate = {
-    comparisonId: `comparison_${runId}`,
-    snapshotHash: snapshot.snapshotHash,
-    taskHash: snapshot.taskHash,
-    planIds: plans.map((item) => item.artifact.probeId),
-    consensus: [],
-    divergences: [],
-    unknowns: [],
-  };
+  const decisions = Array.from({ length: decisionCount }, (_, index) =>
+    transformDecision(decision(index, includeCancellationOption), index),
+  );
+  const candidate = transformCandidate(
+    {
+      comparisonId: `comparison_${runId}`,
+      snapshotHash: snapshot.snapshotHash,
+      taskHash: snapshot.taskHash,
+      planIds: plans.map((item) => item.artifact.probeId),
+      consensus: [],
+      divergences: [],
+      unknowns: [],
+    },
+    decisions,
+  );
   store.saveComparison({
     runId,
     candidate,
@@ -159,9 +170,6 @@ export async function createReviewFixture({
     ],
     createdAt: CREATED_AT,
   });
-  const decisions = Array.from({ length: decisionCount }, (_, index) =>
-    transformDecision(decision(index, includeCancellationOption), index),
-  );
   store.saveDecisionPoints({
     runId,
     comparisonId: candidate.comparisonId,
@@ -175,7 +183,7 @@ export async function createReviewFixture({
       status: presentationStatus,
       content:
         presentationStatus === "available"
-          ? {
+          ? (presentationContent ?? {
               task: "永続レコードを明示的に削除する方針を実装する",
               decisions: decisions.map((item, index) => ({
                 decisionId: item.decisionId,
@@ -201,7 +209,7 @@ export async function createReviewFixture({
                   ),
                 })),
               })),
-            }
+            })
           : null,
       model: "gpt-5.6-terra",
       errorCode: presentationStatus === "available" ? null : "TRANSLATION_TIMEOUT",
