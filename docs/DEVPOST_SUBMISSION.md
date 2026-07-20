@@ -10,8 +10,8 @@ This file prepares the English submission fields. It is not a saved or final Dev
 - **Repository URL:** `https://github.com/shuto-S/prompt-tripwire`
 - **Repository access:** Public, Apache-2.0
 - **Supported platform:** macOS arm64
-- **Release artifact:** [v0.1.11 macOS arm64](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.11), pending human-controlled publication and anonymous verification; [v0.1.10 remains the latest public historical distribution](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.10), anonymously verified at SHA-256 `15574604ef5476ae22db0396986b470a550af597880f82f32936c9bc67e587a5`
-- **Release SHA-256:** `<PENDING: record after the v0.1.11 public asset is downloaded and verified>`
+- **Release artifact:** [v0.1.11 macOS arm64](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.11), published and anonymously verified
+- **Release SHA-256:** `33efb9b1d9cca9f22f0b843169d9d59efd80c744aee5601cc7fb1e1ad36b816b` (2,341,471 bytes; 927 files; source `7f5d55c8bbdc6e54cdd448fdf2b9b2751cc5c099`)
 - **Demo video:** `<PENDING HUMAN CONFIRMATION: upload to YouTube, then add the anonymously verified public URL>`; [local v0.1.2 review copy](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4), 2:52.862 with audio. The recording predates the v0.1.3 launcher hardening through v0.1.11 measured-compatibility and explicit-only Plugin improvements described below.
 - **Codex /feedback Session ID:** `<PENDING: paste the formal Session ID captured outside source into Devpost>`
 
@@ -119,7 +119,7 @@ No hook, MCP server, hosted backend, API key, or automatic approval is added.
 - Release packaging normalizes entry order, ownership, modes, timestamps, and gzip metadata, then compares two builds for the same digest.
 - The v0.1.4 compatibility patch was derived from a real logged-in Codex CLI/App Server invocation without API-key environment variables and backed by Plugin-context A/B, exact-task live probe, search-operand, environment-isolation, and adversarial containment checks.
 - The published v0.1.5 archive was anonymously downloaded, matched byte-for-byte with the clean tagged candidate, installed into an isolated prefix, and invoked from a real logged-in Codex task with API-key variables unset. It stopped at human review with no approved contract and left the fixture unchanged.
-- The v0.1.11 candidate accepts compatible Codex behavior without version branches, packages an explicit-only thin Plugin, and retains transactional install/uninstall plus the existing human approval and containment gates.
+- The published v0.1.11 release accepts compatible Codex behavior without version branches, packages an explicit-only thin Plugin, and retains transactional install/uninstall plus the existing human approval and containment gates.
 
 ## What was learned
 
@@ -138,7 +138,7 @@ Hosted backends, account systems, team approvals, non-Codex adapters, and automa
 
 ## Judge instructions
 
-Download the v0.1.11 macOS arm64 release artifact and its matching checksum, verify them together, and follow `JUDGE_GUIDE.md`. Its packaged README and Judge Guide self-reference v0.1.11. Public-asset digest and anonymous-install evidence must be recorded after publication; v0.1.10 and earlier releases remain immutable historical evidence. It supports:
+Download the v0.1.11 macOS arm64 release artifact and its matching checksum, verify them together, and follow `JUDGE_GUIDE.md`. Its packaged README and Judge Guide self-reference v0.1.11. The public asset, checksum, isolated install, and targeted uninstall were anonymously verified; v0.1.10 and earlier releases remain immutable historical evidence. It supports:
 
 - direct `./bin/tripwire` execution;
 - one-command user-local install/uninstall;
@@ -210,7 +210,7 @@ The public URL and anonymous playback verification remain pending.
 - **Category:** Science & Technology
 - **License:** Standard YouTube License
 
-The Release line targets v0.1.11 and must be rechecked after publication.
+The Release line targets the published and anonymously verified v0.1.11 asset.
 Show the complete title, description, visibility, captions, thumbnail, and
 settings once more and wait for explicit human confirmation. Uploading,
 publishing, or changing visibility before that confirmation is prohibited by
@@ -255,7 +255,7 @@ packet.
 - [x] Build, publish, and anonymously verify the v0.1.8 plan-command guidance artifact, checksum, and packaged instructions; its real Plugin flow exposed the bare-program issue corrected in v0.1.9.
 - [x] Build, publish, and anonymously verify the v0.1.9 bare-program guidance artifact, checksum, packaged instructions, isolated install, and real pre-approval Plugin flow.
 - [x] Build, publish, and verify the v0.1.10 Japanese-reference artifact and checksum as historical evidence.
-- [ ] Publish and anonymously verify the completed v0.1.11 measured-compatibility artifact, checksum, packaged instructions, API-key-free explicit Plugin flow, and targeted uninstall.
+- [x] Publish and anonymously verify the completed v0.1.11 measured-compatibility artifact, checksum, packaged instructions, API-key-free explicit Plugin installation, and targeted uninstall.
 - [x] Obtain the formal `/feedback` Session ID from the primary Codex task and retain it outside source.
 - [x] Regenerate the owned local v0.1.2 demo with audio under three minutes, English captions, thumbnail, and screenshots.
 - [ ] Obtain explicit human confirmation for the resolved YouTube packet, upload the completed v0.1.2 demo/captions, and verify public playback anonymously.
