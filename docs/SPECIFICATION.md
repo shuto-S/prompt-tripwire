@@ -138,6 +138,10 @@ validation, worktree containment, or report rendering.
 The Skill passes the exact current task and repository snapshot to `tripwire
 inspect` in terminal mode, reports the run summary, and stops while a human uses
 the existing Decision Inbox. It must not choose a decision or invoke approval.
+The bundled Skill metadata sets `policy.allow_implicit_invocation: false`, so
+Codex exposes it only through an explicit Skill mention such as
+`$prompt-tripwire:preflight`; the prose instruction remains defense in depth,
+not the only invocation boundary.
 After a human-approved current contract exists, it may delegate `tripwire run`
 and `tripwire report`. A deterministic `PROMPT_TRIPWIRE_PLUGIN_REENTRY` flag is
 propagated in two stages and blocks recursive Plugin invocation: the thin
@@ -410,19 +414,21 @@ inspection, a separate tool-free App Server turn may create a Japanese
 reference translation of the snapshot-bound task and the final decision
 questions, reasons, option labels, descriptions, and effects. The Japanese UI
 labels that text as a reference translation and provides an expandable view of
-the authoritative source text before a human decides.
+the deterministically sanitized authoritative source copy before a human decides.
 
 Reference translation is display-only data stored separately from authoritative
 review records. It cannot change the task hash, comparison or decision IDs,
 option IDs, effect cardinality, human mutation payload, contract content or
-hash, policy result, or report. The original task, model output, repository
-evidence, decisions, and contract remain unchanged and authoritative. Translation
-output is strict-schema validated, bound back to every original decision and
-option ID, sanitized, and never treated as approval evidence. If translation is
-unavailable or invalid, inspection remains reviewable, the Japanese UI shows a
-warning, and the escaped authoritative source text remains available; no
-decision is selected or inferred. English presentation continues to render the
-authoritative source text.
+hash, policy result, or report. Before translation and browser serialization,
+the displayable source fields pass through the shared deterministic sanitizer;
+the canonical task, model output, repository evidence, decisions, and contract
+remain unchanged in persistence and remain authoritative. Translation output is
+strict-schema validated, bound back to every original decision and option ID,
+sanitized, and never treated as approval evidence. If translation is unavailable
+or invalid, inspection remains reviewable, the Japanese UI shows a warning, and
+the escaped sanitized source copy remains available; no decision is selected
+or inferred. English presentation continues to render the same sanitized
+authoritative source copy.
 
 The review sequence is:
 
@@ -638,7 +644,7 @@ See `SECURITY.md` for the threat model and known limits.
 | FR-020 | P1 | Export a sanitized review artifact for PR or team discussion. |
 | FR-021 | P2 | Add adapters for non-Codex coding agents. |
 | FR-022 | P2 | Add historical team policies and shared approvals. |
-| PLUG-FR-001 | P1 | Expose an explicit `prompt-tripwire` Plugin Skill that delegates to the existing CLI with the exact task and repository snapshot. |
+| PLUG-FR-001 | P1 | Expose an explicit `prompt-tripwire` Plugin Skill that delegates to the existing CLI with the exact task and repository snapshot and declares implicit invocation disabled in Codex Skill metadata. |
 | PLUG-FR-002 | P1 | Stop for human review and never select a decision or approve a contract automatically. |
 | PLUG-FR-003 | P1 | Preserve the exact task while disabling Plugin contributions in every child App Server; fail closed for unsupported platform, missing runtime/login, dirty-choice ambiguity, deterministic re-entry propagated through both the App Server process and its explicit child shell environment, and denied caller command permission; retry a sandboxed nested-App-Server request failure at most once without relaxing inner boundaries. |
 | PLUG-FR-004 | P1 | Validate Plugin metadata and Skill packaging with executable manifest, marketplace, smoke, and package-content checks. |
@@ -675,12 +681,12 @@ See `SECURITY.md` for the threat model and known limits.
 | AC-012 | Amending a contract discards the partial execution worktree and restarts from the approved snapshot. |
 | AC-013 | A successful run reports real check commands and outcomes, final diff scope, thread/model IDs, decisions, and contract hash. |
 | AC-014 | No API key, token, full environment, raw reasoning, or secret fixture value appears in UI output, logs, reports, or exported artifacts. |
-| AC-015 | The Decision Inbox is operable by keyboard and announces probe, review, pause, and completion state changes to assistive technology. A Japanese browser locale selects Japanese presentation, the visible language switch updates the document language and every fixed control/state label, and neither language path preselects or records a decision. When a valid reference translation exists, Japanese presentation renders the task, decision questions/reasons, option labels/descriptions/effects in Japanese and exposes the unchanged authoritative source text. Invalid, secret-like, structurally unbound, or unavailable translation falls back with an explicit source-review warning. Adding or changing a reference translation does not change decision, option, contract, or content-hash identity. |
+| AC-015 | The Decision Inbox is operable by keyboard and announces probe, review, pause, and completion state changes to assistive technology. A Japanese browser locale selects Japanese presentation, the visible language switch updates the document language and every fixed control/state label, and neither language path preselects or records a decision. When a valid reference translation exists, Japanese presentation renders the task, decision questions/reasons, option labels/descriptions/effects in Japanese and exposes a deterministically sanitized authoritative source copy. Secret-like source content is redacted before translation and browser serialization. Invalid, newly secret-like, structurally unbound, or unavailable translation falls back with an explicit sanitized-source review warning. Adding or changing a reference translation does not change canonical persistence, decision, option, contract, or content-hash identity. |
 | AC-016 | Killing and restarting the controller preserves paused/unapproved state and cannot accidentally launch execution. |
 | AC-017 | The local API listens only on loopback, rejects missing/invalid capability tokens and cross-origin mutations, loads no third-party runtime assets, and closes its capability on terminal/archive state or after 30 minutes with neither authenticated activity nor an active authenticated SSE connection without mutating or approving the run. |
 | AC-018 | One failed probe produces degraded/manual review, fewer than two valid probes block approval, and an unrecoverable GPT-5.6 schema/refusal failure cannot auto-approve. |
 | AC-019 | Without branching on the Codex version, compatible normal-schema/handshake/canary behavior passes before repository inspection; missing or changed required surfaces, parse failure, unavailable attestation, unsafe response shape, canary failure, or inspect/approve/run attestation drift fails closed. The attestation binds executable realpath/digest, observed version, profile version, normalized schema fingerprint, and canary fingerprint into the snapshot and contract. Duplicate or reordered protocol events cannot duplicate approval or completion. |
-| AC-PLUG-001 | The repo marketplace installs the `PromptTripwire` Plugin and exposes its `preflight` Skill to an explicit Codex task. |
+| AC-PLUG-001 | The repo marketplace installs the `PromptTripwire` Plugin, exposes its `preflight` Skill to an explicit Codex task, and packages `allow_implicit_invocation: false` so matching prose alone cannot activate it. |
 | AC-PLUG-002 | Plugin inspect leaves the target checkout's `git status --short` unchanged and returns a compact run summary or Decision Inbox next step. |
 | AC-PLUG-003 | No Skill or caller Codex path auto-approves a contract; approval remains an explicit human action. |
 | AC-PLUG-004 | The exact Plugin invocation text reaches the snapshot unchanged; every child App Server disables Plugin contributions before thread creation, while the adapter also propagates the deterministic re-entry guard through the PromptTripwire child, the minimal App Server process environment, and `shell_environment_policy.set`. The PromptTripwire Skill is absent from the child Plugin context, a child process observes the guard, and recursive invocation is blocked without broad environment inheritance. |

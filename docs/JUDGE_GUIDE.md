@@ -23,7 +23,9 @@ to source text without inferring approval.
 v0.1.11 removes numeric Codex version gates. It validates one shared consumed
 normal-schema profile and a bounded private-temp semantic canary before reading
 the target repository, binds the attestation into the contract, and remeasures
-before approval and run.
+before approval and run. It also redacts secret-like source text before the
+translation turn and sanitizes the complete browser review DTO; canonical
+persistence and approval identity remain unchanged.
 
 ## Supported platform and prerequisites
 
@@ -72,8 +74,12 @@ The installed display name is `PromptTripwire`; its Skill name is
 `prompt-tripwire:preflight`. In a new Codex task, invoke it explicitly:
 
 ```text
-Use prompt-tripwire:preflight before implementing this task.
+$prompt-tripwire:preflight
+Inspect this task before implementing it: ...
 ```
+
+The bundled Skill metadata disables implicit invocation, so task text that only
+matches the description does not start PromptTripwire.
 
 That line remains part of the exact snapshot-bound task. PromptTripwire
 disables installed Plugin contributions before creating its child App Server
@@ -187,7 +193,7 @@ notes](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/demo/README.m
 embedded default English subtitles. These repository files are excluded from
 the compact release archive.
 
-This media is explicitly a v0.1.2 capture, not footage of the v0.1.10 judge
+This media is explicitly a v0.1.2 capture, not footage of the v0.1.11 judge
 distribution. The Inbox capture is an actual API-key-free v0.1.2 Plugin
 inspect. It has one
 unresolved compatibility decision, no dependency blocker, no selected option,

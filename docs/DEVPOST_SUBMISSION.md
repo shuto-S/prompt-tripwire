@@ -10,9 +10,9 @@ This file prepares the English submission fields. It is not a saved or final Dev
 - **Repository URL:** `https://github.com/shuto-S/prompt-tripwire`
 - **Repository access:** Public, Apache-2.0
 - **Supported platform:** macOS arm64
-- **Release artifact:** [v0.1.10 macOS arm64](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.10), pending publication and anonymous verification; [v0.1.9 remains immutable historical evidence](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.9) with SHA-256 `8e1fa4ea296eb7d64c3fb453d21121037c63fe68a919c0fd51de483d6436d9c0`
-- **Release SHA-256:** `<PENDING: record after the v0.1.10 public asset is downloaded and verified>`
-- **Demo video:** `<PENDING HUMAN CONFIRMATION: upload to YouTube, then add the anonymously verified public URL>`; [local v0.1.2 review copy](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4), 2:52.862 with audio. The recording predates the v0.1.3 launcher hardening through v0.1.10 Japanese reference-presentation improvements described below.
+- **Release artifact:** [v0.1.11 macOS arm64](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.11), pending human-controlled publication and anonymous verification; [v0.1.10 remains the latest public historical distribution](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.10), anonymously verified at SHA-256 `15574604ef5476ae22db0396986b470a550af597880f82f32936c9bc67e587a5`
+- **Release SHA-256:** `<PENDING: record after the v0.1.11 public asset is downloaded and verified>`
+- **Demo video:** `<PENDING HUMAN CONFIRMATION: upload to YouTube, then add the anonymously verified public URL>`; [local v0.1.2 review copy](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4), 2:52.862 with audio. The recording predates the v0.1.3 launcher hardening through v0.1.11 measured-compatibility and explicit-only Plugin improvements described below.
 - **Codex /feedback Session ID:** `<PENDING: paste the formal Session ID captured outside source into Devpost>`
 
 The formal Session ID was captured on 2026-07-15 and is intentionally retained outside source until Devpost entry. Do not replace the placeholder with a local task/thread UUID.
@@ -34,14 +34,14 @@ PromptTripwire uses observed plan divergence as early evidence. It asks only abo
 3. Uses GPT-5.6 Structured Outputs in a separate tool-free App Server thread to normalize consensus, divergence, unknowns, and evidence references.
 4. Applies `deterministic-v2` fail-closed rules to the original task and the validated plans for destructive, external, privileged, production, dependency, API, and irreversible effects, while preserving task-only provenance instead of claiming probe support.
 5. Shows at most three focused decision cards at a time in a loopback-only Decision Inbox or terminal fallback.
-6. When Japanese is selected, shows a source-bound reference translation of the task and decision content while keeping expandable authoritative source text and unchanged approval identity.
+6. When Japanese is selected, shows a source-bound reference translation of the task and decision content while keeping an expandable, deterministically sanitized authoritative source copy and unchanged approval identity.
 7. Creates an immutable, content-addressed execution contract bound to the approved snapshot.
 8. Runs Codex in a disposable worktree, denies network/remote/high-impact effects, correlates approvals to contract evidence, and interrupts deviations.
 9. Produces a sanitized JSON/Markdown report with decisions, contract hash, threads/models, observed actions, checks, diff scope, and remaining unknowns.
 
 ## How it was built
 
-PromptTripwire is a local TypeScript/Node.js workspace. It uses one OpenAI integration path: `codex app-server` 0.144.4 over stdio. That path supplies authentication, threads, schema-constrained turns, streamed items, approvals, diffs, token usage, and interruption. The existing Codex CLI login is reused; PromptTripwire does not require `OPENAI_API_KEY` or copy Codex credentials.
+PromptTripwire is a local TypeScript/Node.js workspace. It uses one OpenAI integration path: `codex app-server` over stdio. Before reading the target repository, one shared profile measures the resolved executable's consumed normal-schema surface, handshake, and bounded private-temp canary; the version string is audit metadata, not an allowlist. That App Server path supplies authentication, threads, schema-constrained turns, streamed items, approvals, diffs, token usage, and interruption. The existing Codex CLI login is reused; PromptTripwire does not require `OPENAI_API_KEY` or copy Codex credentials.
 
 Planning uses `gpt-5.6-sol` at low reasoning. Comparison uses `gpt-5.6-terra` at low reasoning after a bounded Sol/Terra evaluation. Zod-derived schemas validate model output, a deterministic policy engine adds mandatory decisions, `node:sqlite` persists crash-safe state, Git worktrees contain probe/execution changes, and React/Vite provides a bundled same-origin Decision Inbox. The v0.1.2 distribution also audits canonical symlink containment before probes and at each static-read approval, expires the review capability at lifecycle/idle boundaries without changing run state, propagates only a non-secret Plugin re-entry sentinel through the minimal App Server environment, rolls failed installs/upgrades back across local and Codex Plugin state, and verifies deterministic archive output.
 
@@ -83,6 +83,16 @@ policy, decision IDs, mutations, contracts, hashes, execution, and reports never
 consume the translation. Invalid or unavailable output falls back visibly to
 source text without inferring approval.
 
+v0.1.11 replaces numeric Codex version gates with measured normal-schema,
+handshake, and bounded-canary compatibility. The attestation is bound to the
+snapshot and contract and is remeasured before approval and execution; any
+drift makes the prior approval stale. The bundled Plugin Skill also declares
+`allow_implicit_invocation: false`, so Codex requires an explicit
+`$prompt-tripwire:preflight` mention. Secret-like source text is redacted before
+the translation turn and from the browser DTO without changing canonical
+persistence, IDs, hashes, contracts, or mutations.
+No hook, MCP server, hosted backend, API key, or automatic approval is added.
+
 ## Challenges
 
 - Codex 0.144.4 reports some apparently read-only commands such as `pwd` and `sed` as `unknown`. PromptTripwire kept fail-closed denial and changed probe instructions instead of trusting raw shell text.
@@ -94,6 +104,7 @@ source text without inferring approval.
 - A literal token comparison was too strict for the real App Server launcher representation, but broadly trusting shell wrappers would have introduced startup-file and command-smuggling risks. v0.1.3 normalizes only the two observed zsh envelopes, requires exact inner-action equality, isolates `ZDOTDIR`, and rejects every other shell, flag, argument, compound command, redirection, or substitution.
 - A prompt-only re-entry warning cannot stop Plugin discovery that happens before the adapter runs. v0.1.4 preserves the request as task evidence but disables Plugin contributions at process startup and keeps the sentinel as a second control. Lossy search metadata is never trusted in place of validating every command operand.
 - A safe read can still become an `unknown` action when a model chooses an executable path such as `/bin/ls`. v0.1.9 requires bare program names in probe instructions and keeps the unknown action denied instead of normalizing raw command text.
+- A numeric CLI version can reject compatible updates without proving behavior. v0.1.11 instead validates the exact consumed schema and a bounded semantic canary, then fails closed on missing surfaces or measured drift.
 
 ## Accomplishments
 
@@ -108,6 +119,7 @@ source text without inferring approval.
 - Release packaging normalizes entry order, ownership, modes, timestamps, and gzip metadata, then compares two builds for the same digest.
 - The v0.1.4 compatibility patch was derived from a real logged-in Codex CLI/App Server invocation without API-key environment variables and backed by Plugin-context A/B, exact-task live probe, search-operand, environment-isolation, and adversarial containment checks.
 - The published v0.1.5 archive was anonymously downloaded, matched byte-for-byte with the clean tagged candidate, installed into an isolated prefix, and invoked from a real logged-in Codex task with API-key variables unset. It stopped at human review with no approved contract and left the fixture unchanged.
+- The v0.1.11 candidate accepts compatible Codex behavior without version branches, packages an explicit-only thin Plugin, and retains transactional install/uninstall plus the existing human approval and containment gates.
 
 ## What was learned
 
@@ -126,7 +138,7 @@ Hosted backends, account systems, team approvals, non-Codex adapters, and automa
 
 ## Judge instructions
 
-Download the v0.1.10 macOS arm64 release artifact and its matching checksum, verify them together, and follow `JUDGE_GUIDE.md`. Its packaged README and Judge Guide self-reference v0.1.10. Public-asset digest and anonymous-install evidence must be recorded after publication; v0.1.9 is immutable historical evidence with SHA-256 `8e1fa4ea296eb7d64c3fb453d21121037c63fe68a919c0fd51de483d6436d9c0`. It supports:
+Download the v0.1.11 macOS arm64 release artifact and its matching checksum, verify them together, and follow `JUDGE_GUIDE.md`. Its packaged README and Judge Guide self-reference v0.1.11. Public-asset digest and anonymous-install evidence must be recorded after publication; v0.1.10 and earlier releases remain immutable historical evidence. It supports:
 
 - direct `./bin/tripwire` execution;
 - one-command user-local install/uninstall;
@@ -160,7 +172,7 @@ review/offline fallback.
 
 ## YouTube confirmation packet (upload pending)
 
-The media is the completed v0.1.2 capture; v0.1.10 is the current judge
+The media is the completed v0.1.2 capture; v0.1.11 is the final judge
 distribution and includes later compatibility, safety, localization,
 documentation, and deterministic-policy precision patches. Before opening the upload flow,
 present this entire packet to the human and wait for explicit confirmation.
@@ -176,14 +188,14 @@ The public URL and anonymous playback verification remain pending.
   > explicit human decisions, and executes an approved contract in an isolated
   > Codex thread and disposable Git worktree.
   >
-  > Built for the OpenAI Build Week Developer Tools track with codex-cli 0.144.4,
+  > Built for the OpenAI Build Week Developer Tools track with Codex App Server,
   > gpt-5.6-sol planning probes, and a tool-free gpt-5.6-terra comparator.
   >
   > Repository: https://github.com/shuto-S/prompt-tripwire
-  > Release (macOS arm64): https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.10
+  > Release (macOS arm64): https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.11
   >
-  > This video is the completed v0.1.2 capture. v0.1.10 is the current judge
-  > distribution to install; the footage is not presented as a v0.1.10
+  > This video is the completed v0.1.2 capture. v0.1.11 is the final judge
+  > distribution to install; the footage is not presented as a v0.1.11
   > recording.
   >
   > No separate OPENAI_API_KEY is required. PromptTripwire reuses the logged-in
@@ -198,7 +210,7 @@ The public URL and anonymous playback verification remain pending.
 - **Category:** Science & Technology
 - **License:** Standard YouTube License
 
-The Release line targets v0.1.10 and must be rechecked after publication.
+The Release line targets v0.1.11 and must be rechecked after publication.
 Show the complete title, description, visibility, captions, thumbnail, and
 settings once more and wait for explicit human confirmation. Uploading,
 publishing, or changing visibility before that confirmation is prohibited by
@@ -211,8 +223,8 @@ before final submission, show the human the complete assembled entry and wait
 for explicit confirmation. The confirmation view must include:
 
 - project name, Developer Tools category, tagline, public repository, Apache-2.0 license, and macOS arm64 support;
-- the anonymously verified v0.1.10 Release URL and checksum evidence;
-- the anonymously verified public YouTube URL, thumbnail, and v0.1.2-capture/v0.1.10-distribution disclosure;
+- the anonymously verified v0.1.11 Release URL and checksum evidence;
+- the anonymously verified public YouTube URL, thumbnail, and v0.1.2-capture/v0.1.11-distribution disclosure;
 - the exact body from **One-line pitch** through **What's next**, plus **Judge instructions**, known limitations, and tags;
 - the README, Judge Guide, release notes, demo documentation, screenshots, captions, and repository review-copy links;
 - the formal Codex `/feedback` Session ID in Devpost's dedicated field, copied from the retained external record and never written into this repository; and
@@ -242,7 +254,8 @@ packet.
 - [x] Build, publish, and anonymously verify the v0.1.7 deterministic-policy precision artifact and packaged instructions; its real Plugin flow exposed the plan-command issue corrected in v0.1.8.
 - [x] Build, publish, and anonymously verify the v0.1.8 plan-command guidance artifact, checksum, and packaged instructions; its real Plugin flow exposed the bare-program issue corrected in v0.1.9.
 - [x] Build, publish, and anonymously verify the v0.1.9 bare-program guidance artifact, checksum, packaged instructions, isolated install, and real pre-approval Plugin flow.
-- [ ] Build, publish, and anonymously verify the v0.1.10 Japanese-reference artifact, checksum, packaged instructions, API-key-free Plugin flow, human review, contained execution, report, and targeted uninstall.
+- [x] Build, publish, and verify the v0.1.10 Japanese-reference artifact and checksum as historical evidence.
+- [ ] Publish and anonymously verify the completed v0.1.11 measured-compatibility artifact, checksum, packaged instructions, API-key-free explicit Plugin flow, and targeted uninstall.
 - [x] Obtain the formal `/feedback` Session ID from the primary Codex task and retain it outside source.
 - [x] Regenerate the owned local v0.1.2 demo with audio under three minutes, English captions, thumbnail, and screenshots.
 - [ ] Obtain explicit human confirmation for the resolved YouTube packet, upload the completed v0.1.2 demo/captions, and verify public playback anonymously.

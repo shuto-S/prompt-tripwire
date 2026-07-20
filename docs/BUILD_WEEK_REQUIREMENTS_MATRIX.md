@@ -7,13 +7,13 @@ Authoritative sources:
 - [OpenAI Build Week Official Rules](https://openai.devpost.com/rules)
 - [OpenAI Build Week Resources](https://openai.devpost.com/resources)
 
-The official rules take precedence if they change. This matrix records the requirement text as checked against the judge-facing repository and prepared v0.1.10 release. The public v0.1.2 demo capture and v0.1.3 through v0.1.9 releases remain historical evidence.
+The official rules take precedence if they change. This matrix records the requirement text as checked against the judge-facing repository and prepared v0.1.11 release candidate. The public v0.1.2 demo capture and v0.1.3 through v0.1.10 releases remain historical evidence.
 
 | Official requirement or guidance | PromptTripwire evidence | Status |
 |---|---|---|
 | Submission period ends July 21, 2026 at 17:00 PT (July 22 at 09:00 JST). | `docs/BUILD_WEEK.md` uses the JST deadline and keeps the final day for verification/submission. | Ready |
 | Build a project with Codex and GPT-5.6 in an eligible track. | Developer Tools; Codex App Server runs planning/execution and GPT-5.6 performs schema-constrained comparison. | Ready |
-| The project installs and runs consistently on the declared platform. | Public v0.1.9 macOS arm64 bytes, checksum, and API-key-free isolated Plugin install were anonymously verified. Prepared v0.1.10 adds separately stored source-bound Japanese reference presentation while retaining pinned Node/Codex requirements, transactional install/upgrade, owned uninstall boundaries, artifact smoke, and reproducibility gates. | v0.1.10 candidate verification pending |
+| The project installs and runs consistently on the declared platform. | Public v0.1.10 contains source-bound Japanese reference presentation. Prepared v0.1.11 adds measured Codex compatibility, explicit-only Skill metadata, transactional install/upgrade, owned uninstall boundaries, artifact smoke, and reproducibility gates without a numeric Codex allowlist. | v0.1.11 candidate verified locally; publication pending |
 | New work must be created during the submission period, or pre-existing work must be clearly separated. | Repository starts during the event; dated specification and implementation commits are listed in `docs/CODEX_COLLABORATION.md`. | Ready |
 | Third-party SDKs, APIs, data, and open-source software must be used with authorization and license compliance. | Apache-2.0 project license, `docs/DEPENDENCIES.md`, lockfile license gate, and no third-party data/assets in the judge fixture. | Ready |
 | Include an English text description of features and functionality. | `docs/DEVPOST_SUBMISSION.md` contains the English submission draft. | Ready |
@@ -22,12 +22,12 @@ The official rules take precedence if they change. This matrix records the requi
 | Provide a repository URL; public with relevant licensing, or private and shared with both judge addresses. | Public repository: `https://github.com/shuto-S/prompt-tripwire`; Apache-2.0 is recorded in `LICENSE`, package metadata, and README. Anonymous `HTTP 200` checks passed for the repository and LICENSE URL. | Ready |
 | README must explain Codex collaboration, acceleration, human decisions, and GPT-5.6/Codex contributions. | README summary plus the detailed accepted/changed/rejected and dated record in `docs/CODEX_COLLABORATION.md`. | Ready |
 | Provide the `/feedback` Codex Session ID for the task where most core functionality was built. | The retained primary session was uploaded through App Server `feedback/upload` on 2026-07-15 and the returned Session ID was captured outside the repository for Devpost entry. | Pending final Devpost entry |
-| Developer tools need installation instructions, supported platforms, and a way to test without rebuilding. | `docs/JUDGE_GUIDE.md`; public v0.1.9 and prepared v0.1.10 compiled JavaScript/runtime artifacts; safe local fixture; recorded read-only replay. | v0.1.10 candidate verification pending |
-| Provide free, unrestricted working-project access through the judging period. | The public repository and v0.1.2 through v0.1.9 releases are reachable without authentication. v0.1.9 archive/checksum download and byte identity were verified anonymously. No hosted account or paid PromptTripwire service is required; Codex usage remains under the judge's own OpenAI access. | Ready; monitor v0.1.10 publication |
+| Developer tools need installation instructions, supported platforms, and a way to test without rebuilding. | `docs/JUDGE_GUIDE.md`; public v0.1.10 and prepared v0.1.11 compiled JavaScript/runtime artifacts; safe local fixture; recorded read-only replay. | v0.1.11 publication pending |
+| Provide free, unrestricted working-project access through the judging period. | The public repository and v0.1.2 through v0.1.10 releases are reachable without authentication. No hosted account or paid PromptTripwire service is required; Codex usage remains under the judge's own OpenAI access. | Ready; monitor v0.1.11 publication and judging-period access |
 | Submission and testing materials must be English or have English translations. | README, Judge Guide, release notes, fixture, Devpost draft, demo narration, and 74-cue caption file are English. | Ready |
 | Submission must be original, owned by the entrant, and not violate IP/privacy rights. | Final repository media is owned and reviewed; no copied media or private repository fixture is used; dependency licenses are reviewed; secret/local-path scans gate the artifact. | Ready |
 | Stage-one viability: fit the theme and reasonably apply the required tools. | Real Codex/GPT-5.6 vertical slice and executable P0 evidence. | Ready |
-| Stage-two criteria are equally weighted: Technological Implementation, Design, Potential Impact, Quality of the Idea. | Submission draft maps evidence to the version-pinned App Server integration, coherent decision flow, specific Codex-user problem, and divergence-to-contract wedge. | Ready |
+| Stage-two criteria are equally weighted: Technological Implementation, Design, Potential Impact, Quality of the Idea. | Submission draft maps evidence to the behavior-attested App Server integration, coherent decision flow, specific Codex-user problem, and divergence-to-contract wedge. | Ready |
 | Resources guidance: keep the repository testable with clean instructions and sample data. | `docs/JUDGE_GUIDE.md`, safe fixture generator, `npm run verify:release`. | Ready |
 
 ## Remaining rule-owned actions
@@ -46,8 +46,11 @@ Publication evidence through 2026-07-20 JST:
 - v0.1.7 coordinated-negation precision release: PR [#32](https://github.com/shuto-S/prompt-tripwire/pull/32), merge commit `23db6619a2f3aa83f2c388621538e4e63063184c`
 - v0.1.8 plan-command guidance release: PR [#33](https://github.com/shuto-S/prompt-tripwire/pull/33), merge commit `57cdbde82320d16b9057e059b704063322799877`
 - v0.1.9 bare-program guidance release: PR [#34](https://github.com/shuto-S/prompt-tripwire/pull/34), merge commit `de6c4bb458793d3395155f370b0c0e22d24ef773`
-- v0.1.10 Japanese-reference presentation release: implementation and verification in progress
-- public releases: [v0.1.9](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.9), [v0.1.8](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.8), [v0.1.7](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.7), [v0.1.6](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.6), [v0.1.5](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.5), [v0.1.4](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.4), [v0.1.3](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.3), and [v0.1.2](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.2); v0.1.1 and v0.1.0 remain preserved as earlier evidence
+- v0.1.10 Japanese-reference presentation release: PR [#40](https://github.com/shuto-S/prompt-tripwire/pull/40), merge commit `b30e3832026970f766d04c29f75d671a2b163ec8`
+- v0.1.11 measured compatibility and explicit-only Plugin candidate: PR [#41](https://github.com/shuto-S/prompt-tripwire/pull/41), merge commit `2529f8e587fbc0f9b57aa6c8c43f683000234b49`, plus final submission metadata hardening
+- isolated v0.1.11 live evidence: explicit Skill injection under logged-in Codex with API-key variables unset; one fail-closed nested request followed by the single documented adapter retry to `needs_review`; real Japanese task/question/options/effects; no selection or approval; unchanged fixture; targeted uninstall and auth-copy cleanup
+- public releases: [v0.1.10](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.10), [v0.1.9](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.9), [v0.1.8](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.8), [v0.1.7](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.7), [v0.1.6](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.6), [v0.1.5](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.5), [v0.1.4](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.4), [v0.1.3](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.3), and [v0.1.2](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.2); v0.1.1 and v0.1.0 remain preserved as earlier evidence
+- anonymously verified v0.1.10 macOS arm64 artifact SHA-256: `15574604ef5476ae22db0396986b470a550af597880f82f32936c9bc67e587a5` (2,322,813 bytes)
 - anonymously verified v0.1.9 macOS arm64 artifact SHA-256: `8e1fa4ea296eb7d64c3fb453d21121037c63fe68a919c0fd51de483d6436d9c0` (2,314,606 bytes; 921 files; source `de6c4bb458793d3395155f370b0c0e22d24ef773`)
 - anonymously verified v0.1.8 macOS arm64 artifact SHA-256: `0b5ca45f3cf497917df9f0b1c531aa4e8cf5b9e75eb46e47128c5fa3d09e351c`
 - anonymously verified v0.1.7 macOS arm64 artifact SHA-256: `c6fe5b1f51bfd81dff7ebdce5f5f5f46eef01c6cb4dced0fd7213723ba9611f6`
@@ -64,8 +67,7 @@ The final local v0.1.2 capture is available through
 judge archive. Its live Inbox scene is an untouched API-key-free v0.1.2 inspect;
 the separately disclosed contract/execution/report scenes use an earlier
 human-approved safe-fixture run. It is not represented as footage of the
-v0.1.10 judge distribution. v0.1.9 publication, archive digest, packaged
-instruction check, anonymous download, isolated install, and real Plugin
-pre-approval flow are verified. The v0.1.10 archive, source-bound Japanese
-reference presentation, approval-to-report rehearsal, targeted uninstall, and
-public YouTube URL remain pending. Historical checksums do not verify v0.1.10.
+v0.1.11 judge distribution. v0.1.10 publication and Japanese reference
+presentation are public historical evidence. The v0.1.11 tag, Release assets,
+post-publication anonymous checksum/install check, and public YouTube URL remain
+pending human-controlled actions. Historical checksums do not verify v0.1.11.

@@ -70,6 +70,10 @@ normal schema, handshake, and bounded private-temp canary against one shared
 compatibility profile. That attestation is snapshot/contract-bound and is
 remeasured before approval and run. Compatible future versions pass without a
 version branch; required-surface, canary, or executable drift fails closed.
+It also redacts secret-like source text before Japanese translation and before
+serializing the Decision Inbox browser DTO. The expandable source remains a
+deterministic presentation copy while canonical persistence, IDs, hashes,
+contracts, policy, mutations, execution, and reports remain unchanged.
 
 ## Why this exists
 
@@ -133,20 +137,20 @@ After review, PromptTripwire creates a versioned execution contract. Codex runs 
 
 ## Judge quickstart
 
-The judge artifact is a compiled JavaScript/runtime archive for macOS arm64. It does not require the TypeScript source tree or a source build. Download the archive and its matching checksum from the [v0.1.10 GitHub Release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.10). The public v0.1.2 through v0.1.9 releases remain immutable historical evidence and must not be used in place of the v0.1.10 judge artifact.
+The final judge artifact is the compiled v0.1.11 JavaScript/runtime archive for macOS arm64. It does not require the TypeScript source tree or a source build. Download the archive and its matching checksum from the [v0.1.11 GitHub Release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.11) after publication. Until that human-controlled publication step, [v0.1.10](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.10) remains the latest public historical distribution and must not be substituted for the v0.1.11 release candidate in final verification.
 
-The published v0.1.10 artifact retains its historical `codex-cli 0.144.4` gate. The v0.1.11 source candidate requires Node.js 24.15+, npm 11+, Git, and an already authenticated Codex CLI whose normal App Server passes the measured compatibility profile. PromptTripwire reuses the existing login for probes, GPT-5.6 comparison, and execution. It does not require `OPENAI_API_KEY`, expose an API-key setting, or copy Codex credentials.
+The v0.1.11 candidate requires Node.js 24.15+, npm 11+, Git, and an already authenticated Codex CLI whose normal App Server passes the measured compatibility profile. PromptTripwire reuses the existing login for probes, GPT-5.6 comparison, and execution. It does not require `OPENAI_API_KEY`, expose an API-key setting, or copy Codex credentials.
 
 ```sh
 shasum -a 256 -c SHA256SUMS.txt
-tar -xzf prompt-tripwire-v0.1.10-macos-arm64.tar.gz
-cd prompt-tripwire-v0.1.10-macos-arm64
+tar -xzf prompt-tripwire-v0.1.11-macos-arm64.tar.gz
+cd prompt-tripwire-v0.1.11-macos-arm64
 ./install.sh --with-codex-plugin
 codex plugin list --json
 ./bin/tripwire replay --terminal
 ```
 
-`tripwire replay` is clearly labeled recorded and read-only; it makes no Codex call and executes no code. The included dependency-free fixture exercises the real `inspect → review → approve → contained execution → report` path. See the [Judge Guide](docs/JUDGE_GUIDE.md) for exact commands, install/uninstall, safety boundaries, and troubleshooting. Verify v0.1.10 only with the checksum file from that same release; historical checksums must not be reused.
+`tripwire replay` is clearly labeled recorded and read-only; it makes no Codex call and executes no code. The included dependency-free fixture exercises the real `inspect → review → approve → contained execution → report` path. See the [Judge Guide](docs/JUDGE_GUIDE.md) for exact commands, install/uninstall, safety boundaries, and troubleshooting. Verify v0.1.11 only with the checksum file from that same release; historical checksums must not be reused.
 
 ## Demo and submission status
 
@@ -155,7 +159,7 @@ codex plugin list --json
 The repository contains the final local [v0.1.2 demo video](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/prompt-tripwire-v0.1.2-demo.mp4), [English captions](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/demo/prompt-tripwire-v0.1.2-demo.en.srt), [live Decision Inbox capture](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/decision-inbox-v0.1.2-live.png), and [sanitized report capture](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/assets/demo/evidence-report-v0.1.2.png). The 2:52.862 video is 1920×1080 H.264 with AAC stereo audio and embedded English subtitles. See the [demo evidence notes and narration](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/demo/README.md) for exact format details and disclosure.
 
 These files are a v0.1.2 capture and are not represented as footage of the
-v0.1.10 judge distribution. The live Inbox scene comes from an API-key-free
+v0.1.11 judge distribution. The live Inbox scene comes from an API-key-free
 v0.1.2 Codex Plugin inspect. It
 shows one unresolved compatibility decision, no dependency blocker, no selected
 option, and no approved contract; the source checkout, HEAD, and worktree list
@@ -213,7 +217,7 @@ npm run eval:comparator
 
 The evaluator records only pass/fail, candidate counts, timing, App Server thread/turn IDs, and token usage. It never prints prompts, plans, model output, raw reasoning, process environments, or credentials. On 2026-07-15, both `gpt-5.6-sol` and `gpt-5.6-terra` passed 2/2 at low reasoning. Terra used 48,910 total tokens versus Sol's 49,131, completed in 21,619 ms versus 29,657 ms, and returned no unnecessary unknown on the divergence fixture, so `gpt-5.6-terra`/low remains the bounded empirical default. Sanitized metadata is in [`fixtures/app-server/comparator-eval-2026-07-15.json`](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/fixtures/app-server/comparator-eval-2026-07-15.json).
 
-`tripwire review RUN_ID` starts a random-port loopback Decision Inbox while the run remains reviewable; Ctrl-C also closes it. Terminal/non-reviewable state, archive, or 30 minutes with neither authenticated activity nor an authenticated SSE stream closes the listener and revokes its in-memory capability without changing the persisted run or inferring approval. Mutation bodies are size-bounded and must finish within five seconds; after the short close grace, remaining connections are force-closed so an incomplete request cannot retain the listener. The capability token appears only in the one-time URL fragment, is removed from the address bar after bootstrap, and is required as an authorization header for the aggregate review API and authenticated fetch-based SSE stream. The UI shows at most three decision cards plus the remaining count, never preselects a high-impact option, supports selection, free-form resolution, defer, pre-approval edit, explicit approval, cancellation, deviation display, keyboard operation, visible focus, and assistive-technology state announcements. Japanese browser settings select Japanese presentation automatically, and the visible `日本語 / English` switch changes only presentation. Japanese task and decision text is explicitly labeled as a reference translation with expandable authoritative source text; the source task, model output, evidence, decisions, contracts, mutation data, and reports remain unchanged. The UI loads only its bundled React/Vite assets and renders all content as escaped text.
+`tripwire review RUN_ID` starts a random-port loopback Decision Inbox while the run remains reviewable; Ctrl-C also closes it. Terminal/non-reviewable state, archive, or 30 minutes with neither authenticated activity nor an authenticated SSE stream closes the listener and revokes its in-memory capability without changing the persisted run or inferring approval. Mutation bodies are size-bounded and must finish within five seconds; after the short close grace, remaining connections are force-closed so an incomplete request cannot retain the listener. The capability token appears only in the one-time URL fragment, is removed from the address bar after bootstrap, and is required as an authorization header for the aggregate review API and authenticated fetch-based SSE stream. The UI shows at most three decision cards plus the remaining count, never preselects a high-impact option, supports selection, free-form resolution, defer, pre-approval edit, explicit approval, cancellation, deviation display, keyboard operation, visible focus, and assistive-technology state announcements. Japanese browser settings select Japanese presentation automatically, and the visible `日本語 / English` switch changes only presentation. Japanese task and decision text is explicitly labeled as a reference translation with an expandable, deterministically sanitized authoritative source copy; canonical task, model output, evidence, decisions, contracts, mutation data, and reports remain unchanged in persistence. The UI loads only its bundled React/Vite assets and renders all content as escaped text.
 
 ## Codex Plugin (explicit preflight)
 
@@ -248,10 +252,12 @@ Codex Plugin changes. For a custom user-local root, set
 `PROMPT_TRIPWIRE_PREFIX` consistently for install and uninstall.
 
 Codex displays the Plugin as `PromptTripwire`; the callable Skill is
-`prompt-tripwire:preflight`. Start a new Codex task and say:
+`prompt-tripwire:preflight`. Its bundled metadata disables implicit invocation.
+Start a new Codex task and invoke it explicitly with the `$` Skill mention:
 
 ```text
-Use prompt-tripwire:preflight before implementing this task.
+$prompt-tripwire:preflight
+Inspect this task before implementing it: ...
 ```
 
 The adapter starts an authenticated nested `codex app-server`. If the calling
@@ -368,4 +374,4 @@ PromptTripwire is licensed under the [Apache License 2.0](LICENSE).
 
 ## Status
 
-Specification baseline: 2026-07-20. Measured App Server compatibility, three-real-probe smoke, tool-free App Server Sol/Terra comparison, source-bound Japanese reference presentation, live compliant execution, full P0 traceability, macOS secret scan, seven specification fixtures, recorded replay, release reproducibility, and judge archive verification are covered by executable gates. No separate OpenAI API credential is required. The owned v0.1.2 demo, captions, thumbnail, and UI captures are present in the repository and excluded from the judge archive. [v0.1.10](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.10) is the current public judge distribution and remains immutable. v0.1.11 is an unreleased source candidate for version-independent measured Codex compatibility; no tag or Release is created by this work. Earlier public releases remain immutable historical evidence. Public YouTube upload and Devpost final submission each remain behind an explicit human confirmation gate.
+Specification baseline: 2026-07-20. Measured App Server compatibility, three-real-probe smoke, tool-free App Server Sol/Terra comparison, source-bound Japanese reference presentation, live compliant execution, full P0 traceability, macOS secret scan, seven specification fixtures, recorded replay, release reproducibility, and judge archive verification are covered by executable gates. No separate OpenAI API credential is required. The owned v0.1.2 demo, captions, thumbnail, and UI captures are present in the repository and excluded from the judge archive. [v0.1.10](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.10) remains the latest public historical distribution. v0.1.11 is the final unreleased judge candidate for version-independent measured Codex compatibility and explicit-only Plugin invocation; no tag or Release is created by this preparation work. Earlier public releases remain immutable historical evidence. Public YouTube upload and Devpost final submission each remain behind an explicit human confirmation gate.
