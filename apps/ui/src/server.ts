@@ -9,6 +9,7 @@ import { sanitizeForExport } from "@prompt-tripwire/policy";
 
 import type {
   DecisionCardDto,
+  DecisionOriginSummaryDto,
   MutationResponseDto,
   RunEventDto,
   RunReviewDto,
@@ -180,12 +181,112 @@ function mutationKey(request: IncomingMessage): string {
   return requiredString(header(request, "idempotency-key"), "Idempotency-Key");
 }
 
+type ReviewDecision = ReturnType<LocalController["review"]>["decisions"][number];
+type ReviewEvidence = ReturnType<LocalController["reviewEvidence"]>;
+
+function sortedUnique(values: readonly string[]): readonly string[] {
+  return [...new Set(values)].sort();
+}
+
+function sameStringSet(left: readonly string[], right: readonly string[]): boolean {
+  return sortedUnique(left).join("\0") === sortedUnique(right).join("\0");
+}
+
+function optionProvenance(
+  options: readonly {
+    readonly supportedByProbeIds: readonly string[];
+    readonly evidenceRefs: readonly string[];
+  }[],
+): readonly string[] {
+  return options
+    .map((option) =>
+      JSON.stringify({
+        probes: sortedUnique(option.supportedByProbeIds),
+        evidence: sortedUnique(option.evidenceRefs),
+      }),
+    )
+    .sort();
+}
+
+function matchesDivergence(
+  decision: ReviewDecision,
+  divergence: ReviewEvidence["comparison"]["divergences"][number],
+): boolean {
+  const expectedEvidence = [
+    ...divergence.subject.evidenceRefs,
+    ...divergence.alternatives.flatMap((alternative) => alternative.evidenceRefs),
+  ];
+  return (
+    sameStringSet(decision.evidenceRefs, expectedEvidence) &&
+    sameStringSet(optionProvenance(decision.options), optionProvenance(divergence.alternatives))
+  );
+}
+
+function matchesComparatorUnknown(
+  decision: ReviewDecision,
+  unknown: ReviewEvidence["comparison"]["unknowns"][number],
+): boolean {
+  return (
+    decision.options.every((option) => option.supportedByProbeIds.length === 0) &&
+    sameStringSet(decision.evidenceRefs, unknown.evidenceRefs)
+  );
+}
+
+function decisionOriginSummary(
+  decision: ReviewDecision,
+  evidence: ReviewEvidence | null,
+): DecisionOriginSummaryDto {
+  if (evidence === null) return { source: "unknown", materialAlternativeCount: 0 };
+  const matchingDivergences = evidence.comparison.divergences.filter((divergence) =>
+    matchesDivergence(decision, divergence),
+  );
+  const comparatorUnknown = evidence.comparison.unknowns.some((unknown) =>
+    matchesComparatorUnknown(decision, unknown),
+  );
+  const observedDivergence = matchingDivergences.length === 1;
+  const deterministicPolicy = decision.deterministicTriggers.length > 0 && !comparatorUnknown;
+  const source = observedDivergence
+    ? deterministicPolicy
+      ? "both"
+      : "observed_divergence"
+    : deterministicPolicy
+      ? "deterministic_policy"
+      : "unknown";
+  return {
+    source,
+    materialAlternativeCount:
+      observedDivergence && matchingDivergences[0] !== undefined
+        ? matchingDivergences[0].alternatives.length
+        : 0,
+  };
+}
+
 function toReviewDto(
   controller: LocalController,
   runId: string,
   mode: "live" | "recorded",
 ): RunReviewDto {
   const review = controller.review(runId);
+  let reviewEvidence: ReviewEvidence | null = null;
+  try {
+    reviewEvidence = controller.reviewEvidence(runId);
+  } catch (error) {
+    if (
+      mode === "live" &&
+      [
+        "comparing",
+        "needs_review",
+        "ready_for_approval",
+        "approved",
+        "running",
+        "pausing",
+        "paused",
+      ].includes(review.run.state)
+    ) {
+      throw error;
+    }
+  }
+  const validProbeIds = sortedUnique(reviewEvidence?.plans.map((plan) => plan.probeId) ?? []);
   const open = review.decisions.filter(
     (decision): decision is typeof decision & { status: "unresolved" | "deferred" } =>
       decision.status !== "resolved",
@@ -196,12 +297,18 @@ function toReviewDto(
     question: decision.question,
     reason: decision.reason,
     impact: decision.impact,
-    options: decision.options,
+    options: decision.options.map((option) => ({
+      ...option,
+      supportCount: sortedUnique(
+        option.supportedByProbeIds.filter((probeId) => validProbeIds.includes(probeId)),
+      ).length,
+    })),
     freeformAllowed: decision.freeformAllowed,
     defaultOptionId: decision.defaultOptionId,
     deterministicTriggers: decision.deterministicTriggers,
     evidenceRefs: decision.evidenceRefs,
     status: decision.status,
+    origin: decisionOriginSummary(decision, reviewEvidence),
   }));
   const dto: RunReviewDto = {
     mode,
@@ -220,6 +327,11 @@ function toReviewDto(
             task: review.snapshot.task,
             modelId: review.snapshot.model.id,
           },
+    probeSet: {
+      validProbeCount: validProbeIds.length,
+      expectedProbeCount: 3,
+      status: validProbeIds.length === 3 ? "default" : "degraded",
+    },
     decisions,
     remainingDecisionCount: Math.max(0, open.length - decisions.length),
     resolvedDecisionCount: review.decisions.length - open.length,
@@ -231,8 +343,14 @@ function toReviewDto(
             contentHash: review.contract.contentHash,
             approvedGoal: review.contract.approvedGoal,
             approvedBehaviors: review.contract.approvedBehaviors,
+            allowedComponents: review.contract.allowedComponents,
             allowedPaths: review.contract.allowedPaths,
             protectedPaths: review.contract.protectedPaths,
+            deniedCommandClasses: review.contract.deniedCommandClasses,
+            networkPolicy: review.contract.networkPolicy,
+            dependencyPolicy: review.contract.dependencyPolicy,
+            dataPolicy: review.contract.dataPolicy,
+            externalEffectPolicy: review.contract.externalEffectPolicy,
             requiredChecks: review.contract.requiredChecks,
             stopConditions: review.contract.stopConditions,
             approvedAt: review.contract.approvedAt,

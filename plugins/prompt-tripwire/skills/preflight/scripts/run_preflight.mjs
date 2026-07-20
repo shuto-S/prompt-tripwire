@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const REQUIRED_TRIPWIRE_VERSION = "0.1.11";
+export const REQUIRED_TRIPWIRE_VERSION = "0.1.12";
 export const REENTRY_ENV = "PROMPT_TRIPWIRE_PLUGIN_REENTRY";
 
 const NESTED_APP_SERVER_REQUEST_FAILURE = /\bINSUFFICIENT_VALID_PROBES:\s*request failed\b/iu;
@@ -150,7 +150,7 @@ export function resolveRuntime(env = process.env) {
 export function assertRuntimeEnvironment(runtime, env = process.env) {
   const tripwireVersion = commandOutput(runtime, ["--version"]);
   if (text(tripwireVersion) !== `prompt-tripwire ${REQUIRED_TRIPWIRE_VERSION}`) {
-    throw new PluginError("RUNTIME_VERSION_MISMATCH", "PromptTripwire runtime 0.1.11 is required");
+    throw new PluginError("RUNTIME_VERSION_MISMATCH", "PromptTripwire runtime 0.1.12 is required");
   }
   const codex = env.PROMPT_TRIPWIRE_CODEX_BIN?.trim() || executableOnPath("codex");
   if (!codex) {

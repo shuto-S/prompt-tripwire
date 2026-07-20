@@ -2,7 +2,7 @@
 
 Status: P0 implementation baseline verified
 
-Version: 0.1.11
+Version: 0.1.12
 
 Date: 2026-07-20
 
@@ -400,6 +400,19 @@ Each decision card contains:
 - an optional recommendation with its rationale;
 - “defer/cancel” when no safe decision can be made.
 
+The aggregate review response also includes a presentation-only decision-origin
+summary. It reports how many of the default three planning probes produced
+validated artifacts, whether the probe set is complete or degraded, whether a
+decision is supported by verified comparison divergence, deterministic policy,
+both, or insufficient provenance, the number of material comparison
+alternatives, and the distinct support count for each option. This summary is
+derived only from validated plan identities, comparison provenance,
+`supportedByProbeIds`, and deterministic triggers. It does not reparse task or
+option prose, embed raw plan bodies, or become an input to policy, decisions,
+contracts, mutations, approval, or execution. An unclassifiable source is shown
+as `unknown`, never as consensus or safety. Raw probe IDs remain available only
+inside the evidence disclosure.
+
 The terminal renderer includes the stable decision and option IDs plus complete `tripwire review` commands. A visible option must be actionable without querying the private database or opening the browser UI.
 
 For a high-impact operational effect, the implementation-only option must state that the local code change may be prepared while the actual operation remains denied by the P0 runtime.
@@ -438,6 +451,17 @@ The review sequence is:
 4. Explicit approval, edit, or cancellation.
 
 Full raw plan artifacts are available through an evidence drawer but are not the default presentation.
+
+The contract preview groups existing contract values without changing them:
+
+1. **What Codex may change:** `allowed_components` and `allowed_paths`.
+2. **What must pass:** `required_checks`.
+3. **What remains blocked:** denied command classes, network/dependency/data/
+   external-effect policy modes, and `stop_conditions`.
+
+The presentation never fills in an absent permission or converts a summary
+back into runtime authority. The contract ID, content hash, and explicit
+approval control remain visible and unchanged.
 
 At most one live Decision Inbox capability exists per run, including when
 multiple local processes use the same database, and only while the run is reviewable
@@ -628,7 +652,7 @@ See `SECURITY.md` for the threat model and known limits.
 | FR-004 | P0 | Validate each probe against the canonical plan schema. |
 | FR-005 | P0 | Use GPT-5.6 Structured Outputs to extract consensus, divergence, and unknowns. |
 | FR-006 | P0 | Apply `deterministic-v2` confirmation and denial rules to the original task and validated plans after model comparison, preserving evidence provenance and unambiguous dependency no-change semantics. |
-| FR-007 | P0 | Render decisions in the local UI and terminal fallback; provide Japanese/English browser presentation, including source-bound Japanese reference translations with accessible authoritative source text, without mutating approval evidence, decision identity, contracts, or reports. |
+| FR-007 | P0 | Render decisions in the local UI and terminal fallback; provide Japanese/English browser presentation, including source-bound Japanese reference translations, provenance-derived probe/source/support summaries, action-grouped contract preview, and accessible authoritative source text, without mutating approval evidence, decision identity, contracts, or reports. |
 | FR-008 | P0 | Limit each review round to three cards without hiding remaining blockers. |
 | FR-009 | P0 | Create immutable, versioned execution contracts with content hashes. |
 | FR-010 | P0 | Reject stale contracts. |
@@ -669,7 +693,7 @@ See `SECURITY.md` for the threat model and known limits.
 |---|---|
 | AC-001 | Given a clean fixture repository and task, `inspect` produces three schema-valid plan artifacts with distinct thread IDs and the same snapshot/task hashes. |
 | AC-002 | Before any probe thread starts, an external, broken, or unresolvable worktree symlink fails the whole batch while an internal symlink remains usable; each static-read action also resolves CWD/path canonically. A bounded multi-target `rg` validates every explicit operand and the pinned basename-only metadata shape; attempted target writes, protected or outside targets, network access, interpreters, builds, tests, package-manager commands, and canonical path escapes are denied, and the original checkout remains byte-for-byte unchanged. |
-| AC-003 | A fixture where plans differ on persistent deletion shows a decision card with alternatives, effects, probe support, and repository evidence. |
+| AC-003 | A fixture where plans differ on persistent deletion shows a decision card with alternatives, effects, distinct support counts, verified divergence origin, material-alternative count, and repository evidence; raw probe IDs remain in the evidence disclosure. |
 | AC-004 | A deploy, migration apply, secret/permission change, or remote write requested by the original task or present in unanimous plans still requires explicit confirmation under `deterministic-v2`; task-only evidence is labeled as task evidence and does not claim probe support. |
 | AC-005 | Equivalent plans with no policy triggers produce a contract preview without a blocking decision; unambiguous dependency no-change expressions and negated operational instructions do not create false blockers, while a later positive contrast clause still does. |
 | AC-006 | More than three blockers display three cards plus the remaining count; execution stays disabled until every blocker is resolved. |
@@ -681,7 +705,7 @@ See `SECURITY.md` for the threat model and known limits.
 | AC-012 | Amending a contract discards the partial execution worktree and restarts from the approved snapshot. |
 | AC-013 | A successful run reports real check commands and outcomes, final diff scope, thread/model IDs, decisions, and contract hash. |
 | AC-014 | No API key, token, full environment, raw reasoning, or secret fixture value appears in UI output, logs, reports, or exported artifacts. |
-| AC-015 | The Decision Inbox is operable by keyboard and announces probe, review, pause, and completion state changes to assistive technology. A Japanese browser locale selects Japanese presentation, the visible language switch updates the document language and every fixed control/state label, and neither language path preselects or records a decision. When a valid reference translation exists, Japanese presentation renders the task, decision questions/reasons, option labels/descriptions/effects in Japanese and exposes a deterministically sanitized authoritative source copy. Secret-like source content is redacted before translation and browser serialization. Invalid, newly secret-like, structurally unbound, or unavailable translation falls back with an explicit sanitized-source review warning. Adding or changing a reference translation does not change canonical persistence, decision, option, contract, or content-hash identity. |
+| AC-015 | The Decision Inbox is operable by keyboard and announces probe, review, pause, and completion state changes to assistive technology. A Japanese browser locale selects Japanese presentation, the visible language switch updates the document language and every fixed control/state label, and neither language path preselects or records a decision. English and Japanese show the same probe-set, decision-source, option-support, and action-grouped contract information; degraded and unknown provenance are explicit, and mobile-width layouts remain readable. When a valid reference translation exists, Japanese presentation renders the task, decision questions/reasons, option labels/descriptions/effects in Japanese and exposes a deterministically sanitized authoritative source copy. Secret-like source content is redacted before translation and browser serialization. Invalid, newly secret-like, structurally unbound, or unavailable translation falls back with an explicit sanitized-source review warning. Adding or changing a reference translation or origin summary does not change canonical persistence, decision, option, contract, mutation, approval, or content-hash identity. |
 | AC-016 | Killing and restarting the controller preserves paused/unapproved state and cannot accidentally launch execution. |
 | AC-017 | The local API listens only on loopback, rejects missing/invalid capability tokens and cross-origin mutations, loads no third-party runtime assets, and closes its capability on terminal/archive state or after 30 minutes with neither authenticated activity nor an active authenticated SSE connection without mutating or approving the run. |
 | AC-018 | One failed probe produces degraded/manual review, fewer than two valid probes block approval, and an unrecoverable GPT-5.6 schema/refusal failure cannot auto-approve. |
@@ -712,6 +736,9 @@ See `SECURITY.md` for the threat model and known limits.
 - fake App Server schema-constrained comparison fixtures, prohibited-tool requests, invalid schema/reference, retry, timeout, and token-usage notifications;
 - Git repositories with clean, dirty, submodule, detached HEAD, renamed file, and snapshot drift cases;
 - worktree creation, canonical symlink containment, clean restart, final diff verification, and Decision Inbox terminal/archive/idle closure without inferred approval.
+- additive Decision Inbox origin summaries for divergence, policy, both, unknown,
+  and degraded probe fixtures, including canonical identity and secret-leak
+  regression checks.
 
 ### End-to-end
 
@@ -724,6 +751,10 @@ Use small local fixture repositories for:
 5. deliberate out-of-scope file change;
 6. attempted network or deploy command;
 7. controller crash during approval and execution.
+
+Decision Inbox browser coverage additionally exercises English/Japanese source
+summaries, evidence-only raw probe IDs, keyboard-only review and approval,
+screen-reader names/status, and desktop/mobile contract grouping.
 
 No end-to-end test may use production credentials or a shared environment.
 

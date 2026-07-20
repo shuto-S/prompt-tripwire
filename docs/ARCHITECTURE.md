@@ -161,6 +161,25 @@ source copy. Canonical persistence is not rewritten. Locale state is not sent
 to the controller and neither the locale nor reference presentation can alter
 a decision or approval fingerprint.
 
+The aggregate review adapter adds a second presentation-only layer for judge
+orientation. It counts only persisted validated plan identities, marks the
+default three-probe set or a degraded set, and classifies each decision as
+`observed_divergence`, `deterministic_policy`, `both`, or `unknown`. Divergence
+classification matches option support/evidence sets against the already
+validated comparison candidate; deterministic classification uses existing
+triggers while comparator-unknown provenance remains unknown. It never parses
+task, question, or option prose. Option support is the distinct intersection
+with the valid probe set, and raw plan bodies are not added to the aggregate
+response. The UI keeps raw probe IDs in the evidence disclosure and renders
+primary support as a count.
+
+Contract presentation is likewise a direct projection rather than a new
+policy. The adapter exposes existing allowed components/paths, required checks,
+denied command classes, policy modes, and stop conditions. React groups those
+values under “What Codex may change,” “What must pass,” and “What remains
+blocked” in both languages. No presentation value flows back into contract
+matching, mutation, approval, or execution.
+
 ### Codex Plugin adapter
 
 `plugins/prompt-tripwire` is a distribution adapter, not another controller.

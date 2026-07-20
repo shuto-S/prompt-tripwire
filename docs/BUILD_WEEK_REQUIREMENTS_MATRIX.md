@@ -7,13 +7,15 @@ Authoritative sources:
 - [OpenAI Build Week Official Rules](https://openai.devpost.com/rules)
 - [OpenAI Build Week Resources](https://openai.devpost.com/resources)
 
-The official rules take precedence if they change. This matrix records the requirement text as checked against the judge-facing repository and published v0.1.11 judge release. The public v0.1.2 demo capture and v0.1.3 through v0.1.10 releases remain historical evidence.
+The official rules take precedence if they change. This matrix records the requirement text as checked against the judge-facing repository, the v0.1.12 release candidate, and the last anonymously verified v0.1.11 judge release. The public v0.1.2 demo capture and v0.1.3 through v0.1.11 releases remain historical evidence.
+
+The demo is a v0.1.2 capture. The judge distribution is v0.1.12. Releases v0.1.3 through v0.1.12 improved compatibility, safety, localization, and presentation precision without changing the video's human-approval or contract boundary.
 
 | Official requirement or guidance | PromptTripwire evidence | Status |
 |---|---|---|
 | Submission period ends July 21, 2026 at 17:00 PT (July 22 at 09:00 JST). | `docs/BUILD_WEEK.md` uses the JST deadline and keeps the final day for verification/submission. | Ready |
 | Build a project with Codex and GPT-5.6 in an eligible track. | Developer Tools; Codex App Server runs planning/execution and GPT-5.6 performs schema-constrained comparison. | Ready |
-| The project installs and runs consistently on the declared platform. | Public v0.1.11 contains source-bound Japanese reference presentation, measured Codex compatibility, explicit-only Skill metadata, transactional install/upgrade, owned uninstall boundaries, artifact smoke, and reproducibility gates without a numeric Codex allowlist. | Published and anonymously verified |
+| The project installs and runs consistently on the declared platform. | Public v0.1.11 contains measured Codex compatibility and the complete install/reproducibility gates; v0.1.12 adds tested provenance, support-count, and contract-preview presentation without changing those runtime boundaries. | v0.1.11 verified; v0.1.12 candidate locally verified |
 | New work must be created during the submission period, or pre-existing work must be clearly separated. | Repository starts during the event; dated specification and implementation commits are listed in `docs/CODEX_COLLABORATION.md`. | Ready |
 | Third-party SDKs, APIs, data, and open-source software must be used with authorization and license compliance. | Apache-2.0 project license, `docs/DEPENDENCIES.md`, lockfile license gate, and no third-party data/assets in the judge fixture. | Ready |
 | Include an English text description of features and functionality. | `docs/DEVPOST_SUBMISSION.md` contains the English submission draft. | Ready |
@@ -32,7 +34,7 @@ The official rules take precedence if they change. This matrix records the requi
 
 ## Remaining rule-owned actions
 
-1. Present the completed v0.1.2-capture demo, title, description, visibility, English captions, and thumbnail for explicit human confirmation; only then upload it to public YouTube and verify playback anonymously.
+1. Publish and anonymously verify v0.1.12, then use the received human authorization to upload the completed v0.1.2-capture packet to public YouTube and verify playback anonymously.
 2. Prepare the complete Devpost fields, attachments, links, and dedicated Session ID placement, then obtain a separate explicit human confirmation before final submission. The Session ID remains outside the repository.
 
 Publication evidence through 2026-07-20 JST:
@@ -68,7 +70,7 @@ The final local v0.1.2 capture is available through
 judge archive. Its live Inbox scene is an untouched API-key-free v0.1.2 inspect;
 the separately disclosed contract/execution/report scenes use an earlier
 human-approved safe-fixture run. It is not represented as footage of the
-v0.1.11 judge distribution. v0.1.10 publication and Japanese reference
+v0.1.12 judge distribution. v0.1.10 publication and Japanese reference
 presentation are public historical evidence. The v0.1.11 tag, Release assets,
 anonymous checksum, isolated install, and targeted uninstall are verified. The
-public YouTube URL remains a pending human-controlled action.
+public YouTube URL remains pending the authorized post-release upload.

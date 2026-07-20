@@ -1,6 +1,8 @@
 # PromptTripwire judge guide
 
-PromptTripwire is a local-first preflight and execution gate for Codex. This guide targets the compiled v0.1.11 macOS arm64 release produced by `npm run package:macos-arm64`; judges do not need the TypeScript source tree or a source build once that archive and its matching `SHA256SUMS.txt` are provided. Earlier releases remain immutable historical evidence and must not be substituted for v0.1.11.
+PromptTripwire is a local-first preflight and execution gate for Codex. This guide targets the compiled v0.1.12 macOS arm64 release produced by `npm run package:macos-arm64`; judges do not need the TypeScript source tree or a source build once that archive and its matching `SHA256SUMS.txt` are provided. Earlier releases remain immutable historical evidence and must not be substituted for v0.1.12.
+
+The demo is a v0.1.2 capture. The judge distribution is v0.1.12. Releases v0.1.3 through v0.1.12 improved compatibility, safety, localization, and presentation precision without changing the video's human-approval or contract boundary.
 
 v0.1.10 preserves the v0.1.5 Japanese/English UI and the v0.1.4 Plugin
 isolation, re-entry sentinel, custom Codex
@@ -20,12 +22,15 @@ for the task and decision content. The unchanged authoritative source is
 expandable, and translation cannot alter IDs, decisions, contracts, hashes,
 execution, or reports. Invalid or unavailable translation falls back visibly
 to source text without inferring approval.
-v0.1.11 removes numeric Codex version gates. It validates one shared consumed
+v0.1.11 removed numeric Codex version gates. v0.1.12 retains that policy and
+validates one shared consumed
 normal-schema profile and a bounded private-temp semantic canary before reading
 the target repository, binds the attestation into the contract, and remeasures
 before approval and run. It also redacts secret-like source text before the
 translation turn and sanitizes the complete browser review DTO; canonical
-persistence and approval identity remain unchanged.
+persistence and approval identity remain unchanged. v0.1.12 additionally makes
+decision provenance, valid-probe counts, option support, and immutable contract
+scope directly legible in the judge-facing UI without changing authority.
 
 ## Supported platform and prerequisites
 
@@ -53,14 +58,14 @@ Place the `.tar.gz` and `SHA256SUMS.txt` files in the same directory, then run:
 
 ```sh
 shasum -a 256 -c SHA256SUMS.txt
-tar -xzf prompt-tripwire-v0.1.11-macos-arm64.tar.gz
-cd prompt-tripwire-v0.1.11-macos-arm64
+tar -xzf prompt-tripwire-v0.1.12-macos-arm64.tar.gz
+cd prompt-tripwire-v0.1.12-macos-arm64
 ./bin/tripwire --version
 ./bin/tripwire --help
 ```
 
 Do not use a historical release's SHA-256 for this archive. Verify only with
-the `SHA256SUMS.txt` produced alongside the v0.1.11 archive.
+the `SHA256SUMS.txt` produced alongside the v0.1.12 archive.
 
 The shortest user-local setup installs the runtime and Codex Plugin together
 and requires no `sudo`:
@@ -97,7 +102,7 @@ restrictions remain unchanged. If the permission is denied, preflight stops;
 do not configure an API key as a workaround.
 
 The default runtime and marketplace root is
-`~/.local/lib/prompt-tripwire/0.1.11`. The marketplace retains the relative
+`~/.local/lib/prompt-tripwire/0.1.12`. The marketplace retains the relative
 `./plugins/prompt-tripwire` source. The installer verifies macOS arm64, Node.js,
 Git, the Codex command/version-output shape, and the existing login; it never gates on a numeric Codex version or runs inspect, decisions,
 approval, or implementation. It does not require `OPENAI_API_KEY`.
@@ -112,7 +117,7 @@ Add `~/.local/bin` to `PATH` if using the runtime directly. To remove the
 Plugin, its owned marketplace registration, and runtime together:
 
 ```sh
-~/.local/lib/prompt-tripwire/0.1.11/uninstall.sh --with-codex-plugin
+~/.local/lib/prompt-tripwire/0.1.12/uninstall.sh --with-codex-plugin
 ```
 
 The targeted uninstall leaves every other Plugin and marketplace untouched and
@@ -136,12 +141,12 @@ For a Git-marketplace fallback, first keep the artifact's `tripwire` launcher
 on `PATH` or set `PROMPT_TRIPWIRE_BIN`, then run:
 
 ```sh
-codex plugin marketplace add shuto-S/prompt-tripwire --ref v0.1.11
+codex plugin marketplace add shuto-S/prompt-tripwire --ref v0.1.12
 codex plugin add prompt-tripwire@prompt-tripwire-local
 codex plugin list --marketplace prompt-tripwire-local
 ```
 
-The Plugin and runtime versions must match the v0.1.11 release tag.
+The Plugin and runtime versions must match the v0.1.12 release tag.
 
 The Skill always stops for human Decision Inbox choices and explicit contract
 approval. Neither the installer nor the calling Codex task may approve on the
@@ -192,7 +197,7 @@ notes](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.2/docs/demo/README.m
 embedded default English subtitles. These repository files are excluded from
 the compact release archive.
 
-This media is explicitly a v0.1.2 capture, not footage of the v0.1.11 judge
+This media is explicitly a v0.1.2 capture, not footage of the v0.1.12 judge
 distribution. The Inbox capture is an actual API-key-free v0.1.2 Plugin
 inspect. It has one
 unresolved compatibility decision, no dependency blocker, no selected option,
@@ -204,7 +209,7 @@ visibility, captions, and thumbnail receive human confirmation; until then,
 this repository copy is the review/offline fallback. Devpost final submission
 has a separate human confirmation gate.
 
-## Thirty-second recorded UI fallback
+## 30-second proof (recorded and read-only)
 
 This path is explicitly recorded and read-only. It does not call Codex, execute code, or claim to verify the live integration.
 
@@ -218,16 +223,32 @@ Open the printed loopback URL, inspect the sample divergence and evidence, then 
 ./bin/tripwire replay --terminal
 ```
 
-## Live safe-fixture flow
+## Complete live proof
 
 The included fixture has no dependencies, credentials, network calls, deploy targets, or external actions. All implementation happens in a disposable worktree; the generated source fixture remains unchanged.
 
+The proof starts from an unpacked, checksum-verified artifact. Keep the version,
+artifact CWD, target repository, run, and approved contract explicit:
+
 ```sh
+DIST_VERSION="0.1.12"
 DIST="$PWD"
 FIXTURE="$(mktemp -d)/prompt-tripwire-judge-fixture"
+printf 'distribution=%s artifact_cwd=%s fixture=%s\n' "$DIST_VERSION" "$DIST" "$FIXTURE"
 ./bin/create-judge-fixture "$FIXTURE"
 npm --prefix "$FIXTURE" test
 ```
+
+In a new Codex task, explicitly invoke the bundled Skill before implementation:
+
+```text
+$prompt-tripwire:preflight
+Inspect the task in judge/task.md against the generated safe fixture before implementing it.
+```
+
+The Skill returns a `RUN_ID` and stops if human review is required. The terminal
+commands below are the complete inspect-to-report proof and expose the same
+boundary directly.
 
 1. Inspect with three independent read-only Codex probes and the isolated GPT-5.6 comparator:
 
@@ -238,7 +259,8 @@ npm --prefix "$FIXTURE" test
      --terminal
    ```
 
-   Copy the printed `Run:` value as `RUN_ID`.
+   Copy the printed `Run:` value as `RUN_ID`; do not substitute the distribution
+   version, task ID, or a previous run.
 
 2. Review the recorded plans, decision state, and contract preview:
 
@@ -248,7 +270,8 @@ npm --prefix "$FIXTURE" test
 
    The fixture explicitly requests two compatibility changes, so the deterministic policy normally presents one all-or-none compatibility card. The terminal output includes a complete command for each option. Run the printed command for **Allow local implementation**, then rerun the review command if needed. If a model introduces a separate blocking unknown, keep it visible and resolve only a bounded option shown by the review command; do not broaden paths or capabilities. Non-string inputs are explicitly outside this fixture's scope and should not become an unknown.
 
-3. Approve the current contract and copy the printed contract ID:
+3. After the human has made the shown decision, approve the current contract and
+   copy the printed value as `CONTRACT_ID`:
 
    ```sh
    ./bin/tripwire approve RUN_ID

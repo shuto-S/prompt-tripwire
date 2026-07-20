@@ -17,6 +17,12 @@ test("AC-015: Japanese UI messages cover state, category, trigger, and product t
     displayProductText("a file path falls outside the approved contract", "ja"),
     "ファイルパスが承認済み契約の範囲外になった場合",
   );
+  assert.equal(messages.decisionSources.observed_divergence, "独立プローブ間で観測された差分");
+  assert.equal(messages.probeCount(3, 3), "3件中3件の独立計画プローブが有効");
+  assert.equal(messages.optionSupport(2, 3), "3件中2件のプローブがこの選択肢を支持");
+  assert.equal(messages.whatCodexMayChange, "Codexが変更できるもの");
+  assert.equal(messages.whatMustPass, "成功が必須のチェック");
+  assert.equal(messages.whatRemainsBlocked, "引き続き禁止されるもの");
 });
 
 test("localized chrome preserves arbitrary contract-bound source text", () => {

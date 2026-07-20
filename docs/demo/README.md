@@ -1,5 +1,28 @@
 # PromptTripwire v0.1.2 demo
 
+The demo is a v0.1.2 capture. The judge distribution is v0.1.12. Releases v0.1.3 through v0.1.12 improved compatibility, safety, localization, and presentation precision without changing the video's human-approval or contract boundary.
+
+## Issue #43 source preview
+
+[![Issue #43 judge UX source preview](../assets/demo/prompt-tripwire-issue-43-source-preview-thumbnail.png)](../assets/demo/prompt-tripwire-issue-43-source-preview.mp4)
+
+v0.1.12 adds judge-facing decision provenance, support counts, and a grouped
+contract preview. The repository
+contains a 49-second [English-narrated source
+preview](../assets/demo/prompt-tripwire-issue-43-source-preview.mp4), its
+[captions](prompt-tripwire-issue-43-source-preview.en.srt), and desktop English,
+desktop Japanese, mobile Japanese, and contract screenshots under
+`docs/assets/demo/`.
+
+This v0.1.12 UI preview is generated from a deterministic safe greeting review
+fixture by `npm run capture:issue-43-media`. It is not a live Codex inspect,
+execution, or report. The original v0.1.2 demo below remains the canonical live-evidence
+recording until a later tagged distribution is intentionally captured. Exact
+hashes, dimensions, codecs, and provenance are in
+[`issue-43-source-preview.json`](issue-43-source-preview.json).
+
+## Canonical v0.1.2 evidence recording
+
 [![PromptTripwire demo thumbnail](../assets/demo/prompt-tripwire-v0.1.2-thumbnail.png)](../assets/demo/prompt-tripwire-v0.1.2-demo.mp4)
 
 - Local video: [prompt-tripwire-v0.1.2-demo.mp4](../assets/demo/prompt-tripwire-v0.1.2-demo.mp4)
@@ -51,15 +74,15 @@ Description:
 > gpt-5.6-sol planning probes, and a tool-free gpt-5.6-terra comparator.
 >
 > Repository: https://github.com/shuto-S/prompt-tripwire
-> Release (macOS arm64): https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.11
+> Release (macOS arm64): https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.12
 >
-> This video is the completed v0.1.2 capture. v0.1.11 is the final judge
-> distribution to install; the footage is not presented as a v0.1.11 recording.
+> This video is the completed v0.1.2 capture. v0.1.12 is the final judge
+> distribution to install; the footage is not presented as a v0.1.12 recording.
 >
 > No separate OPENAI_API_KEY is required. PromptTripwire reuses the logged-in
 > Codex CLI / App Server session and never auto-approves human decisions.
 
 The video itself remains the disclosed v0.1.2 capture described above. The
-Release line points viewers to the v0.1.11 judge distribution they should
-install after publication; it does not represent the footage as a v0.1.11
+Release line points viewers to the v0.1.12 judge distribution they should
+install after publication; it does not represent the footage as a v0.1.12
 recording.

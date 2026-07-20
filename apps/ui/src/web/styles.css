@@ -242,6 +242,38 @@ dd {
   font-size: 0.88rem;
 }
 
+.origin-strip,
+.decision-origin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.8rem;
+  margin-top: 0.85rem;
+  padding: 0.7rem 0.85rem;
+  color: #294b3c;
+  background: #e7efe5;
+  border: 1px solid #c3d1c1;
+  border-radius: 0.7rem;
+  font-size: 0.88rem;
+}
+
+.decision-origin {
+  margin: 0 0 1rem;
+  background: #f0f5ed;
+}
+
+.decision-origin span:not(:last-child),
+.origin-strip span {
+  color: #56665c;
+}
+
+.origin-unknown,
+.probe-set-degraded {
+  color: #63330d;
+  background: #fff2d9;
+  border-color: #d7a34c;
+}
+
 .reference-label {
   display: inline-flex;
   margin: 0.65rem 0 0.35rem;
@@ -443,6 +475,32 @@ summary {
   border-radius: 0.7rem;
 }
 
+.contract-columns h4 {
+  margin: 1rem 0 0.45rem;
+  color: #4e5d54;
+  font-size: 0.88rem;
+}
+
+.policy-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.policy-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid #d9e1d7;
+}
+
+.policy-list dd {
+  margin: 0;
+  font-weight: 700;
+}
+
 .success {
   color: #176747;
   font-weight: 750;
@@ -491,6 +549,12 @@ summary {
 
   .utility-row {
     align-items: center;
+  }
+
+  .origin-strip,
+  .decision-origin {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .summary dl,
