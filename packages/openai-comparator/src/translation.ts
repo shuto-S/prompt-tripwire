@@ -15,6 +15,86 @@ import type {
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 
+/**
+ * Produce the only source text that may cross the presentation boundary.
+ * Identifiers and cardinality remain unchanged while secret-like text is
+ * deterministically redacted before either translation or browser display.
+ */
+export function sanitizeReviewPresentationSource(
+  task: string,
+  decisions: readonly DecisionPoint[],
+): ReviewPresentationContent {
+  const source = {
+    task,
+    decisions: decisions.map((decision) => ({
+      decisionId: decision.decisionId,
+      question: decision.question,
+      reason: decision.reason,
+      options: decision.options.map((option) => ({
+        optionId: option.id,
+        label: option.label,
+        description: option.description,
+        effects: option.effects,
+      })),
+    })),
+  };
+  const sanitized = sanitizeForExport(source);
+  if (!sanitized.allowed) {
+    throw new ReviewTranslationError(
+      "TRANSLATION_RESPONSE_INVALID",
+      "review source could not be sanitized for presentation",
+    );
+  }
+  const parsed = ReviewPresentationContentSchema.safeParse(sanitized.value);
+  if (!parsed.success) {
+    throw new ReviewTranslationError(
+      "TRANSLATION_RESPONSE_INVALID",
+      "sanitized review source did not match the presentation schema",
+      { cause: parsed.error },
+    );
+  }
+  return parsed.data;
+}
+
+function decisionsWithSanitizedPresentationText(
+  decisions: readonly DecisionPoint[],
+  source: ReviewPresentationContent,
+): readonly DecisionPoint[] {
+  const byDecisionId = new Map(source.decisions.map((decision) => [decision.decisionId, decision]));
+  return decisions.map((decision) => {
+    const sanitizedDecision = byDecisionId.get(decision.decisionId);
+    if (sanitizedDecision === undefined) {
+      throw new ReviewTranslationError(
+        "TRANSLATION_RESPONSE_INVALID",
+        "sanitized review source changed a decision binding",
+      );
+    }
+    const byOptionId = new Map(
+      sanitizedDecision.options.map((option) => [option.optionId, option]),
+    );
+    return DecisionPointSchema.parse({
+      ...decision,
+      question: sanitizedDecision.question,
+      reason: sanitizedDecision.reason,
+      options: decision.options.map((option) => {
+        const sanitizedOption = byOptionId.get(option.id);
+        if (sanitizedOption === undefined) {
+          throw new ReviewTranslationError(
+            "TRANSLATION_RESPONSE_INVALID",
+            "sanitized review source changed an option binding",
+          );
+        }
+        return {
+          ...option,
+          label: sanitizedOption.label,
+          description: sanitizedOption.description,
+          effects: sanitizedOption.effects,
+        };
+      }),
+    });
+  });
+}
+
 export class ReviewTranslationError extends Error {
   readonly code: "TRANSLATION_CANCELLED" | "TRANSLATION_TIMEOUT" | "TRANSLATION_RESPONSE_INVALID";
 
@@ -81,6 +161,8 @@ export class ReviewPresentationTranslator {
   async translate(input: TranslateReviewInput): Promise<TranslateReviewResult> {
     Sha256Schema.parse(input.taskHash);
     const decisions = input.decisions.map((decision) => DecisionPointSchema.parse(decision));
+    const sanitizedSource = sanitizeReviewPresentationSource(input.task, decisions);
+    const sanitizedDecisions = decisionsWithSanitizedPresentationText(decisions, sanitizedSource);
     const timeout = new AbortController();
     const timer = setTimeout(() => {
       timeout.abort();
@@ -90,8 +172,8 @@ export class ReviewPresentationTranslator {
     try {
       const result = await this.transport.translate(
         {
-          task: input.task,
-          decisions,
+          task: sanitizedSource.task,
+          decisions: sanitizedDecisions,
           model: input.model,
           reasoningEffort: input.reasoningEffort,
         },
@@ -122,7 +204,7 @@ export class ReviewPresentationTranslator {
         );
       }
       return {
-        content: validateDecisionBinding(decisions, parsed.data),
+        content: validateDecisionBinding(sanitizedDecisions, parsed.data),
         model: result.model,
         threadId: result.threadId,
         turnId: result.turnId,

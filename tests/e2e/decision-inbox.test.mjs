@@ -146,9 +146,9 @@ test("AC-015: Decision Inbox follows Japanese locale and keeps an explicit langu
     );
     assert.equal(await page.getByRole("radio", { name: /直ちに削除/u }).count(), 1);
     assert.equal(await page.getByText(/承認、契約、ハッシュには/u).count(), 1);
-    const originalDecision = page.getByText("正本の判断原文", { exact: true });
+    const originalDecision = page.getByText("サニタイズ済みの正本判断原文", { exact: true });
     assert.equal(await originalDecision.isVisible(), false);
-    await page.getByText("正本の原文を表示", { exact: true }).last().click();
+    await page.getByText("サニタイズ済みの正本原文を表示", { exact: true }).last().click();
     assert.equal(await originalDecision.isVisible(), true);
     assert.equal(await page.getByText("Delete immediately", { exact: true }).count(), 1);
     assert.deepEqual(
