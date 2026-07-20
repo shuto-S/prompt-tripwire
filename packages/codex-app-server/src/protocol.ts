@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { AppServerError } from "./errors.js";
+import { KNOWN_PROTOCOL_ENUMS } from "./compatibility-profile.js";
 
 export const JsonRpcIdSchema = z.union([z.string(), z.number().int()]);
 
@@ -65,7 +66,7 @@ export const TokenUsageBreakdownSchema = z
     reasoningOutputTokens: z.number().int().nonnegative(),
     totalTokens: z.number().int().nonnegative(),
   })
-  .strict();
+  .loose();
 
 export const ThreadTokenUsageUpdatedParamsSchema = z
   .object({
@@ -77,9 +78,9 @@ export const ThreadTokenUsageUpdatedParamsSchema = z
         total: TokenUsageBreakdownSchema,
         modelContextWindow: z.number().int().nonnegative().nullable().optional(),
       })
-      .strict(),
+      .loose(),
   })
-  .strict();
+  .loose();
 
 export const CommandActionSchema = z.discriminatedUnion("type", [
   z
@@ -116,7 +117,7 @@ export const CommandApprovalParamsSchema = z
     networkApprovalContext: z
       .object({
         host: z.string().min(1),
-        protocol: z.enum(["http", "https", "socks5Tcp", "socks5Udp"]),
+        protocol: z.enum(KNOWN_PROTOCOL_ENUMS.networkProtocol),
       })
       .loose()
       .nullable()
@@ -145,7 +146,7 @@ export const PermissionApprovalParamsSchema = z
         fileSystem: z.unknown().nullable().optional(),
         network: z.unknown().nullable().optional(),
       })
-      .strict(),
+      .loose(),
   })
   .loose();
 
@@ -171,7 +172,7 @@ export const ToolRequestUserInputParamsSchema = z
 export const McpElicitationParamsSchema = z
   .object({
     threadId: z.string().min(1),
-    turnId: z.string().min(1),
+    turnId: z.string().min(1).nullable().optional(),
   })
   .loose();
 
@@ -185,7 +186,7 @@ export const CommandExecutionItemSchema = z
   .object({
     id: z.string().min(1),
     type: z.literal("commandExecution"),
-    status: z.enum(["inProgress", "completed", "failed", "declined"]),
+    status: z.enum(KNOWN_PROTOCOL_ENUMS.commandStatus),
     command: z.string(),
     commandActions: z.array(CommandActionSchema),
     cwd: z.string(),
@@ -200,7 +201,7 @@ export const FileUpdateChangeSchema = z
     path: z.string().min(1),
     kind: z
       .object({
-        type: z.enum(["add", "delete", "update"]),
+        type: z.enum(KNOWN_PROTOCOL_ENUMS.fileChangeKind),
         move_path: z.string().nullable().optional(),
       })
       .loose(),
@@ -212,7 +213,7 @@ export const FileChangeItemSchema = z
   .object({
     id: z.string().min(1),
     type: z.literal("fileChange"),
-    status: z.enum(["inProgress", "completed", "failed", "declined"]),
+    status: z.enum(KNOWN_PROTOCOL_ENUMS.fileChangeStatus),
     changes: z.array(FileUpdateChangeSchema),
   })
   .loose();
@@ -223,7 +224,7 @@ export const CommandExecResponseSchema = z
     stdout: z.string(),
     stderr: z.string(),
   })
-  .strict();
+  .loose();
 
 export type ParsedThreadItem =
   | z.infer<typeof AgentMessageItemSchema>
@@ -256,7 +257,7 @@ export const TurnNotificationParamsSchema = z
     turn: z
       .object({
         id: z.string().min(1),
-        status: z.enum(["completed", "interrupted", "failed", "inProgress"]),
+        status: z.enum(KNOWN_PROTOCOL_ENUMS.turnStatus),
       })
       .loose(),
   })

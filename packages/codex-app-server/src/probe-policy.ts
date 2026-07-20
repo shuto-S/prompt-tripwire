@@ -227,7 +227,7 @@ function actualCommandMatchesAction(
   if (actualTokens === null) return false;
   if (sameTokens(actionTokens, actualTokens)) return true;
 
-  // Codex App Server 0.144.4 reports macOS command items through this exact
+  // Codex App Server can report macOS command items through this exact
   // process envelope even when the structured action is a direct static read.
   // Unwrap only that observed shape, then apply the same fail-closed grammar to
   // the single inner command. Other shells, flags, and extra argv stay denied.
@@ -677,8 +677,8 @@ function searchActionPathMatches(
   if (commandTargets.some(({ target }) => target === null)) return false;
   if (commandTargets.some(({ target }) => target === actionTarget)) return true;
 
-  // Codex App Server 0.144.4 can report only the basename of one operand in
-  // Search action.path. Keep that pinned lossy shape narrow: the basename must
+  // Codex App Server can report only the basename of one operand in Search
+  // action.path. Keep that lossy shape narrow: the basename must
   // identify exactly one independently contained command operand.
   if (actionPath !== basename(actionPath)) return false;
   return commandTargets.filter(({ path }) => basename(path) === actionPath).length === 1;

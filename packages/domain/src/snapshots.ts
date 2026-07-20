@@ -49,6 +49,7 @@ export const SnapshotDriftReason = {
   Config: "config",
   Model: "model",
   CodexVersion: "codex_version",
+  CodexCompatibility: "codex_compatibility",
   PromptTripwireVersion: "prompt_tripwire_version",
   SnapshotHash: "snapshot_hash",
 } as const;
@@ -85,6 +86,12 @@ export function detectSnapshotDrift(
   }
   if (before.codexVersion !== after.codexVersion) {
     reasons.push(SnapshotDriftReason.CodexVersion);
+  }
+  if (
+    canonicalHash(before.compatibilityAttestation ?? null) !==
+    canonicalHash(after.compatibilityAttestation ?? null)
+  ) {
+    reasons.push(SnapshotDriftReason.CodexCompatibility);
   }
   if (before.promptTripwireVersion !== after.promptTripwireVersion) {
     reasons.push(SnapshotDriftReason.PromptTripwireVersion);

@@ -28,6 +28,7 @@ import {
   ProbeCoordinator,
   ProcessJsonRpcTransport,
   createMemoryTransportPair,
+  detectedCodexVersion,
   decideProbeApproval,
   probeItemViolation,
   ProtocolEventLedger,
@@ -1369,7 +1370,7 @@ test("AC-PLUG-004: child App Server inherits the guard and Plugin re-entry is bl
 import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 if (process.argv[2] === "--version") {
-  process.stdout.write("codex-cli 0.144.4\\n");
+  process.stdout.write("codex-cli 9.9.9\\n");
   process.exit(0);
 }
 const result = spawnSync(process.execPath, [${JSON.stringify(adapter)}, "--help"], {
@@ -1426,7 +1427,7 @@ test("probe App Server uses an empty isolated zsh startup directory without broa
     `#!/usr/bin/env node
 import { writeFileSync } from "node:fs";
 if (process.argv[2] === "--version") {
-  process.stdout.write("codex-cli 0.144.4\\n");
+  process.stdout.write("codex-cli 9.9.9\\n");
   process.exit(0);
 }
 writeFileSync(${JSON.stringify(marker)}, JSON.stringify(process.argv.slice(2)), { mode: 0o600 });
@@ -1487,7 +1488,7 @@ test("App Server preserves custom Codex auth home without broad environment inhe
     `#!/usr/bin/env node
 import { writeFileSync } from "node:fs";
 if (process.argv[2] === "--version") {
-  process.stdout.write("codex-cli 0.144.4\\n");
+  process.stdout.write("codex-cli 9.9.9\\n");
   process.exit(0);
 }
 writeFileSync(${JSON.stringify(marker)}, JSON.stringify({
@@ -1551,7 +1552,6 @@ test("probe App Server rejects unsafe zsh startup directories before spawn", asy
           ProcessJsonRpcTransport.start({
             cwd: root,
             codexPath: "must-not-be-spawned",
-            detectedVersion: () => "0.144.4",
             shellStartupDirectory,
           }),
         (error) => error instanceof AppServerError && error.code === "PROTOCOL_VALIDATION_FAILED",
@@ -1562,17 +1562,15 @@ test("probe App Server rejects unsafe zsh startup directories before spawn", asy
   }
 });
 
-test("runtime refuses an unverified Codex version before spawning App Server", () => {
-  assert.throws(
-    () =>
-      ProcessJsonRpcTransport.start({
-        cwd: "/tmp",
-        codexPath: "must-not-be-spawned",
-        detectedVersion: () => "0.144.3",
-        shellStartupDirectory: "/must-not-be-inspected",
-      }),
-    (error) => error instanceof AppServerError && error.code === "CODEX_VERSION_MISMATCH",
-  );
+test("runtime records an arbitrary Codex version for compatibility attestation", async () => {
+  const root = await mkdtemp(join(tmpdir(), "prompt-tripwire-version-fixture-"));
+  const codex = join(root, "codex");
+  await writeFile(codex, "#!/bin/sh\nprintf '%s\\n' 'codex-cli 9.9.9'\n", { mode: 0o700 });
+  try {
+    assert.equal(detectedCodexVersion(codex), "9.9.9");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 function git(cwd, args) {

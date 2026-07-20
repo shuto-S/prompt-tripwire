@@ -2,7 +2,6 @@
 set -eu
 
 VERSION="__PROMPT_TRIPWIRE_VERSION__"
-REQUIRED_CODEX_VERSION="0.144.4"
 MARKETPLACE_NAME="prompt-tripwire-local"
 PLUGIN_SELECTOR="prompt-tripwire@$MARKETPLACE_NAME"
 OWNER_MARKER=".prompt-tripwire-owned"
@@ -70,16 +69,15 @@ fi
 PLUGIN_INSTALLED=0
 PLUGIN_ENABLED=0
 MARKETPLACE_ROOT=""
+CODEX_REGISTRATION_UNVERIFIED=0
 if [ "$WITH_CODEX_PLUGIN" -eq 1 ]; then
   command -v node >/dev/null 2>&1 || fail "NODE_NOT_FOUND: Node.js is required for Plugin removal."
-  command -v "$CODEX" >/dev/null 2>&1 ||
-    fail "CODEX_NOT_FOUND: Codex CLI 0.144.4 is required for Plugin removal."
-  CODEX_VERSION=$("$CODEX" --version 2>/dev/null) ||
-    fail "CODEX_VERSION_CHECK_FAILED: Codex CLI version could not be read."
-  [ "$CODEX_VERSION" = "codex-cli $REQUIRED_CODEX_VERSION" ] ||
-    fail "CODEX_VERSION_MISMATCH: Codex CLI 0.144.4 is required for Plugin removal."
+  if ! command -v "$CODEX" >/dev/null 2>&1; then
+    CODEX_REGISTRATION_UNVERIFIED=1
+  fi
 
-  PLUGIN_JSON=$("$CODEX" plugin list --json 2>/dev/null) ||
+  if [ "$CODEX_REGISTRATION_UNVERIFIED" -eq 0 ]; then
+    PLUGIN_JSON=$("$CODEX" plugin list --json 2>/dev/null) ||
     fail "CODEX_PLUGIN_LIST_FAILED: Codex Plugin state could not be read."
   PLUGIN_STATE=$(printf '%s' "$PLUGIN_JSON" | node -e '
     const fs=require("node:fs");
@@ -111,6 +109,7 @@ if [ "$WITH_CODEX_PLUGIN" -eq 1 ]; then
     [ "$PLUGIN_ENABLED" -ne 1 ]
   then
     fail "CODEX_PLUGIN_STATE_UNSUPPORTED: the disabled PromptTripwire Plugin cannot be transactionally removed."
+  fi
   fi
 fi
 
@@ -303,7 +302,9 @@ cleanup_backup ||
 TRANSACTION_ACTIVE=0
 
 if [ "$WITH_CODEX_PLUGIN" -eq 1 ]; then
-  if [ "$PLUGIN_INSTALLED" -eq 1 ] && [ "$MARKETPLACE_ROOT" = "$DEST" ]; then
+  if [ "$CODEX_REGISTRATION_UNVERIFIED" -eq 1 ]; then
+    printf '%s\n' 'Plugin registration: not removed because Codex CLI was unavailable; no global configuration was guessed or edited.'
+  elif [ "$PLUGIN_INSTALLED" -eq 1 ] && [ "$MARKETPLACE_ROOT" = "$DEST" ]; then
     printf 'Plugin: removed prompt-tripwire@prompt-tripwire-local.\n'
   elif [ "$PLUGIN_INSTALLED" -eq 1 ]; then
     printf 'Plugin: preserved because prompt-tripwire-local is configured elsewhere.\n'
@@ -311,7 +312,9 @@ if [ "$WITH_CODEX_PLUGIN" -eq 1 ]; then
     printf 'Plugin: already absent.\n'
   fi
 
-  if [ "$MARKETPLACE_ROOT" = "$DEST" ]; then
+  if [ "$CODEX_REGISTRATION_UNVERIFIED" -eq 1 ]; then
+    printf '%s\n' 'Marketplace registration: not removed because Codex CLI was unavailable.'
+  elif [ "$MARKETPLACE_ROOT" = "$DEST" ]; then
     printf 'Marketplace: removed prompt-tripwire-local.\n'
   elif [ -n "$MARKETPLACE_ROOT" ]; then
     printf 'Marketplace: preserved because prompt-tripwire-local is configured elsewhere.\n'

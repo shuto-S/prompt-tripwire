@@ -2,6 +2,11 @@ import { randomUUID } from "node:crypto";
 import { writeFileSync } from "node:fs";
 
 import {
+  AppServerError,
+  compatibilityAttestationsEqual,
+  type CodexCompatibilitySession,
+} from "@prompt-tripwire/codex-app-server";
+import {
   amendExecutionContract,
   DomainInvariantError,
   RunRecordSchema,
@@ -119,7 +124,25 @@ export class LocalController {
         "the read-only inspection adapter is not configured",
       );
     }
-    const prepared = await (this.options.prepareSnapshot ?? prepareRepositorySnapshot)(input);
+    let compatibilitySession: CodexCompatibilitySession | null = null;
+    if (this.options.compatibilityPort !== undefined) {
+      compatibilitySession = await this.options.compatibilityPort.open();
+    }
+    let prepared;
+    try {
+      prepared = await (this.options.prepareSnapshot ?? prepareRepositorySnapshot)(
+        compatibilitySession === null
+          ? input
+          : {
+              ...input,
+              codexVersion: compatibilitySession.attestation.codexVersion,
+              compatibilityAttestation: compatibilitySession.attestation,
+            },
+      );
+    } catch (error) {
+      await compatibilitySession?.close();
+      throw error;
+    }
     const runId = input.runId ?? `run_${randomUUID()}`;
     const initial = RunRecordSchema.parse({
       runId,
@@ -163,6 +186,7 @@ export class LocalController {
             preparedSnapshot: prepared,
             store: this.store,
             signal,
+            ...(compatibilitySession === null ? {} : { compatibilitySession }),
           }),
       );
       const comparing = this.store.setBlockingDecisionsAndTransition(
@@ -189,6 +213,8 @@ export class LocalController {
         throw new InspectionRunError(runId, code, error);
       }
       throw error;
+    } finally {
+      await compatibilitySession?.close();
     }
   }
 
@@ -202,17 +228,60 @@ export class LocalController {
       );
     }
     const contract = this.store.getContract(input.contractId);
+    const approvedSnapshot = this.store.getSnapshot(contract.snapshotHash);
+    let compatibilitySession: CodexCompatibilitySession | null = null;
+    let currentSnapshot = input.currentSnapshot;
+    let preparedSnapshot = input.preparedSnapshot;
+    if (this.options.compatibilityPort !== undefined) {
+      try {
+        compatibilitySession = await this.options.compatibilityPort.open();
+        if (
+          !compatibilityAttestationsEqual(
+            approvedSnapshot.compatibilityAttestation,
+            compatibilitySession.attestation,
+          )
+        ) {
+          throw new AppServerError(
+            "CODEX_COMPATIBILITY_DRIFT",
+            "Codex compatibility changed after contract approval",
+          );
+        }
+        preparedSnapshot = await (this.options.prepareSnapshot ?? prepareRepositorySnapshot)({
+          repositoryPath: approvedSnapshot.repositoryPath,
+          task: approvedSnapshot.task,
+          model: approvedSnapshot.model,
+          codexVersion: compatibilitySession.attestation.codexVersion,
+          compatibilityAttestation: compatibilitySession.attestation,
+          promptTripwireVersion: approvedSnapshot.promptTripwireVersion,
+          dirtyChoice:
+            approvedSnapshot.dirtyPatchHash === null ? "committed_only" : "include_patch",
+        });
+        currentSnapshot = preparedSnapshot.snapshot;
+      } catch (error) {
+        await compatibilitySession?.close();
+        this.markCompatibilityStale(contract.runId, errorCode(error));
+        throw error;
+      }
+    }
+    if (currentSnapshot === undefined) {
+      await compatibilitySession?.close();
+      throw new ControllerError(
+        "CURRENT_SNAPSHOT_REQUIRED",
+        "execution requires a current repository snapshot",
+      );
+    }
     let started;
     try {
       started = this.store.startExecution({
         idempotencyKey: input.idempotencyKey,
         runId: contract.runId,
         contractId: input.contractId,
-        currentSnapshot: input.currentSnapshot,
+        currentSnapshot,
         expectedVersion: input.expectedVersion,
         startedAt: this.now(),
       });
     } catch (error) {
+      await compatibilitySession?.close();
       if (error instanceof DomainInvariantError && error.code === "STALE_SNAPSHOT") {
         const current = this.store.getRun(contract.runId).run;
         if (current.state === "approved") {
@@ -227,7 +296,10 @@ export class LocalController {
       }
       throw error;
     }
-    if (started.replayed) return started.run;
+    if (started.replayed) {
+      await compatibilitySession?.close();
+      return started.run;
+    }
 
     const runId = started.run.runId;
     this.activeExecutionIds.add(runId);
@@ -238,12 +310,11 @@ export class LocalController {
           await executionPort.start({
             run: started.run,
             contract,
-            snapshot: input.currentSnapshot,
+            snapshot: currentSnapshot,
             store: this.store,
             signal,
-            ...(input.preparedSnapshot === undefined
-              ? {}
-              : { preparedSnapshot: input.preparedSnapshot }),
+            ...(preparedSnapshot === undefined ? {} : { preparedSnapshot }),
+            ...(compatibilitySession === null ? {} : { compatibilitySession }),
           }),
       );
       const current = this.store.getRun(runId).run;
@@ -302,6 +373,7 @@ export class LocalController {
       throw error;
     } finally {
       this.activeExecutionIds.delete(runId);
+      await compatibilitySession?.close();
     }
   }
 
@@ -553,19 +625,60 @@ export class LocalController {
     return observed.version === deferred.version ? deferred : observed;
   }
 
-  approve(input: ApproveInput): RunRecord {
+  async approve(input: ApproveInput): Promise<RunRecord> {
     this.assertStarted();
-    return this.store.approveContract({
-      idempotencyKey: input.idempotencyKey,
-      runId: input.runId,
-      contractId: input.contractId,
-      expectedVersion: input.expectedVersion,
-      approvedAt: this.now(),
-      requireUnpinned: input.requireUnpinned === true,
-      ...(input.reviewCapabilityGeneration === undefined
-        ? {}
-        : { reviewCapabilityGeneration: input.reviewCapabilityGeneration }),
-    }).run;
+    const contract = this.store.getContract(input.contractId);
+    if (contract.runId !== input.runId) {
+      throw new ControllerError(
+        "CONTRACT_RUN_MISMATCH",
+        "the contract does not belong to the requested run",
+      );
+    }
+    const snapshot = this.store.getSnapshot(contract.snapshotHash);
+    let compatibilitySession: CodexCompatibilitySession | null = null;
+    if (this.options.compatibilityPort !== undefined) {
+      try {
+        compatibilitySession = await this.options.compatibilityPort.open();
+        if (
+          !compatibilityAttestationsEqual(
+            snapshot.compatibilityAttestation,
+            compatibilitySession.attestation,
+          )
+        ) {
+          throw new AppServerError(
+            "CODEX_COMPATIBILITY_DRIFT",
+            "Codex compatibility changed before approval",
+          );
+        }
+      } catch (error) {
+        await compatibilitySession?.close();
+        this.markCompatibilityStale(input.runId, errorCode(error));
+        throw error;
+      }
+    }
+    try {
+      return this.store.approveContract({
+        idempotencyKey: input.idempotencyKey,
+        runId: input.runId,
+        contractId: input.contractId,
+        expectedVersion: input.expectedVersion,
+        approvedAt: this.now(),
+        requireUnpinned: input.requireUnpinned === true,
+        ...(input.reviewCapabilityGeneration === undefined
+          ? {}
+          : { reviewCapabilityGeneration: input.reviewCapabilityGeneration }),
+      }).run;
+    } finally {
+      await compatibilitySession?.close();
+    }
+  }
+
+  private markCompatibilityStale(runId: string, code: string): void {
+    const current = this.store.getRun(runId).run;
+    if (terminal(current.state) || !["ready_for_approval", "approved"].includes(current.state)) {
+      return;
+    }
+    this.store.transitionRun(runId, "stale", current.version, this.now(), code);
   }
 
   report(input: ReportInput): RunReport {

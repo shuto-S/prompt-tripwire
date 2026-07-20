@@ -1,3 +1,4 @@
+import type { CodexCompatibilitySession } from "@prompt-tripwire/codex-app-server";
 import type {
   ComparisonCandidate,
   ContractAmendment,
@@ -23,6 +24,7 @@ export interface InspectionContext {
   readonly preparedSnapshot: PreparedRepositorySnapshot;
   readonly store: SqlitePersistence;
   readonly signal: AbortSignal;
+  readonly compatibilitySession?: CodexCompatibilitySession;
 }
 
 export interface InspectionResult {
@@ -41,6 +43,7 @@ export interface ExecutionContext {
   readonly preparedSnapshot?: PreparedRepositorySnapshot;
   readonly store: SqlitePersistence;
   readonly signal: AbortSignal;
+  readonly compatibilitySession?: CodexCompatibilitySession;
 }
 
 export interface ExecutionEvidence {
@@ -66,10 +69,15 @@ export interface ExecutionPort {
   interrupt(runId: string): Promise<void>;
 }
 
+export interface CompatibilityPort {
+  open(): Promise<CodexCompatibilitySession>;
+}
+
 export interface ControllerOptions {
   readonly store: SqlitePersistence;
   readonly inspectionPort?: InspectionPort;
   readonly executionPort?: ExecutionPort;
+  readonly compatibilityPort?: CompatibilityPort;
   readonly inspectionTimeoutMs?: number;
   readonly executionTimeoutMs?: number;
   readonly now?: () => string;
@@ -84,7 +92,7 @@ export interface InspectInput extends PrepareSnapshotRequest {
 
 export interface RunInput {
   readonly contractId: string;
-  readonly currentSnapshot: RepositorySnapshot;
+  readonly currentSnapshot?: RepositorySnapshot;
   readonly preparedSnapshot?: PreparedRepositorySnapshot;
   readonly expectedVersion: number;
   readonly idempotencyKey: string;

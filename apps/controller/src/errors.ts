@@ -1,8 +1,10 @@
 export type ControllerErrorCode =
   | "CONTROLLER_NOT_STARTED"
   | "EXECUTION_NOT_CONFIGURED"
+  | "CONTRACT_RUN_MISMATCH"
   | "INVALID_AMENDMENT_STATE"
   | "INSPECTION_NOT_CONFIGURED"
+  | "CURRENT_SNAPSHOT_REQUIRED"
   | "OPERATION_TIMEOUT";
 
 export class ControllerError extends Error {

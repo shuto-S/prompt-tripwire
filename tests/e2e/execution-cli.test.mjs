@@ -14,17 +14,44 @@ import { SqlitePersistence } from "../../packages/persistence/dist/index.js";
 
 const NOW = "2026-07-14T13:00:00.000Z";
 
+function compatibilityAttestation() {
+  return {
+    executableRealpath: "/usr/local/bin/codex",
+    executableSha256: "a".repeat(64),
+    codexVersion: "9.9.9",
+    profileVersion: 1,
+    schemaFingerprint: "b".repeat(64),
+    canaryFingerprint: "c".repeat(64),
+    compatibilityFingerprint: "d".repeat(64),
+  };
+}
+
+function staticCompatibilityPort(attestation) {
+  return {
+    async open() {
+      return {
+        attestation,
+        client: {},
+        runtimeRoot: "/private/tmp/prompt-tripwire-compatible-session",
+        async close() {},
+      };
+    },
+  };
+}
+
 function git(cwd, args) {
   const result = spawnSync("git", args, { cwd, encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);
 }
 
 async function seedApprovedRun(repositoryPath, dataRoot) {
+  const attestation = compatibilityAttestation();
   const prepared = await prepareRepositorySnapshot({
     repositoryPath,
     task: "Run the approved CLI execution",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
-    codexVersion: "0.144.4",
+    codexVersion: attestation.codexVersion,
+    compatibilityAttestation: attestation,
     promptTripwireVersion: "0.1.9",
     dirtyChoice: "committed_only",
   });
@@ -85,7 +112,7 @@ async function seedApprovedRun(repositoryPath, dataRoot) {
     approvedAt: NOW,
   });
   store.close();
-  return { contract: approved.contract, prepared };
+  return { attestation, contract: approved.contract, prepared };
 }
 
 test("AC-019 E2E: tripwire run passes the approved prepared snapshot and persists execution evidence", async () => {
@@ -113,6 +140,7 @@ test("AC-019 E2E: tripwire run passes the approved prepared snapshot and persist
       createController: (store) =>
         new LocalController({
           store,
+          compatibilityPort: staticCompatibilityPort(seeded.attestation),
           executionPort: {
             async start(context) {
               observedPreparedHash = context.preparedSnapshot?.snapshot.snapshotHash ?? null;
@@ -200,6 +228,7 @@ test("AC-010/AC-015 E2E: a paused run opens the Decision Inbox", async () => {
       createController: (store) =>
         new LocalController({
           store,
+          compatibilityPort: staticCompatibilityPort(seeded.attestation),
           executionPort: {
             async start() {
               return { outcome: "paused", errorCode: "OUTSIDE_CONTRACT" };

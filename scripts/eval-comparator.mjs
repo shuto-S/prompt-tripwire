@@ -29,7 +29,7 @@ function fixture(id, behaviors) {
     task: `Evaluate fixture ${id}: choose the material implementation behavior.`,
     model: { id: "gpt-5.6-sol", reasoningEffort: "low" },
     codexVersion: "0.144.4",
-    promptTripwireVersion: "0.1.10",
+    promptTripwireVersion: "0.1.11",
     createdAt: "2026-07-14T00:00:00.000Z",
   });
   const plans = behaviors.map((behavior, index) => {

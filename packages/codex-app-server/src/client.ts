@@ -14,6 +14,7 @@ import {
   type AppServerErrorCode,
 } from "./errors.js";
 import { ProtocolEventLedger } from "./event-ledger.js";
+import { CONSUMED_NOTIFICATIONS, HANDLED_SERVER_REQUESTS } from "./compatibility-profile.js";
 import {
   CommandExecResponseSchema,
   InitializeResponseSchema,
@@ -32,6 +33,7 @@ import {
 } from "./probe-policy.js";
 import type {
   ApprovalObservation,
+  CompatibilityCanaryInput,
   ComparisonTurnInput,
   ComparisonTurnResult,
   ContractExecutionInput,
@@ -53,6 +55,7 @@ const DEFAULT_PROBE_TIMEOUT_MS = 180_000;
 const DEFAULT_COMPARISON_TIMEOUT_MS = 5 * 60_000;
 const DEFAULT_TRANSLATION_TIMEOUT_MS = 2 * 60_000;
 const DEFAULT_EXECUTION_TIMEOUT_MS = 30 * 60_000;
+const DEFAULT_CANARY_TIMEOUT_MS = 2 * 60_000;
 const SANDBOXED_COMMAND_PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin";
 
 const PROBE_DEVELOPER_INSTRUCTIONS = [
@@ -88,6 +91,13 @@ const TRANSLATION_DEVELOPER_INSTRUCTIONS = [
   "Preserve every supplied decisionId and optionId exactly, and preserve decision, option, and effect counts.",
   "Do not inspect the filesystem, execute commands, change files, use network tools, MCP/apps, subagents, or request additional permissions.",
   "Do not expose chain-of-thought. Return only the requested JSON object.",
+].join("\n");
+
+const COMPATIBILITY_CANARY_INSTRUCTIONS = [
+  "You are the PromptTripwire App Server compatibility canary.",
+  "Return only the requested nonce JSON object.",
+  "Do not inspect files, execute commands, change files, use network tools, MCP/apps, subagents, or request permissions.",
+  "Do not expose chain-of-thought.",
 ].join("\n");
 
 interface PendingRequest {
@@ -227,6 +237,7 @@ export class CodexAppServerClient {
   private readonly threadApprovals = new Map<string, ApprovalObservation[]>();
   private readonly comparisonThreads = new Set<string>();
   private readonly translationThreads = new Set<string>();
+  private readonly canaryThreads = new Set<string>();
   private readonly executionThreads = new Map<string, ExecutionThreadContext>();
   private readonly turns = new Map<string, TurnState>();
   private readonly interruptingTurns = new Set<string>();
@@ -254,7 +265,7 @@ export class CodexAppServerClient {
       clientInfo: {
         name: "prompt_tripwire",
         title: "PromptTripwire",
-        version: "0.1.10",
+        version: "0.1.11",
       },
     });
     InitializeResponseSchema.parse(response);
@@ -285,6 +296,115 @@ export class CodexAppServerClient {
       if (cursor === null) return models;
     }
     throw new AppServerError("PROTOCOL_CORRUPTION", "model list pagination did not terminate");
+  }
+
+  async runCompatibilityCanary(input: CompatibilityCanaryInput): Promise<void> {
+    this.assertInitialized();
+    const thread = ThreadStartResponseSchema.parse(
+      await this.request("thread/start", {
+        cwd: input.cwd,
+        approvalPolicy: "untrusted",
+        approvalsReviewer: "user",
+        developerInstructions: COMPATIBILITY_CANARY_INSTRUCTIONS,
+        sandbox: "read-only",
+        ephemeral: true,
+        serviceName: "prompt_tripwire_compatibility_canary",
+        model: input.model,
+      }),
+    );
+    if (thread.model !== input.model) {
+      throw new AppServerError(
+        "CODEX_COMPATIBILITY_FAILED",
+        "App Server changed the compatibility canary model",
+      );
+    }
+    const threadId = thread.thread.id;
+    this.threadRoots.set(threadId, input.cwd);
+    this.threadApprovals.set(threadId, []);
+    this.canaryThreads.add(threadId);
+    let turnId: string | null = null;
+    try {
+      const turn = TurnStartResponseSchema.parse(
+        await this.request("turn/start", {
+          threadId,
+          input: [{ type: "text", text: `Return this nonce exactly: ${input.nonce}` }],
+          cwd: input.cwd,
+          approvalPolicy: "untrusted",
+          approvalsReviewer: "user",
+          sandboxPolicy: { type: "readOnly", networkAccess: false },
+          model: input.model,
+          effort: input.reasoningEffort,
+          summary: "none",
+          personality: "none",
+          outputSchema: {
+            type: "object",
+            additionalProperties: false,
+            required: ["nonce"],
+            properties: { nonce: { type: "string", const: input.nonce } },
+          },
+        }),
+      );
+      turnId = turn.turn.id;
+      const state = await this.waitForTurn(
+        threadId,
+        turnId,
+        input.timeoutMs ?? DEFAULT_CANARY_TIMEOUT_MS,
+        {
+          timeoutCode: "CODEX_COMPATIBILITY_FAILED",
+          timeoutMessage: "compatibility canary timed out",
+          signal: undefined,
+          cancelledCode: "CODEX_COMPATIBILITY_FAILED",
+          cancelledMessage: "compatibility canary was cancelled",
+        },
+      );
+      if (state.status !== "completed") {
+        throw new AppServerError(
+          "CODEX_COMPATIBILITY_FAILED",
+          `compatibility canary ended with ${state.status ?? "unknown"}`,
+        );
+      }
+      const message = state.agentMessages.at(-1);
+      let output: unknown;
+      try {
+        output = message === undefined ? null : (JSON.parse(message) as unknown);
+      } catch (error) {
+        throw new AppServerError(
+          "CODEX_COMPATIBILITY_FAILED",
+          "compatibility canary output was not JSON",
+          { cause: error },
+        );
+      }
+      if (
+        output === null ||
+        typeof output !== "object" ||
+        Array.isArray(output) ||
+        Object.keys(output).length !== 1 ||
+        !("nonce" in output) ||
+        output.nonce !== input.nonce
+      ) {
+        throw new AppServerError(
+          "CODEX_COMPATIBILITY_FAILED",
+          "compatibility canary output changed meaning",
+        );
+      }
+      if ((this.threadApprovals.get(threadId)?.length ?? 0) !== 0) {
+        throw new AppServerError(
+          "CODEX_COMPATIBILITY_FAILED",
+          "compatibility canary requested a prohibited capability",
+        );
+      }
+    } catch (error) {
+      if (turnId !== null) {
+        try {
+          await this.interrupt(threadId, turnId);
+        } catch {
+          // Preserve the compatibility failure.
+        }
+      }
+      throw appServerError(error, "compatibility canary failed");
+    } finally {
+      this.canaryThreads.delete(threadId);
+    }
   }
 
   async runPlanProbe(input: PlanProbeInput): Promise<PlanProbeResult> {
@@ -833,6 +953,19 @@ export class CodexAppServerClient {
   }
 
   private receiveServerRequest(id: JsonRpcId, method: string, params: unknown): void {
+    if (!Object.hasOwn(HANDLED_SERVER_REQUESTS, method)) {
+      this.transport.send({
+        id,
+        error: { code: -32_000, message: "PromptTripwire rejected unsupported server request" },
+      });
+      this.failProtocol(
+        new AppServerError(
+          "UNSUPPORTED_APP_SERVER_REQUEST",
+          `PromptTripwire cannot safely answer App Server request ${method}`,
+        ),
+      );
+      return;
+    }
     const key = rpcKey(id);
     const identity = canonicalJson({ id, method, params: params ?? null }, { omitKeys: new Set() });
     const prior = this.serverRequests.get(key);
@@ -874,7 +1007,9 @@ export class CodexAppServerClient {
     }
     if (
       threadId !== null &&
-      (this.comparisonThreads.has(threadId) || this.translationThreads.has(threadId))
+      (this.comparisonThreads.has(threadId) ||
+        this.translationThreads.has(threadId) ||
+        this.canaryThreads.has(threadId))
     ) {
       const decision = decideComparatorApproval(id, method, params);
       this.threadApprovals.get(threadId)?.push(decision.observation);
@@ -888,12 +1023,16 @@ export class CodexAppServerClient {
       this.failTurn(
         this.turnState(threadId, turnId),
         new AppServerError(
-          this.translationThreads.has(threadId)
-            ? "TRANSLATION_TOOL_VIOLATION"
-            : "COMPARISON_TOOL_VIOLATION",
-          this.translationThreads.has(threadId)
-            ? "review translation requested a prohibited tool or permission"
-            : "comparison requested a prohibited tool or permission",
+          this.canaryThreads.has(threadId)
+            ? "CODEX_COMPATIBILITY_FAILED"
+            : this.translationThreads.has(threadId)
+              ? "TRANSLATION_TOOL_VIOLATION"
+              : "COMPARISON_TOOL_VIOLATION",
+          this.canaryThreads.has(threadId)
+            ? "compatibility canary requested a prohibited capability"
+            : this.translationThreads.has(threadId)
+              ? "review translation requested a prohibited tool or permission"
+              : "comparison requested a prohibited tool or permission",
         ),
       );
       return decision.response;
@@ -941,9 +1080,21 @@ export class CodexAppServerClient {
       }
       return;
     }
+    if (!Object.hasOwn(CONSUMED_NOTIFICATIONS, method)) {
+      return;
+    }
+    if (method === "error") {
+      this.failProtocol(new AppServerError("JSON_RPC_ERROR", "App Server emitted an error"));
+      return;
+    }
+    if (method === "thread/started") {
+      return;
+    }
+    if (method === "thread/tokenUsage/updated") {
+      return;
+    }
     if (
       !new Set([
-        "thread/started",
         "turn/started",
         "item/started",
         "item/completed",
@@ -951,9 +1102,6 @@ export class CodexAppServerClient {
         "turn/completed",
       ]).has(method)
     ) {
-      if (method === "error") {
-        this.failProtocol(new AppServerError("JSON_RPC_ERROR", "App Server emitted an error"));
-      }
       return;
     }
     try {
@@ -975,19 +1123,27 @@ export class CodexAppServerClient {
         if (pause) this.requestExecutionPause(event.threadId, event.turnId);
       } else if (
         this.comparisonThreads.has(event.threadId) ||
-        this.translationThreads.has(event.threadId)
+        this.translationThreads.has(event.threadId) ||
+        this.canaryThreads.has(event.threadId)
       ) {
         if (accepted.item !== null)
           this.observeStructuredReadOnlyItem(state, accepted.item, method);
         if (accepted.diff !== null && accepted.diff.trim().length > 0) {
           const translation = this.translationThreads.has(event.threadId);
+          const canary = this.canaryThreads.has(event.threadId);
           this.failTurn(
             state,
             new AppServerError(
-              translation ? "TRANSLATION_TOOL_VIOLATION" : "COMPARISON_TOOL_VIOLATION",
-              translation
-                ? "review translation produced a repository diff"
-                : "comparison produced a repository diff",
+              canary
+                ? "CODEX_COMPATIBILITY_FAILED"
+                : translation
+                  ? "TRANSLATION_TOOL_VIOLATION"
+                  : "COMPARISON_TOOL_VIOLATION",
+              canary
+                ? "compatibility canary produced a repository diff"
+                : translation
+                  ? "review translation produced a repository diff"
+                  : "comparison produced a repository diff",
             ),
           );
         }
@@ -1043,9 +1199,11 @@ export class CodexAppServerClient {
       this.failTurn(
         state,
         new AppServerError(
-          this.translationThreads.has(state.threadId)
-            ? "TRANSLATION_TOOL_VIOLATION"
-            : "COMPARISON_TOOL_VIOLATION",
+          this.canaryThreads.has(state.threadId)
+            ? "CODEX_COMPATIBILITY_FAILED"
+            : this.translationThreads.has(state.threadId)
+              ? "TRANSLATION_TOOL_VIOLATION"
+              : "COMPARISON_TOOL_VIOLATION",
           violation,
         ),
       );

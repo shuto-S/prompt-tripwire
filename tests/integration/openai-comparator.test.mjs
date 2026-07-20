@@ -1131,12 +1131,14 @@ test("M1: controller pipeline reaches approval or fail-closed review states", as
     });
     assert.equal(fallbackReady.state, "ready_for_approval");
     assert.equal(
-      controller.approve({
-        runId: fallback.runId,
-        contractId: fallbackReady.activeContractId,
-        expectedVersion: fallbackReady.version,
-        idempotencyKey: "approve_pipeline_fallback",
-      }).state,
+      (
+        await controller.approve({
+          runId: fallback.runId,
+          contractId: fallbackReady.activeContractId,
+          expectedVersion: fallbackReady.version,
+          idempotencyKey: "approve_pipeline_fallback",
+        })
+      ).state,
       "approved",
     );
 
@@ -1167,6 +1169,7 @@ test("M1: controller pipeline reaches approval or fail-closed review states", as
         ],
         {
           dataRoot: root,
+          createController: (cliStore) => new LocalController({ store: cliStore }),
           io: {
             stdout: { write: (value) => (stdout += value) },
             stderr: { write: () => undefined },
@@ -1182,6 +1185,7 @@ test("M1: controller pipeline reaches approval or fail-closed review states", as
     assert.equal(
       await runCli(["approve", degraded.runId], {
         dataRoot: root,
+        createController: (cliStore) => new LocalController({ store: cliStore }),
         io: {
           stdout: { write: (value) => (stdout += value) },
           stderr: { write: () => undefined },

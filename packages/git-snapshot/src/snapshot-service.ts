@@ -4,6 +4,7 @@ import {
   canonicalHash,
   createRepositorySnapshot,
   detectSnapshotDrift,
+  type CodexCompatibilityAttestation,
   type ModelConfiguration,
   type RepositorySnapshot,
   type SnapshotDriftReason,
@@ -26,7 +27,8 @@ export interface PrepareSnapshotRequest {
   readonly repositoryPath: string;
   readonly task: string;
   readonly model: ModelConfiguration;
-  readonly codexVersion: string;
+  readonly codexVersion?: string;
+  readonly compatibilityAttestation?: CodexCompatibilityAttestation;
   readonly promptTripwireVersion: string;
   readonly dirtyChoice?: DirtyChoice;
   readonly effectiveConfig?: unknown;
@@ -40,6 +42,7 @@ export interface PreparedSnapshotParameters {
   readonly task: string;
   readonly model: ModelConfiguration;
   readonly codexVersion: string;
+  readonly compatibilityAttestation?: CodexCompatibilityAttestation;
   readonly promptTripwireVersion: string;
   readonly contentMode: SnapshotContentMode;
   readonly effectiveConfigHash: string;
@@ -156,6 +159,9 @@ async function prepareWithParameters(
     task: parameters.task,
     model: parameters.model,
     codexVersion: parameters.codexVersion,
+    ...(parameters.compatibilityAttestation === undefined
+      ? {}
+      : { compatibilityAttestation: parameters.compatibilityAttestation }),
     promptTripwireVersion: parameters.promptTripwireVersion,
     createdAt,
   });
@@ -185,13 +191,35 @@ async function prepareWithParameters(
 export async function prepareRepositorySnapshot(
   request: PrepareSnapshotRequest,
 ): Promise<PreparedRepositorySnapshot> {
+  const codexVersion = request.compatibilityAttestation?.codexVersion ?? request.codexVersion;
+  if (codexVersion === undefined) {
+    throw new GitSnapshotError(
+      "CODEX_COMPATIBILITY_REQUIRED",
+      "snapshot",
+      "A measured Codex compatibility attestation is required.",
+    );
+  }
+  if (
+    request.compatibilityAttestation !== undefined &&
+    request.codexVersion !== undefined &&
+    request.compatibilityAttestation.codexVersion !== request.codexVersion
+  ) {
+    throw new GitSnapshotError(
+      "CODEX_COMPATIBILITY_MISMATCH",
+      "snapshot",
+      "The supplied Codex version did not match its compatibility attestation.",
+    );
+  }
   const inspection = await inspectRepository(request.repositoryPath);
   const contentMode = selectedMode(inspection, request.dirtyChoice);
   const parameters: PreparedSnapshotParameters = Object.freeze({
     repositoryPath: inspection.workingDirectory,
     task: request.task,
     model: Object.freeze({ ...request.model }),
-    codexVersion: request.codexVersion,
+    codexVersion,
+    ...(request.compatibilityAttestation === undefined
+      ? {}
+      : { compatibilityAttestation: Object.freeze({ ...request.compatibilityAttestation }) }),
     promptTripwireVersion: request.promptTripwireVersion,
     contentMode,
     effectiveConfigHash: canonicalHash(request.effectiveConfig ?? {}),
@@ -217,6 +245,7 @@ export interface SnapshotRecheckOverrides {
   readonly task?: string;
   readonly model?: ModelConfiguration;
   readonly codexVersion?: string;
+  readonly compatibilityAttestation?: CodexCompatibilityAttestation;
   readonly promptTripwireVersion?: string;
   readonly effectiveConfig?: unknown;
   readonly externalInstructionHashes?: Readonly<Record<string, string>>;
@@ -231,6 +260,13 @@ export async function checkPreparedSnapshot(
     task: overrides.task ?? prepared.parameters.task,
     model: overrides.model === undefined ? prepared.parameters.model : { ...overrides.model },
     codexVersion: overrides.codexVersion ?? prepared.parameters.codexVersion,
+    ...((overrides.compatibilityAttestation ?? prepared.parameters.compatibilityAttestation) ===
+    undefined
+      ? {}
+      : {
+          compatibilityAttestation:
+            overrides.compatibilityAttestation ?? prepared.parameters.compatibilityAttestation,
+        }),
     promptTripwireVersion:
       overrides.promptTripwireVersion ?? prepared.parameters.promptTripwireVersion,
     effectiveConfigHash:

@@ -52,6 +52,14 @@ export interface ModelDescriptor {
   readonly supportedReasoningEfforts: readonly string[];
 }
 
+export interface CompatibilityCanaryInput {
+  readonly cwd: string;
+  readonly model: string;
+  readonly reasoningEffort: string;
+  readonly nonce: string;
+  readonly timeoutMs?: number;
+}
+
 export interface PlanProbeInput {
   readonly probeId: string;
   readonly cwd: string;

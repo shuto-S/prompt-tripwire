@@ -1,12 +1,6 @@
-import { chmod, mkdir, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import {
   AppServerError,
-  CodexAppServerClient,
   ProbeCoordinator,
-  ProcessJsonRpcTransport,
   type ProbeBatchResult,
   type RunProbeBatchInput,
 } from "@prompt-tripwire/codex-app-server";
@@ -275,7 +269,6 @@ export class InspectionPipeline implements InspectionPort {
 }
 
 export interface DefaultInspectionPortOptions {
-  readonly codexPath?: string;
   readonly comparatorModel?: "gpt-5.6-sol" | "gpt-5.6-terra";
   readonly comparatorReasoningEffort?: "low" | "medium" | "high";
 }
@@ -284,42 +277,29 @@ export class DefaultInspectionPort implements InspectionPort {
   constructor(private readonly options: DefaultInspectionPortOptions = {}) {}
 
   async inspect(context: InspectionContext): Promise<InspectionResult> {
-    const runtimeRoot = await mkdtemp(join(tmpdir(), "prompt-tripwire-app-server-"));
-    let client: CodexAppServerClient | null = null;
-    try {
-      await chmod(runtimeRoot, 0o700);
-      const shellStartupDirectory = join(runtimeRoot, "zsh-startup");
-      await mkdir(shellStartupDirectory, { mode: 0o700 });
-      const transport = ProcessJsonRpcTransport.start({
-        cwd: runtimeRoot,
-        shellStartupDirectory,
-        ...(this.options.codexPath === undefined ? {} : { codexPath: this.options.codexPath }),
-      });
-      client = new CodexAppServerClient(transport);
-      await client.initialize();
-      const comparatorTransport = new AppServerComparatorTransport(client, {
-        temporaryParent: runtimeRoot,
-      });
-      const presentationTransport = new AppServerReviewTranslationTransport(client, {
-        temporaryParent: runtimeRoot,
-      });
-      return await new InspectionPipeline({
-        probes: new ProbeCoordinator(client),
-        comparator: new PlanComparator(comparatorTransport),
-        presentationTranslator: new ReviewPresentationTranslator(presentationTransport),
-        ...(this.options.comparatorModel === undefined
-          ? {}
-          : { comparatorModel: this.options.comparatorModel }),
-        ...(this.options.comparatorReasoningEffort === undefined
-          ? {}
-          : { comparatorReasoningEffort: this.options.comparatorReasoningEffort }),
-      }).inspect(context);
-    } finally {
-      try {
-        await client?.close();
-      } finally {
-        await rm(runtimeRoot, { recursive: true, force: true });
-      }
+    const session = context.compatibilitySession;
+    if (session === undefined) {
+      throw new AppServerError(
+        "CODEX_COMPATIBILITY_FAILED",
+        "Inspection requires a verified Codex App Server session",
+      );
     }
+    const comparatorTransport = new AppServerComparatorTransport(session.client, {
+      temporaryParent: session.runtimeRoot,
+    });
+    const presentationTransport = new AppServerReviewTranslationTransport(session.client, {
+      temporaryParent: session.runtimeRoot,
+    });
+    return await new InspectionPipeline({
+      probes: new ProbeCoordinator(session.client),
+      comparator: new PlanComparator(comparatorTransport),
+      presentationTranslator: new ReviewPresentationTranslator(presentationTransport),
+      ...(this.options.comparatorModel === undefined
+        ? {}
+        : { comparatorModel: this.options.comparatorModel }),
+      ...(this.options.comparatorReasoningEffort === undefined
+        ? {}
+        : { comparatorReasoningEffort: this.options.comparatorReasoningEffort }),
+    }).inspect(context);
   }
 }

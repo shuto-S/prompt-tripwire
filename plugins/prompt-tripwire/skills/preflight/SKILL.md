@@ -111,5 +111,7 @@ reasoning, environment values, tokens, or long logs.
   authenticated App Server. It never substitutes for a Decision Inbox choice or
   contract approval, and all inner probe, comparator, executor, policy, and
   containment restrictions remain active.
-- The adapter requires macOS arm64, a logged-in Codex CLI 0.144.4, and the
-  existing PromptTripwire runtime. It does not require `OPENAI_API_KEY`.
+- The adapter requires macOS arm64, a logged-in Codex CLI with a
+  PromptTripwire-compatible normal App Server schema, and the existing
+  PromptTripwire runtime. The runtime measures compatibility before repository
+  inspection and fails closed on drift. It does not require `OPENAI_API_KEY`.
