@@ -39,6 +39,7 @@ if [ "$WITH_CODEX_PLUGIN" -eq 1 ]; then
     "$ROOT/.agents/plugins/marketplace.json" \
     "$ROOT/plugins/prompt-tripwire/.codex-plugin/plugin.json" \
     "$ROOT/plugins/prompt-tripwire/skills/preflight/SKILL.md" \
+    "$ROOT/plugins/prompt-tripwire/skills/preflight/agents/openai.yaml" \
     "$ROOT/plugins/prompt-tripwire/skills/preflight/scripts/run_preflight.mjs"
   do
     [ -f "$required_file" ] || fail "PLUGIN_PAYLOAD_MISSING: the bundled Codex Plugin is incomplete."
@@ -160,6 +161,7 @@ if [ "$WITH_CODEX_PLUGIN" -eq 1 ]; then
     ".agents/plugins/marketplace.json" \
     "plugins/prompt-tripwire/.codex-plugin/plugin.json" \
     "plugins/prompt-tripwire/skills/preflight/SKILL.md" \
+    "plugins/prompt-tripwire/skills/preflight/agents/openai.yaml" \
     "plugins/prompt-tripwire/skills/preflight/scripts/run_preflight.mjs"
   do
     installed_safety_file="$DEST/$safety_file_pair"
@@ -396,12 +398,15 @@ if [ "$WITH_CODEX_PLUGIN" -eq 1 ]; then
   mkdir -p \
     "$STAGE/.agents/plugins" \
     "$STAGE/plugins/prompt-tripwire/.codex-plugin" \
+    "$STAGE/plugins/prompt-tripwire/skills/preflight/agents" \
     "$STAGE/plugins/prompt-tripwire/skills/preflight/scripts" 2>/dev/null
   cp "$ROOT/.agents/plugins/marketplace.json" "$STAGE/.agents/plugins/marketplace.json" 2>/dev/null
   cp "$ROOT/plugins/prompt-tripwire/.codex-plugin/plugin.json" \
     "$STAGE/plugins/prompt-tripwire/.codex-plugin/plugin.json" 2>/dev/null
   cp "$ROOT/plugins/prompt-tripwire/skills/preflight/SKILL.md" \
     "$STAGE/plugins/prompt-tripwire/skills/preflight/SKILL.md" 2>/dev/null
+  cp "$ROOT/plugins/prompt-tripwire/skills/preflight/agents/openai.yaml" \
+    "$STAGE/plugins/prompt-tripwire/skills/preflight/agents/openai.yaml" 2>/dev/null
   cp "$ROOT/plugins/prompt-tripwire/skills/preflight/scripts/run_preflight.mjs" \
     "$STAGE/plugins/prompt-tripwire/skills/preflight/scripts/run_preflight.mjs" 2>/dev/null
   node -e 'const fs=require("node:fs");fs.writeFileSync(process.argv[1],JSON.stringify({runtime:process.argv[2]})+"\n",{mode:0o600})' \

@@ -1,0 +1,7 @@
+interface:
+  display_name: "PromptTripwire Preflight"
+  short_description: "Inspect a Codex task before implementation."
+  default_prompt: "Use $prompt-tripwire:preflight before implementing this task."
+
+policy:
+  allow_implicit_invocation: false

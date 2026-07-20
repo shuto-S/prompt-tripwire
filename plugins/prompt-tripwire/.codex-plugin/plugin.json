@@ -18,6 +18,6 @@
     "developerName": "PromptTripwire contributors",
     "category": "Developer Tools",
     "capabilities": ["Read", "Interactive"],
-    "defaultPrompt": "Use PromptTripwire preflight for this task before implementing anything."
+    "defaultPrompt": ["Use $prompt-tripwire:preflight before implementing this task."]
   }
 }

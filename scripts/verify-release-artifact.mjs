@@ -42,6 +42,7 @@ const pluginSafetyFiles = Object.freeze([
   ".agents/plugins/marketplace.json",
   "plugins/prompt-tripwire/.codex-plugin/plugin.json",
   "plugins/prompt-tripwire/skills/preflight/SKILL.md",
+  "plugins/prompt-tripwire/skills/preflight/agents/openai.yaml",
   "plugins/prompt-tripwire/skills/preflight/scripts/run_preflight.mjs",
 ]);
 assert.ok(existsSync(archive), `artifact does not exist: ${archive}`);
