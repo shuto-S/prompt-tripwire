@@ -1,9 +1,11 @@
 export const CODEX_APP_SERVER_FOUNDATION = Object.freeze({
   name: "codex-app-server",
-  requiredCodexVersion: "0.144.4",
+  compatibilityProfileVersion: 1,
 });
 
 export * from "./client.js";
+export * from "./compatibility.js";
+export * from "./compatibility-profile.js";
 export * from "./errors.js";
 export * from "./event-ledger.js";
 export * from "./fake-harness.js";

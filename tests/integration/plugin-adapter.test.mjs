@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import {
   REENTRY_ENV,
   assertSupportedPlatform,
-  assertRuntimeVersions,
+  assertRuntimeEnvironment,
   buildRuntimeArgs,
   redactOutput,
   runPreflight,
@@ -56,7 +56,7 @@ test("plugin delegates inspect without changing the target repository", () => {
   const marker = join(root, "args.txt");
   const fake = `#!/bin/sh
 if [ "$1" = "--version" ]; then
-  printf '%s\\n' 'prompt-tripwire 0.1.10'
+  printf '%s\\n' 'prompt-tripwire 0.1.11'
   exit 0
 fi
 printf '%s' "$*" > "$MARKER"
@@ -66,7 +66,7 @@ printf '%s\\n' 'Snapshot: fixture-snapshot'
 printf '%s\\n' 'Contract: not approved'
 `;
   const fakeCodex = `#!/bin/sh
-if [ "$1" = "--version" ]; then printf '%s\\n' 'codex-cli 0.144.4'; fi
+if [ "$1" = "--version" ]; then printf '%s\\n' 'codex-cli 9.9.9'; fi
 exit 0
 `;
   writeFileSync(runtime, fake, { encoding: "utf8", mode: 0o700 });
@@ -123,7 +123,7 @@ test("plugin receives untrusted multiline task bytes only through stdin", () => 
     runtime,
     `#!/bin/sh
 if [ "$1" = "--version" ]; then
-  printf '%s\\n' 'prompt-tripwire 0.1.10'
+  printf '%s\\n' 'prompt-tripwire 0.1.11'
   exit 0
 fi
 while [ "$#" -gt 0 ]; do
@@ -142,7 +142,7 @@ printf '%s\\n' 'State: needs_review'
   writeFileSync(
     codex,
     `#!/bin/sh
-if [ "$1" = "--version" ]; then printf '%s\\n' 'codex-cli 0.144.4'; fi
+if [ "$1" = "--version" ]; then printf '%s\\n' 'codex-cli 9.9.9'; fi
 exit 0
 `,
     { mode: 0o700 },
@@ -190,7 +190,7 @@ test("plugin gives a sanitized caller-sandbox hint without removing the re-entry
     runtime,
     `#!/bin/sh
 if [ "$1" = "--version" ]; then
-  printf '%s\\n' 'prompt-tripwire 0.1.10'
+  printf '%s\\n' 'prompt-tripwire 0.1.11'
   exit 0
 fi
 printf '%s' "$PROMPT_TRIPWIRE_PLUGIN_REENTRY" > "$MARKER"
@@ -204,7 +204,7 @@ exit 1
   writeFileSync(
     codex,
     `#!/bin/sh
-if [ "$1" = "--version" ]; then printf '%s\\n' 'codex-cli 0.144.4'; fi
+if [ "$1" = "--version" ]; then printf '%s\\n' 'codex-cli 9.9.9'; fi
 exit 0
 `,
     { mode: 0o700 },
@@ -336,7 +336,7 @@ test("plugin redacts common credential shapes from delegated runtime failures", 
     runtime,
     `#!/bin/sh
 if [ "$1" = "--version" ]; then
-  printf '%s\\n' 'prompt-tripwire 0.1.10'
+  printf '%s\\n' 'prompt-tripwire 0.1.11'
   exit 0
 fi
 printf '%s' "$PROMPT_TRIPWIRE_PLUGIN_REENTRY" > "$MARKER"
@@ -362,7 +362,7 @@ exit 1
   writeFileSync(
     codex,
     `#!/bin/sh
-if [ "$1" = "--version" ]; then printf '%s\\n' 'codex-cli 0.144.4'; fi
+if [ "$1" = "--version" ]; then printf '%s\\n' 'codex-cli 9.9.9'; fi
 exit 0
 `,
     { mode: 0o700 },
@@ -400,14 +400,14 @@ test("plugin fails closed when Codex is not logged in", () => {
   writeFileSync(
     runtime,
     `#!/bin/sh
-if [ "$1" = "--version" ]; then printf '%s\\n' 'prompt-tripwire 0.1.10'; fi
+if [ "$1" = "--version" ]; then printf '%s\\n' 'prompt-tripwire 0.1.11'; fi
 `,
     { mode: 0o700 },
   );
   writeFileSync(
     codex,
     `#!/bin/sh
-if [ "$1" = "--version" ]; then printf '%s\\n' 'codex-cli 0.144.4'; exit 0; fi
+if [ "$1" = "--version" ]; then printf '%s\\n' 'codex-cli 9.9.9'; exit 0; fi
 if [ "$1" = "login" ] && [ "$2" = "status" ]; then exit 1; fi
 exit 0
 `,
@@ -423,17 +423,16 @@ exit 0
   );
 });
 
-test("plugin requires the exact Codex CLI version", () => {
+test("plugin accepts an arbitrary Codex CLI version and delegates compatibility to runtime", () => {
   const root = mkdtempSync(join(tmpdir(), "prompt-tripwire-plugin-version-test-"));
   const runtime = join(root, "tripwire");
   const codex = join(root, "codex");
-  writeFileSync(runtime, "#!/bin/sh\nprintf '%s\\n' 'prompt-tripwire 0.1.10'\n", {
+  writeFileSync(runtime, "#!/bin/sh\nprintf '%s\\n' 'prompt-tripwire 0.1.11'\n", {
     mode: 0o700,
   });
-  writeFileSync(codex, "#!/bin/sh\nprintf '%s\\n' 'codex-cli 0.144.40'\n", { mode: 0o700 });
-  assert.throws(
-    () => assertRuntimeVersions(runtime, { PROMPT_TRIPWIRE_CODEX_BIN: codex }),
-    (error) => error.code === "CODEX_VERSION_MISMATCH",
+  writeFileSync(codex, "#!/bin/sh\nprintf '%s\\n' 'codex-cli 9.9.9'\n", { mode: 0o700 });
+  assert.doesNotThrow(() =>
+    assertRuntimeEnvironment(runtime, { PROMPT_TRIPWIRE_CODEX_BIN: codex }),
   );
 });
 

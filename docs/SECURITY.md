@@ -48,6 +48,7 @@ Repository text, model output, tool requests, App Server events, local HTTP requ
 | Local UI hijack | Loopback bind, random port, per-run capability token, same-origin/CORS/CSP, no remote bind, terminal/archive/30-minute-idle capability closure | Other processes under the same OS user may still access the listener while its capability remains active |
 | Contract tampering | Canonical hash, immutable versions, recompute before use, transactional state | Same-user local attacker can alter both program and data |
 | Stale approval | Bind to task/snapshot/config/model hashes; invalidate on drift | Undetected external state drift is possible |
+| Codex protocol or semantic drift | Before touching the target repository, attest the resolved executable with a fresh normal schema, shared required-surface profile, private-temp deny-all canary, and executable digest; remeasure before approval and run and transactionally stale any mismatch | A bounded canary cannot detect same-schema semantic drift outside the behavior it observes |
 | External or production side effect | Network and remote tools disabled; deterministic decision separates implementation intent from operation authority | User can perform a separately authorized action outside the P0 executor |
 | Approval confusion | Concrete effects, no high-impact default, expected version/idempotency checks | Human review can still be mistaken |
 | Reference translation changes or obscures approval meaning | Source text remains authoritative and directly accessible; translation runs tool-free, is strict-schema/source-ID/count bound, sanitized, stored separately, and excluded from decisions/contracts/hashes/mutations | A faithful-looking translation can still be linguistically imperfect, so the UI labels it as reference text |
@@ -57,6 +58,25 @@ Repository text, model output, tool requests, App Server events, local HTTP requ
 | Partial change after deviation | Isolated disposable worktree, interrupt, preserve evidence, clean restart | A local write may occur before detection |
 
 ## 5. Probe policy
+
+Codex compatibility is established before repository inspection and is not
+inferred from a version number. PromptTripwire resolves one executable, records
+its realpath/digest/reported version, generates a fresh normal schema under a
+private mode-`0700` temporary CWD, and validates only the machine-readable
+surface consumed by the runtime. It never falls back to a cached schema and
+never enables runtime `experimentalApi`. A handshake and bounded nonce canary
+then run through that same App Server process with no target-repository CWD,
+read-only sandboxing, network disabled, and every tool/request denied.
+
+The resulting attestation and compatibility fingerprint are snapshot-bound and
+therefore transitively contract-bound. Approval and run remeasure all fields;
+failure or any executable/schema/canary drift makes a ready or approved run
+stale rather than reusing its approval. Run reuses the verified process and
+performs this gate before worktree creation. New optional schema fields, unused
+methods, and unobserved additive enum declarations do not fail compatibility.
+An unknown request or enum variant that actually arrives cannot be answered or
+interpreted safely, so the client denies it and interrupts. The canary is
+purposefully bounded and does not claim to prove every semantic property.
 
 Probe worktrees include only the approved Git snapshot and an explicitly accepted dirty patch. Untracked files are excluded by default.
 
@@ -98,13 +118,13 @@ one allowlisted static-read program, use only bounded non-executing flags, and
 name operands that match the structured action. Probe instructions require the
 program itself to use its exact bare allowlisted name. A model-authored
 executable path such as `/bin/ls`, a relative executable path, or an explicit
-shell is never normalized into an allowed action; the pinned App Server's own
+shell is never normalized into an allowed action; the App Server's observed
 exact envelope remains the only shell form that can be unwrapped. Before any child command,
 PromptTripwire sets `ZDOTDIR` to a fresh empty mode-`0700` directory inside the
 disposable App Server runtime root, excluding user-controlled zsh startup files.
 Root-owned global zsh startup files such as `/etc/zshenv` and, for `-lc`,
 `/etc/zprofile` remain part of the supported macOS host trust boundary.
-The exact macOS App Server 0.144.4 envelopes `/bin/zsh -c <structured-command>` and
+The supported macOS App Server envelopes `/bin/zsh -c <structured-command>` and
 `/bin/zsh -lc <structured-command>` are accepted only as three tokens, only
 when their one inner command independently passes the same tokenizer, and only
 when those inner tokens equal the structured action. Other shell/interpreter wrappers,
@@ -123,7 +143,7 @@ as other per-action canonical checks. Because App Server can emit an absolute
 structured action path, a root-contained absolute path is accepted only after
 canonical containment succeeds.
 
-For the pinned App Server's `search.path` metadata, a basename-only value is
+For the App Server's lossy `search.path` metadata, a basename-only value is
 accepted only when it uniquely identifies one explicit `rg` operand. Every
 explicit search operand is canonicalized and checked separately; one external,
 ambiguous, protected, or protected-content-reachable target rejects the whole
@@ -167,7 +187,7 @@ Network is denied throughout P0 planning and execution. A request to prepare cod
 
 The contract schema reserves explicit hosts/actions rather than unrestricted internet access, but the P0 executor is deny-only and never turns those fields into runtime authority. It rejects a contract containing an allowlist policy or high-impact allowed command class before creating a worktree. A review choice may authorize local code changes that prepare a disclosed network or external effect; it cannot perform that effect. MCP/app tools remain disabled. Remote writes, deploy, release, publish, migration application, billing, production operations, and permission expansion require a separate explicitly authorized workflow outside the P0 executor.
 
-P0 does not enable runtime experimental APIs, granular approval, or permission profiles. Any normal-schema permission-expansion request that arrives receives an empty grant and pauses the run. Proactive `request_permissions` support is deferred because Codex 0.144.4 requires the experimental capability for the granular route.
+P0 does not enable runtime experimental APIs, granular approval, or permission profiles. Any normal-schema permission-expansion request that arrives receives an empty grant and pauses the run. Proactive `request_permissions` support remains deferred because it is outside the consumed normal-schema runtime surface.
 
 ### 7.1 Deterministic evidence integrity
 
@@ -306,7 +326,7 @@ Skill must not suppress the guard, request an API key, or repeatedly escalate.
 
 The release installer can co-install the same adapter with the existing runtime
 under a versioned user-local root. It validates the bundled files, platform,
-Node, Git, exact Codex version, and login before changing Codex Plugin state.
+Node, Git, Codex command/version-output shape, and login before changing Codex Plugin state; it does not gate on a numeric Codex version.
 It invokes only Codex marketplace/plugin add, list, and targeted remove
 operations; it never invokes inspect, decision mutation, approval, or execution.
 The installed adapter receives a mode-0600 launcher-path record so a custom
@@ -315,6 +335,9 @@ local path is never printed or included in the release artifact. Uninstall
 removes only `prompt-tripwire@prompt-tripwire-local` and removes the
 `prompt-tripwire-local` marketplace only when it still points to the owned
 versioned install root.
+Uninstall never requires a Codex version. If the Codex command is absent, it
+removes only PromptTripwire-owned local files, does not guess-edit global Codex
+configuration, and reports that the registration could not be safely removed.
 
 ## 9. Contract and approval integrity
 

@@ -32,6 +32,15 @@ import {
 
 const HASH_A = "a".repeat(64);
 const HASH_B = "b".repeat(64);
+const COMPATIBILITY_ATTESTATION = {
+  executableRealpath: "/usr/local/bin/codex",
+  executableSha256: "c".repeat(64),
+  codexVersion: "0.144.4",
+  profileVersion: 1,
+  schemaFingerprint: "d".repeat(64),
+  canaryFingerprint: "e".repeat(64),
+  compatibilityFingerprint: "f".repeat(64),
+};
 
 function snapshotInput(overrides = {}) {
   return {
@@ -45,6 +54,7 @@ function snapshotInput(overrides = {}) {
     task: "Implement the approved behavior\nwithout side effects.",
     model: { id: "gpt-5.4", reasoningEffort: "high" },
     codexVersion: "0.144.4",
+    compatibilityAttestation: COMPATIBILITY_ATTESTATION,
     promptTripwireVersion: "0.1.9",
     createdAt: "2026-07-14T00:00:00.000Z",
     ...overrides,
@@ -422,6 +432,16 @@ test("snapshot verification and drift cover every approval binding", () => {
     [SnapshotDriftReason.Config, { configHash: "c".repeat(64) }],
     [SnapshotDriftReason.Model, { model: { id: "gpt-5.4", reasoningEffort: "medium" } }],
     [SnapshotDriftReason.CodexVersion, { codexVersion: "0.145.0" }],
+    [
+      SnapshotDriftReason.CodexCompatibility,
+      {
+        compatibilityAttestation: {
+          ...COMPATIBILITY_ATTESTATION,
+          executableSha256: "1".repeat(64),
+          compatibilityFingerprint: "2".repeat(64),
+        },
+      },
+    ],
     [SnapshotDriftReason.PromptTripwireVersion, { promptTripwireVersion: "0.2.0" }],
   ];
   for (const [reason, change] of cases) {

@@ -1,6 +1,6 @@
 # PromptTripwire judge guide
 
-PromptTripwire is a local-first preflight and execution gate for Codex. This guide targets the compiled v0.1.10 macOS arm64 release; judges do not need the TypeScript source tree or a source build. Download the archive and `SHA256SUMS.txt` from the [v0.1.10 GitHub Release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.10). The public v0.1.2 through v0.1.9 releases remain immutable historical evidence and must not be substituted for the v0.1.10 judge artifact.
+PromptTripwire is a local-first preflight and execution gate for Codex. This guide targets the compiled v0.1.11 macOS arm64 candidate produced by `npm run package:macos-arm64`; judges do not need the TypeScript source tree or a source build once that archive and its matching `SHA256SUMS.txt` are provided. The public v0.1.10 release and earlier releases remain immutable historical evidence and must not be substituted for the v0.1.11 candidate.
 
 v0.1.10 preserves the v0.1.5 Japanese/English UI and the v0.1.4 Plugin
 isolation, re-entry sentinel, custom Codex
@@ -20,6 +20,10 @@ for the task and decision content. The unchanged authoritative source is
 expandable, and translation cannot alter IDs, decisions, contracts, hashes,
 execution, or reports. Invalid or unavailable translation falls back visibly
 to source text without inferring approval.
+v0.1.11 removes numeric Codex version gates. It validates one shared consumed
+normal-schema profile and a bounded private-temp semantic canary before reading
+the target repository, binds the attestation into the contract, and remeasures
+before approval and run.
 
 ## Supported platform and prerequisites
 
@@ -27,7 +31,7 @@ to source text without inferring approval.
 - Node.js 24.15 or newer
 - npm 11 or newer (used only by the dependency-free safe fixture's test script)
 - Git
-- `codex-cli 0.144.4`
+- a Codex CLI whose normal schema, handshake, and bounded canary are compatible
 - an existing authenticated Codex CLI session
 
 Check the last prerequisite with:
@@ -38,6 +42,8 @@ codex login status
 ```
 
 PromptTripwire starts `codex app-server` and reuses that authenticated Codex session for probes, GPT-5.6 comparison, and execution. Do not create or configure `OPENAI_API_KEY`; PromptTripwire neither requires nor reads one.
+Historical 0.144.4 and current 0.144.6 evidence are known-good guarantees, not
+an allowlist. The runtime does not branch on the version number.
 
 ## Verify, unpack, and install
 
@@ -45,14 +51,14 @@ Place the `.tar.gz` and `SHA256SUMS.txt` files in the same directory, then run:
 
 ```sh
 shasum -a 256 -c SHA256SUMS.txt
-tar -xzf prompt-tripwire-v0.1.10-macos-arm64.tar.gz
-cd prompt-tripwire-v0.1.10-macos-arm64
+tar -xzf prompt-tripwire-v0.1.11-macos-arm64.tar.gz
+cd prompt-tripwire-v0.1.11-macos-arm64
 ./bin/tripwire --version
 ./bin/tripwire --help
 ```
 
 Do not use a historical release's SHA-256 for this archive. Verify only with
-the `SHA256SUMS.txt` downloaded alongside the v0.1.10 archive.
+the `SHA256SUMS.txt` produced alongside the v0.1.11 archive.
 
 The shortest user-local setup installs the runtime and Codex Plugin together
 and requires no `sudo`:
@@ -85,9 +91,9 @@ restrictions remain unchanged. If the permission is denied, preflight stops;
 do not configure an API key as a workaround.
 
 The default runtime and marketplace root is
-`~/.local/lib/prompt-tripwire/0.1.10`. The marketplace retains the relative
+`~/.local/lib/prompt-tripwire/0.1.11`. The marketplace retains the relative
 `./plugins/prompt-tripwire` source. The installer verifies macOS arm64, Node.js,
-Git, Codex 0.144.4, and the existing login; it never runs inspect, decisions,
+Git, the Codex command/version-output shape, and the existing login; it never gates on a numeric Codex version or runs inspect, decisions,
 approval, or implementation. It does not require `OPENAI_API_KEY`.
 An install or upgrade is staged and verified before it is committed. Launchers
 are switched atomically; covered local, marketplace, or Plugin failures restore
@@ -100,7 +106,7 @@ Add `~/.local/bin` to `PATH` if using the runtime directly. To remove the
 Plugin, its owned marketplace registration, and runtime together:
 
 ```sh
-~/.local/lib/prompt-tripwire/0.1.10/uninstall.sh --with-codex-plugin
+~/.local/lib/prompt-tripwire/0.1.11/uninstall.sh --with-codex-plugin
 ```
 
 The targeted uninstall leaves every other Plugin and marketplace untouched and
@@ -116,18 +122,21 @@ private, version-matched ownership marker and refuses an unowned, symlinked, or
 incomplete destination. If the marketplace is configured elsewhere, its Plugin
 and registration are preserved. Set `PROMPT_TRIPWIRE_PREFIX` for both commands
 to use another user-owned prefix.
+Uninstall does not require a Codex version. If the Codex command is missing, it
+removes owned local files without guessing or editing global Codex settings and
+prints the registration that remains for later targeted cleanup.
 
 For a Git-marketplace fallback, first keep the artifact's `tripwire` launcher
 on `PATH` or set `PROMPT_TRIPWIRE_BIN`, then run:
 
 ```sh
-codex plugin marketplace add shuto-S/prompt-tripwire --ref v0.1.10
+codex plugin marketplace add shuto-S/prompt-tripwire --ref main
 codex plugin add prompt-tripwire@prompt-tripwire-local
 codex plugin list --marketplace prompt-tripwire-local
 ```
 
-Use `--ref main` only for deliberate development-branch testing, not for the
-release-matched judge path.
+Replace `main` with the matching v0.1.11 tag after publication. The Plugin and
+runtime versions must match.
 
 The Skill always stops for human Decision Inbox choices and explicit contract
 approval. Neither the installer nor the calling Codex task may approve on the
@@ -259,8 +268,9 @@ The report should contain the contract hash, Codex/App Server identifiers, obser
 ## Safety boundaries
 
 - Planning uses separate fresh threads with identical task/snapshot inputs.
+- Before target-repository access, PromptTripwire resolves and digests the Codex executable, validates a fresh normal schema against one version-independent consumed-surface profile, and runs a private-temp, read-only, network-denied, tool-free canary through that same process. Approval and run require an exact fresh attestation match. Additive optional schema is tolerated, but an unknown request or enum observed at runtime is denied and interrupts.
 - Planning worktrees are read-only; network, project scripts, interpreters, package managers, and writes are denied. Before any probe thread starts, every materialized symlink must resolve canonically inside its disposable worktree; root/CWD/action containment is checked again for each static-read approval.
-- The pinned App Server's exact `/bin/zsh -c` and `/bin/zsh -lc` command envelopes are cross-validated against their structured actions. App Server runs with an empty private runtime-owned `ZDOTDIR`; missing raw commands, failed unsafe items, and direct `.git` metadata reads fail closed.
+- The supported App Server `/bin/zsh -c` and `/bin/zsh -lc` command envelopes are cross-validated against their structured actions. App Server runs with an empty private runtime-owned `ZDOTDIR`; missing raw commands, failed unsafe items, and direct `.git` metadata reads fail closed.
 - GPT-5.6 comparison runs in a fresh empty directory with no tools, network, MCP, apps, or subagents.
 - `deterministic-v2` evaluates the normalized original task as well as validated plans. Task-only safety evidence never claims probe support, and narrow dependency no-change declarations do not hide a later positive contrast clause.
 - Execution uses another disposable worktree. Network, remote writes, deploy, publish, release, migration application, production data, credentials, and permission expansion remain denied in P0 even if local preparation is approved.
@@ -271,7 +281,8 @@ The report should contain the contract hash, Codex/App Server identifiers, obser
 
 ## Troubleshooting
 
-- `CODEX_VERSION_MISMATCH`: install exactly `codex-cli 0.144.4`; schema drift is fail-closed.
+- `CODEX_COMPATIBILITY_FAILED`: the resolved Codex command could not provide the required normal-schema/handshake/canary behavior. Check `codex login status`, command availability, and the reported missing surface; changing only the version number is not a fix.
+- `CODEX_COMPATIBILITY_DRIFT`: the executable or measured behavior changed after inspect. The prior approval is stale; inspect again after stabilizing the Codex installation.
 - `DIRTY_CHOICE_REQUIRED`: the source repository is dirty. Use `--dirty committed` to inspect the committed snapshot or `--dirty include` to bind the approved patch.
 - Login/usage error: run `codex login status`, sign in with the normal Codex flow if needed, and retry. Do not add an API key specifically for PromptTripwire.
 - `INSUFFICIENT_VALID_PROBES: request failed` from an invocation inside the caller shell sandbox: the sandbox may have blocked the nested App Server's model request. Allow one retry of only the adapter command through the normal Codex command-permission prompt. If that permission is denied or the retry fails, stop and report the failure; do not disable the re-entry guard, relax PromptTripwire policy, or add an API key.

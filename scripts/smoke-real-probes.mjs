@@ -2,16 +2,14 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
   AppServerError,
-  CodexAppServerClient,
+  CodexCompatibilityVerifier,
   ProbeCoordinator,
-  ProcessJsonRpcTransport,
-  REQUIRED_CODEX_VERSION,
 } from "../packages/codex-app-server/dist/index.js";
 import { prepareRepositorySnapshot } from "../packages/git-snapshot/dist/index.js";
 
@@ -52,20 +50,11 @@ async function createFixture() {
 
 async function main() {
   const diagnosticOne = process.argv.includes("--diagnostic-one");
-  const repository = await createFixture();
-  const runtimeRoot = await mkdtemp(join(tmpdir(), "prompt-tripwire-real-probe-runtime-"));
-  let client = null;
+  const session = await new CodexCompatibilityVerifier().open();
+  let repository = null;
   try {
-    await chmod(runtimeRoot, 0o700);
-    const shellStartupDirectory = join(runtimeRoot, "zsh-startup");
-    await mkdir(shellStartupDirectory, { mode: 0o700 });
-    const transport = ProcessJsonRpcTransport.start({
-      cwd: runtimeRoot,
-      shellStartupDirectory,
-    });
-    client = new CodexAppServerClient(transport);
-    await client.initialize();
-    const models = await client.listModels();
+    repository = await createFixture();
+    const models = await session.client.listModels();
     const selected = models.find((model) => model.isDefault) ?? models[0];
     assert(selected, "App Server advertised no model");
     const reasoningEffort = selected.supportedReasoningEfforts.includes(
@@ -79,11 +68,12 @@ async function main() {
       repositoryPath: repository,
       task: "Add a --dry-run option that validates the NAME argument and explains what greeting would be printed without printing the greeting itself.",
       model: { id: selected.model, reasoningEffort },
-      codexVersion: REQUIRED_CODEX_VERSION,
-      promptTripwireVersion: "0.1.10",
+      codexVersion: session.attestation.codexVersion,
+      compatibilityAttestation: session.attestation,
+      promptTripwireVersion: "0.1.11",
       effectiveConfig: { probeCount: 3, network: "deny" },
     });
-    const result = await new ProbeCoordinator(client).run({
+    const result = await new ProbeCoordinator(session.client).run({
       prepared,
       timeoutMs: 180_000,
       probeCount: diagnosticOne ? 1 : 3,
@@ -91,7 +81,8 @@ async function main() {
     });
     const completed = result.attempts.filter((attempt) => attempt.state === "completed");
     const evidence = {
-      codexVersion: REQUIRED_CODEX_VERSION,
+      codexVersion: session.attestation.codexVersion,
+      compatibilityFingerprint: session.attestation.compatibilityFingerprint,
       model: result.model,
       reasoningEffort: result.reasoningEffort,
       snapshotHash: result.snapshotHash,
@@ -124,9 +115,8 @@ async function main() {
     assert.equal(evidence.allWorktreesCleaned, true, "real probe worktree cleanup failed");
     assert.equal(evidence.originalCheckoutClean, true, "real probes changed the source checkout");
   } finally {
-    if (client !== null) await client.close();
-    await rm(runtimeRoot, { recursive: true, force: true });
-    await rm(repository, { recursive: true, force: true });
+    await session.close();
+    if (repository !== null) await rm(repository, { recursive: true, force: true });
   }
 }
 

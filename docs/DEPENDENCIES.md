@@ -18,11 +18,12 @@ Runtime persistence uses the built-in `node:sqlite` module from Node.js 24.15+; 
 | `globals` | 17.7.0 | MIT | Node global identifiers for ESLint flat config |
 | `prettier` | 3.9.5 | MIT | Deterministic code/config formatting check |
 
-## CI-only tool
+## External Codex command
 
-| Package | Version | License | Purpose |
-|---|---:|---|---|
-| `@openai/codex` | 0.144.4 | Apache-2.0 | Generate and verify the pinned normal App Server schema |
+Codex CLI is not installed or version-pinned as an npm dependency.
+Development, CI, and runtime checks use the already installed command and
+measure its normal-schema/handshake/canary compatibility without a per-version
+branch. Known-good version guarantees are documented in `README.md`.
 
 ## Direct runtime dependencies
 

@@ -7,6 +7,7 @@ import test from "node:test";
 
 import { formatCliError, runCli } from "../../apps/cli/dist/index.js";
 import { InspectionRunError, LocalController } from "../../apps/controller/dist/index.js";
+import { AppServerError } from "../../packages/codex-app-server/dist/index.js";
 import {
   createExecutionContract,
   createRepositorySnapshot,
@@ -15,6 +16,32 @@ import { PersistenceError, SqlitePersistence } from "../../packages/persistence/
 
 const HASH_A = "a".repeat(64);
 const HASH_B = "b".repeat(64);
+
+function compatibilityAttestation(overrides = {}) {
+  const base = {
+    executableRealpath: "/usr/local/bin/codex",
+    executableSha256: "c".repeat(64),
+    codexVersion: "9.9.9",
+    profileVersion: 1,
+    schemaFingerprint: "d".repeat(64),
+    canaryFingerprint: "e".repeat(64),
+    compatibilityFingerprint: "f".repeat(64),
+  };
+  return { ...base, ...overrides };
+}
+
+function staticCompatibilityPort(attestation = compatibilityAttestation()) {
+  return {
+    async open() {
+      return {
+        attestation,
+        client: {},
+        runtimeRoot: "/private/tmp/prompt-tripwire-compatible-session",
+        async close() {},
+      };
+    },
+  };
+}
 
 function snapshot(overrides = {}) {
   return createRepositorySnapshot({
@@ -117,6 +144,9 @@ function prepared(repositorySnapshot) {
       task: repositorySnapshot.task,
       model: repositorySnapshot.model,
       codexVersion: repositorySnapshot.codexVersion,
+      ...(repositorySnapshot.compatibilityAttestation === undefined
+        ? {}
+        : { compatibilityAttestation: repositorySnapshot.compatibilityAttestation }),
       promptTripwireVersion: repositorySnapshot.promptTripwireVersion,
       contentMode: "committed_only",
       effectiveConfigHash: repositorySnapshot.configHash,
@@ -125,6 +155,140 @@ function prepared(repositorySnapshot) {
     },
   };
 }
+
+test("compatibility is measured before snapshot access and drift stales approval and run", async () => {
+  const paths = await storage();
+  const store = open(paths);
+  const attestationA = compatibilityAttestation();
+  const attestationB = compatibilityAttestation({
+    executableSha256: "1".repeat(64),
+    compatibilityFingerprint: "2".repeat(64),
+  });
+  const repositorySnapshot = snapshot({
+    codexVersion: attestationA.codexVersion,
+    compatibilityAttestation: attestationA,
+  });
+  let activeAttestation = attestationA;
+  let verificationFailure = null;
+  let compatibilityOpened = 0;
+  let snapshotReads = 0;
+  let executionStarts = 0;
+  const compatibilityPort = {
+    async open() {
+      compatibilityOpened += 1;
+      if (verificationFailure !== null) throw verificationFailure;
+      let closed = false;
+      return {
+        attestation: activeAttestation,
+        client: {},
+        runtimeRoot: "/private/tmp/prompt-tripwire-compatible-session",
+        async close() {
+          closed = true;
+        },
+        get closed() {
+          return closed;
+        },
+      };
+    },
+  };
+  const controller = new LocalController({
+    store,
+    compatibilityPort,
+    prepareSnapshot: async (request) => {
+      assert.ok(
+        compatibilityOpened > snapshotReads,
+        "compatibility must precede repository access",
+      );
+      snapshotReads += 1;
+      assert.deepEqual(request.compatibilityAttestation, activeAttestation);
+      return prepared(repositorySnapshot);
+    },
+    inspectionPort: {
+      async inspect(context) {
+        assert.deepEqual(context.compatibilitySession.attestation, activeAttestation);
+        return {
+          blockingDecisionIds: [],
+          contract: contract(context.run.runId, repositorySnapshot),
+        };
+      },
+    },
+    executionPort: {
+      async start(context) {
+        executionStarts += 1;
+        assert.deepEqual(context.compatibilitySession.attestation, activeAttestation);
+        return { outcome: "completed", errorCode: null };
+      },
+      async interrupt() {},
+    },
+  });
+  controller.start();
+
+  const approvalCandidate = await controller.inspect({
+    runId: "run_compatibility_approval_drift",
+    repositoryPath: repositorySnapshot.repositoryPath,
+    task: repositorySnapshot.task,
+    model: repositorySnapshot.model,
+    promptTripwireVersion: repositorySnapshot.promptTripwireVersion,
+  });
+  activeAttestation = attestationB;
+  await assert.rejects(
+    controller.approve({
+      runId: approvalCandidate.runId,
+      contractId: approvalCandidate.activeContractId,
+      expectedVersion: approvalCandidate.version,
+      idempotencyKey: "approve-compatibility-drift",
+    }),
+    (error) => error instanceof AppServerError && error.code === "CODEX_COMPATIBILITY_DRIFT",
+  );
+  assert.equal(store.getRun(approvalCandidate.runId).run.state, "stale");
+
+  activeAttestation = attestationA;
+  const runCandidate = await controller.inspect({
+    runId: "run_compatibility_execution_drift",
+    repositoryPath: repositorySnapshot.repositoryPath,
+    task: repositorySnapshot.task,
+    model: repositorySnapshot.model,
+    promptTripwireVersion: repositorySnapshot.promptTripwireVersion,
+  });
+  const approved = await controller.approve({
+    runId: runCandidate.runId,
+    contractId: runCandidate.activeContractId,
+    expectedVersion: runCandidate.version,
+    idempotencyKey: "approve-compatible",
+  });
+  activeAttestation = attestationB;
+  await assert.rejects(
+    controller.run({
+      contractId: approved.activeContractId,
+      expectedVersion: approved.version,
+      idempotencyKey: "run-compatibility-drift",
+    }),
+    (error) => error instanceof AppServerError && error.code === "CODEX_COMPATIBILITY_DRIFT",
+  );
+  assert.equal(store.getRun(runCandidate.runId).run.state, "stale");
+  assert.equal(executionStarts, 0, "execution must not begin after compatibility drift");
+
+  activeAttestation = attestationA;
+  const failureCandidate = await controller.inspect({
+    runId: "run_compatibility_canary_failure",
+    repositoryPath: repositorySnapshot.repositoryPath,
+    task: repositorySnapshot.task,
+    model: repositorySnapshot.model,
+    promptTripwireVersion: repositorySnapshot.promptTripwireVersion,
+  });
+  verificationFailure = new AppServerError("CODEX_COMPATIBILITY_FAILED", "bounded canary failed");
+  await assert.rejects(
+    controller.approve({
+      runId: failureCandidate.runId,
+      contractId: failureCandidate.activeContractId,
+      expectedVersion: failureCandidate.version,
+      idempotencyKey: "approve-canary-failure",
+    }),
+    (error) => error instanceof AppServerError && error.code === "CODEX_COMPATIBILITY_FAILED",
+  );
+  assert.equal(store.getRun(failureCandidate.runId).run.state, "stale");
+  await controller.stop();
+});
 
 test("AC-016: restart preserves paused/unapproved runs and recovers running to paused", async () => {
   const paths = await storage();
@@ -688,6 +852,7 @@ test("FR-001 fixture accepts task text and a UTF-8 task file", async () => {
         createController: (store) =>
           new LocalController({
             store,
+            compatibilityPort: staticCompatibilityPort(),
             inspectionPort: {
               async inspect(context) {
                 return {
@@ -725,6 +890,7 @@ test("FR-001 fixture accepts task text and a UTF-8 task file", async () => {
         createController: (store) =>
           new LocalController({
             store,
+            compatibilityPort: staticCompatibilityPort(),
             inspectionPort: {
               async inspect(context) {
                 return {
@@ -778,6 +944,7 @@ test("AC-006/AC-015: inspect opens the Decision Inbox only when review is useful
         createController: (store) =>
           new LocalController({
             store,
+            compatibilityPort: staticCompatibilityPort(),
             inspectionPort: {
               async inspect() {
                 return { blockingDecisionIds: ["decision_fixture"], contract: null };
@@ -822,6 +989,7 @@ test("AC-006/AC-015: inspect opens the Decision Inbox only when review is useful
           createController: (store) =>
             new LocalController({
               store,
+              compatibilityPort: staticCompatibilityPort(),
               inspectionPort: {
                 async inspect(context) {
                   return {
@@ -867,6 +1035,7 @@ test("AC-006/AC-015: inspect opens the Decision Inbox only when review is useful
           createController: (store) =>
             new LocalController({
               store,
+              compatibilityPort: staticCompatibilityPort(),
               inspectionPort: {
                 async inspect() {
                   return { blockingDecisionIds: ["decision_fixture"], contract: null };
@@ -891,11 +1060,11 @@ test("FR-002/AC-019: CLI errors give safe, actionable setup guidance", () => {
   );
   assert.equal(
     formatCliError(
-      Object.assign(new Error("Codex 0.144.4 is required; detected 0.143.0"), {
-        code: "CODEX_VERSION_MISMATCH",
+      Object.assign(new Error("Codex omitted required normal-schema method model/list"), {
+        code: "CODEX_COMPATIBILITY_FAILED",
       }),
     ),
-    "CODEX_VERSION_MISMATCH: Codex 0.144.4 is required; detected 0.143.0\n",
+    "CODEX_COMPATIBILITY_FAILED: Codex omitted required normal-schema method model/list\n",
   );
   assert.equal(
     formatCliError(new Error("contains private implementation detail")),
@@ -942,6 +1111,7 @@ test("FR-002/AC-019: failed inspection reports its persisted run ID without leak
         createController: (store) =>
           new LocalController({
             store,
+            compatibilityPort: staticCompatibilityPort(),
             inspectionPort: {
               async inspect() {
                 throw Object.assign(

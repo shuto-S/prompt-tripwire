@@ -76,13 +76,17 @@ assert.match(script, /caller shell sandbox may have blocked/iu);
 assert.match(script, /not a PromptTripwire decision.*contract approval/isu);
 assert.match(script, /retry the same inspect once/iu);
 assert.match(script, new RegExp(`REQUIRED_TRIPWIRE_VERSION = "${packageJson.version}"`, "u"));
+assert.doesNotMatch(script, /REQUIRED_CODEX_VERSION|CODEX_VERSION_MISMATCH/u);
 assert.match(installTemplate, /--with-codex-plugin/u);
 assert.match(installTemplate, /plugin marketplace add/u);
 assert.match(installTemplate, /plugin add "\$PLUGIN_SELECTOR"/u);
 assert.match(installTemplate, /plugin list --json/u);
+assert.doesNotMatch(installTemplate, /CODEX_VERSION_MISMATCH|0\.144\.4/u);
 assert.doesNotMatch(installTemplate, /\b(?:inspect|approve|run)\b/u);
 assert.match(uninstallTemplate, /plugin remove "\$PLUGIN_SELECTOR"/u);
 assert.match(uninstallTemplate, /marketplace remove "\$MARKETPLACE_NAME"/u);
+assert.doesNotMatch(uninstallTemplate, /CODEX_VERSION_MISMATCH|0\.144\.4/u);
+assert.match(uninstallTemplate, /CODEX_REGISTRATION_UNVERIFIED/u);
 for (const file of [
   manifestPath,
   marketplacePath,

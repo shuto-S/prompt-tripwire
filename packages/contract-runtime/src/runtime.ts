@@ -6,6 +6,7 @@ import { join } from "node:path";
 import {
   CodexAppServerClient,
   ProcessJsonRpcTransport,
+  type CodexCompatibilitySession,
   type JsonRpcTransport,
 } from "@prompt-tripwire/codex-app-server";
 import {
@@ -37,6 +38,7 @@ export interface RuntimeExecutionContext {
   readonly preparedSnapshot?: PreparedRepositorySnapshot;
   readonly store: SqlitePersistence;
   readonly signal: AbortSignal;
+  readonly compatibilitySession?: CodexCompatibilitySession;
 }
 
 export interface RuntimeExecutionEvidence {
@@ -129,7 +131,7 @@ function executionInstructions(contract: ExecutionContract): string {
     "You are the single PromptTripwire contract-bound execution agent.",
     "Implement only the approved goal and behaviors inside the machine-readable contract below.",
     "Use apply_patch, not shell commands, for every file modification, and modify only approved paths.",
-    "For repository inspection, issue only one structured read at a time using ls, find, rg, cat, head, tail, or wc. Never use pwd or sed because Codex 0.144.4 reports them as unknown actions.",
+    "For repository inspection, issue only one structured read at a time using ls, find, rg, cat, head, tail, or wc. Never use pwd or sed because PromptTripwire does not accept them as structured static-read actions.",
     "Never use shell redirection, command chaining, interpreters, package-manager commands, or ad hoc verification during the implementation turn.",
     "Do not use network access, MCP/apps, browser/computer tools, subagents, dependency changes, permission expansion, external services, Git writes, deploy, release, or migration actions.",
     "Do not run verification commands; PromptTripwire runs the exact required checks after your turn.",
@@ -209,12 +211,23 @@ export class ContractExecutionPort {
         ),
       };
     }
+    if (context.compatibilitySession === undefined && this.options.createTransport === undefined) {
+      return {
+        outcome: "failed",
+        errorCode: "CODEX_COMPATIBILITY_REQUIRED",
+        evidence: emptyEvidence(
+          context.contract,
+          "Execution did not start because a verified Codex App Server session was unavailable.",
+        ),
+      };
+    }
 
     let worktree: DisposableWorktree | null = null;
     let client: CodexAppServerClient | null = null;
     let execution: ExecutionRecord | null = null;
     let gate: ContractExecutionGate | null = null;
     let appServerRuntimeRoot: string | null = null;
+    let ownsClient = false;
     let changedPaths: readonly string[] = [];
     let diffWithinContract: boolean | null = null;
     let threadId: string | null = null;
@@ -224,6 +237,10 @@ export class ContractExecutionPort {
     const unknowns: string[] = [];
 
     try {
+      if (context.compatibilitySession !== undefined) {
+        client = context.compatibilitySession.client;
+        this.active.set(context.run.runId, { client, threadId: null, turnId: null });
+      }
       worktree = await createDisposableWorktree(prepared, {
         kind: "execution",
         ...(this.options.temporaryParent === undefined
@@ -258,23 +275,26 @@ export class ContractExecutionPort {
         protectedPaths: context.contract.protectedPaths,
       });
       gate = new ContractExecutionGate(context.contract, monitor);
-      let transport: JsonRpcTransport;
-      if (this.options.createTransport !== undefined) {
-        transport = this.options.createTransport(worktree.cwd);
-      } else {
-        appServerRuntimeRoot = await mkdtemp(join(tmpdir(), "prompt-tripwire-app-server-"));
-        await chmod(appServerRuntimeRoot, 0o700);
-        const shellStartupDirectory = join(appServerRuntimeRoot, "zsh-startup");
-        await mkdir(shellStartupDirectory, { mode: 0o700 });
-        transport = ProcessJsonRpcTransport.start({
-          cwd: worktree.cwd,
-          shellStartupDirectory,
-        });
+      if (client === null) {
+        let transport: JsonRpcTransport;
+        if (this.options.createTransport !== undefined) {
+          transport = this.options.createTransport(worktree.cwd);
+        } else {
+          appServerRuntimeRoot = await mkdtemp(join(tmpdir(), "prompt-tripwire-app-server-"));
+          await chmod(appServerRuntimeRoot, 0o700);
+          const shellStartupDirectory = join(appServerRuntimeRoot, "zsh-startup");
+          await mkdir(shellStartupDirectory, { mode: 0o700 });
+          transport = ProcessJsonRpcTransport.start({
+            cwd: worktree.cwd,
+            shellStartupDirectory,
+          });
+        }
+        client = new CodexAppServerClient(transport);
+        ownsClient = true;
+        await client.initialize();
       }
-      client = new CodexAppServerClient(transport);
       const active: ActiveExecution = { client, threadId: null, turnId: null };
       this.active.set(context.run.runId, active);
-      await client.initialize();
       const result = await client.runContractExecution({
         cwd: worktree.cwd,
         model: context.contract.modelVersions.codex,
@@ -358,7 +378,7 @@ export class ContractExecutionPort {
       unknowns.push("Execution ended before all App Server outcomes could be observed.");
     } finally {
       this.active.delete(context.run.runId);
-      if (client !== null) {
+      if (client !== null && ownsClient) {
         try {
           await client.close();
         } catch {

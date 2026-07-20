@@ -744,7 +744,7 @@ test("AC-012: an amended contract starts a new thread and clean worktree", async
     assert.equal(ready.state, "ready_for_approval");
     const amendedContract = persisted.store.getContract(ready.activeContractId);
     assert.equal(amendedContract.version, 2);
-    const reapproved = controller.approve({
+    const reapproved = await controller.approve({
       runId: ready.runId,
       contractId: amendedContract.contractId,
       expectedVersion: ready.version,

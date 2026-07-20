@@ -15,17 +15,17 @@ import {
   renderTerminalReview,
   renderTerminalStatus,
 } from "@prompt-tripwire/controller";
+import { CodexCompatibilityVerifier } from "@prompt-tripwire/codex-app-server";
 import { ContractExecutionPort } from "@prompt-tripwire/contract-runtime";
 import {
   canonicalHash,
   renderRunReportMarkdown,
   serializeRunReportJson,
 } from "@prompt-tripwire/domain";
-import { prepareRepositorySnapshot } from "@prompt-tripwire/git-snapshot";
 import { SqlitePersistence } from "@prompt-tripwire/persistence";
 import { startReviewServer } from "@prompt-tripwire/ui";
 
-export const CLI_FOUNDATION = Object.freeze({ name: "cli", version: "0.1.10" });
+export const CLI_FOUNDATION = Object.freeze({ name: "cli", version: "0.1.11" });
 
 const HELP = `PromptTripwire ${CLI_FOUNDATION.version}
 
@@ -77,7 +77,7 @@ export function formatCliError(error: unknown): string {
   const detailError =
     error instanceof InspectionRunError && error.cause instanceof Error ? error.cause : error;
   if (
-    code === "CODEX_VERSION_MISMATCH" &&
+    ["CODEX_COMPATIBILITY_FAILED", "CODEX_COMPATIBILITY_DRIFT"].includes(code) &&
     detailError instanceof Error &&
     detailError.message.length > 0
   ) {
@@ -246,11 +246,15 @@ export async function runCli(
   });
   const controller =
     dependencies.createController?.(store) ??
-    new LocalController({
-      store,
-      inspectionPort: new DefaultInspectionPort(),
-      executionPort: new ContractExecutionPort(),
-    });
+    (() => {
+      const compatibility = new CodexCompatibilityVerifier();
+      return new LocalController({
+        store,
+        compatibilityPort: compatibility,
+        inspectionPort: new DefaultInspectionPort(),
+        executionPort: new ContractExecutionPort(),
+      });
+    })();
   let started = false;
   try {
     controller.start();
@@ -278,7 +282,6 @@ export async function runCli(
           repositoryPath: resolve(parsed.values.repo ?? dependencies.cwd ?? process.cwd()),
           task,
           model: { id: "gpt-5.6-sol", reasoningEffort: "low" },
-          codexVersion: "0.144.4",
           promptTripwireVersion: CLI_FOUNDATION.version,
           ...(dirtyChoice === undefined ? {} : { dirtyChoice }),
         });
@@ -319,7 +322,7 @@ export async function runCli(
             parsed.values.contract ?? review.run.activeContractId ?? undefined,
             "--contract or active contract",
           );
-          controller.approve({
+          await controller.approve({
             runId,
             contractId,
             expectedVersion: version,
@@ -381,7 +384,7 @@ export async function runCli(
           "--contract or active contract",
         );
         const version = expectedVersion(parsed.values["expected-version"], review.run.version);
-        const run = controller.approve({
+        const run = await controller.approve({
           runId,
           contractId,
           expectedVersion: version,
@@ -404,19 +407,8 @@ export async function runCli(
           io.stdout.write(renderTerminalStatus(current, store.listEvents(current.runId)));
           return 0;
         }
-        const approved = store.getSnapshot(contract.snapshotHash);
-        const prepared = await prepareRepositorySnapshot({
-          repositoryPath: approved.repositoryPath,
-          task: approved.task,
-          model: approved.model,
-          codexVersion: approved.codexVersion,
-          promptTripwireVersion: approved.promptTripwireVersion,
-          dirtyChoice: approved.dirtyPatchHash === null ? "committed_only" : "include_patch",
-        });
         const run = await controller.run({
           contractId,
-          currentSnapshot: prepared.snapshot,
-          preparedSnapshot: prepared,
           expectedVersion: current.version,
           idempotencyKey: `cli:start:${contractId}`,
         });

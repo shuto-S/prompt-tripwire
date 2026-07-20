@@ -6,14 +6,15 @@ import { redactText } from "@prompt-tripwire/policy";
 import { AppServerError } from "./errors.js";
 import type { JsonRpcTransport, JsonRpcTransportClose } from "./types.js";
 
-export const REQUIRED_CODEX_VERSION = "0.144.4";
 const MAX_JSON_LINE_BYTES = 2 * 1024 * 1024;
 const PLUGIN_REENTRY_ENV = "PROMPT_TRIPWIRE_PLUGIN_REENTRY";
 
 type MessageListener = (message: unknown) => void;
 type CloseListener = (event: JsonRpcTransportClose) => void;
 
-function minimalAppServerEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+export function minimalAppServerEnvironment(
+  source: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
   const allowed = [
     "CODEX_HOME",
     "HOME",
@@ -79,28 +80,18 @@ export function detectedCodexVersion(codexPath = "codex"): string {
     env: minimalAppServerEnvironment(),
   });
   if (result.status !== 0) {
-    throw new AppServerError("CODEX_VERSION_MISMATCH", "Codex version could not be verified");
+    throw new AppServerError("CODEX_COMPATIBILITY_FAILED", "Codex version could not be verified");
   }
   const match = result.stdout.trim().match(/^codex-cli\s+(\S+)$/u);
   if (!match?.[1]) {
-    throw new AppServerError("CODEX_VERSION_MISMATCH", "Codex version output was invalid");
+    throw new AppServerError("CODEX_COMPATIBILITY_FAILED", "Codex version output was invalid");
   }
   return match[1];
-}
-
-export function assertCodexVersion(version: string): void {
-  if (version !== REQUIRED_CODEX_VERSION) {
-    throw new AppServerError(
-      "CODEX_VERSION_MISMATCH",
-      `Codex ${REQUIRED_CODEX_VERSION} is required; detected ${version}`,
-    );
-  }
 }
 
 export interface ProcessTransportOptions {
   readonly codexPath?: string;
   readonly cwd: string;
-  readonly detectedVersion?: () => string;
   readonly shellStartupDirectory: string;
 }
 
@@ -135,7 +126,6 @@ export class ProcessJsonRpcTransport implements JsonRpcTransport {
 
   static start(options: ProcessTransportOptions): ProcessJsonRpcTransport {
     const codexPath = options.codexPath ?? "codex";
-    assertCodexVersion((options.detectedVersion ?? (() => detectedCodexVersion(codexPath)))());
     const environment = minimalAppServerEnvironment();
     const shellEnvironmentArgs = [
       "-c",

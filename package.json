@@ -1,6 +1,6 @@
 {
   "name": "prompt-tripwire",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "private": true,
   "license": "Apache-2.0",
   "description": "Local-first preflight and execution gate for Codex",
@@ -28,7 +28,7 @@
     "check": "node scripts/run-checks.mjs",
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "check:versions": "node scripts/check-versions.mjs",
-    "check:schema": "node scripts/spikes/codex-app-server.mjs schema",
+    "check:schema": "tsc -b packages/codex-app-server --pretty false && node scripts/spikes/codex-app-server.mjs schema",
     "check:licenses": "node scripts/check-licenses.mjs",
     "check:security": "node scripts/check-security.mjs",
     "check:plugin": "node scripts/check-plugin.mjs",

@@ -563,7 +563,7 @@ export async function startReviewServer(options: ReviewServerOptions): Promise<R
         const runId = decodeURIComponent(requiredString(approveApi[1], "runId"));
         const body = await readJson(request, requestBodyTimeoutMs);
         if (!enforceRequestBoundary(response)) return;
-        const run = options.controller.approve({
+        const run = await options.controller.approve({
           runId,
           contractId: requiredString(body.contractId, "contractId"),
           expectedVersion: requiredVersion(body.expectedVersion),

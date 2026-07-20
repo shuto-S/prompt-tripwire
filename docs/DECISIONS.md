@@ -74,6 +74,8 @@ This log separates confirmed product decisions from assumptions that still requi
 
 ### D-012 — Pin Codex 0.144.4 and the normal schema
 
+**Status:** Historical v0.1.0-v0.1.10 decision; superseded by D-041 for v0.1.11 and later.
+
 **Decision:** P0 uses `codex-cli 0.144.4` over stdio and only methods/fields in the schema generated without `--experimental`. It fails before probing on CLI or canonical schema drift and never enables runtime `experimentalApi`.
 
 **Reason:** The live spike proved the required handshake, approvals, output schema, diff notifications, minimal child environment, and interruption. The umbrella command and generators are still labeled experimental, and granular approval requires the experimental capability despite appearing in the normal schema, so exact compatibility checks are required.
@@ -178,6 +180,10 @@ preflight. Keeping the adapter thin preserves the existing tested source of
 truth and makes the human approval boundary visible.
 
 ### D-028 — Reuse the existing release runtime instead of bundling or publishing
+
+**Status:** Historical v0.1.4-v0.1.10 decision. D-041 supersedes only its
+numeric Codex version requirement; the matching PromptTripwire runtime and
+re-entry boundaries remain active.
 
 **Decision:** The Plugin requires the existing macOS arm64 `tripwire` launcher.
 The unified installer records that launcher in private installed metadata;
@@ -486,6 +492,40 @@ translation into approval evidence. Reusing the authenticated App Server adds
 no API-key or hosted-service path; strict binding, source disclosure, and
 identity tests preserve the existing human-approval and contract boundaries.
 
+### D-041 — Measure Codex compatibility without version gates
+
+**Decision:** Replace D-012's numeric Codex version and full-schema hash gate
+with one version-independent, machine-readable compatibility profile shared by
+the normal-schema verifier and runtime parser. Resolve one Codex executable,
+record its realpath, digest, and reported version, generate its normal schema in
+a private temporary directory with no cache fallback, validate every consumed
+request/notification/response plus required field, type, nullability, and known
+enum, then complete a private-temp, read-only, network-denied, tool-free bounded
+canary through that same App Server process. Do not use runtime
+`experimentalApi`. Allow additive optional fields, unused methods, and unknown
+schema enum variants; if an unknown request or variant actually arrives, deny
+and interrupt.
+
+Bind the resulting profile version, normalized schema fingerprint, canary
+fingerprint, executable identity, and compatibility fingerprint into the
+repository snapshot so the contract hash includes them transitively. Repeat
+the full measurement immediately before approval and run. Any failure or exact
+attestation mismatch transactionally makes the run stale. Run must reuse the
+verified App Server process and measure before creating its worktree. Plugin
+and installers remain thin: they check command presence, version-output shape,
+login, platform, and their matching PromptTripwire runtime, but no numeric
+Codex version. Uninstall requires no Codex version and never guesses at global
+configuration when the command is absent.
+
+**Reason:** A version equality rule rejects compatible Codex updates while a
+matching version cannot itself prove protocol or semantic behavior. Measuring
+the exact executable and the small surface PromptTripwire consumes preserves
+fail-closed behavior without per-version branches. The bounded canary provides
+machine-observable semantic evidence, but cannot detect same-schema drift
+outside its behavior; that remains an explicit residual risk rather than a
+claim of universal compatibility. Historical 0.144.4 fixtures and evidence
+remain unchanged as the original validated baseline.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage
@@ -498,7 +538,7 @@ identity tests preserve the existing human-approval and contract boundaries.
 
 ### A-003 — Stable schema and minimum version
 
-**Resolution:** Pin exactly 0.144.4 for the Build Week MVP. Generate the normal schema at build/test time, canonicalize it, and compare its directory hash. Schema generation can remain a build-time experimental tool; runtime experimental capability is prohibited.
+**Resolution:** Historical v0.1.0-v0.1.10 resolution, superseded by D-041. The 0.144.4 evidence remains immutable; active runtime compatibility is measured without a numeric version gate and runtime experimental capability remains prohibited.
 
 ### A-004 — Packaging
 
@@ -522,4 +562,4 @@ identity tests preserve the existing human-approval and contract boundaries.
 
 ## Decision-change rule
 
-Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, D-034, D-035, D-036, D-037, D-038, D-039, or D-040 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.
+Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, D-034, D-035, D-036, D-037, D-038, D-039, D-040, or D-041 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.

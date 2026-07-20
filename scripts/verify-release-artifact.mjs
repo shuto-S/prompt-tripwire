@@ -96,7 +96,7 @@ maybe_fail() {
   fi
 }
 if [ "$1" = "--version" ]; then
-  printf 'codex-cli %s\\n' "\${FAKE_CODEX_VERSION:-0.144.4}"
+  printf 'codex-cli %s\\n' "\${FAKE_CODEX_VERSION:-9.9.9}"
   exit 0
 fi
 if [ "$1" = "login" ] && [ "$2" = "status" ]; then
@@ -478,6 +478,11 @@ try {
   assert.equal(releaseManifest.releaseTag, releaseTag ?? null);
   assert.equal(releaseManifest.archiveFormat, "ustar+gzip");
   assert.equal(releaseManifest.maximumArchiveBytes, maxArchiveBytes);
+  assert.equal(
+    releaseManifest.codexCompatibility,
+    "normal-schema profile v1 plus bounded semantic canary",
+  );
+  assert.ok(!("codexCompatibilityBaseline" in releaseManifest));
   if (releaseTag !== undefined) {
     assert.equal(releaseTag, `v${version}`, "release tag must match the package version");
     assert.equal(
@@ -791,6 +796,32 @@ try {
   assert.equal(existsSync(join(elsewhereState, "plugin-installed")), true);
   assert.equal(existsSync(elsewhereInstalledRoot), false);
 
+  const missingCodexState = join(root, "missing-codex-uninstall-state");
+  const missingCodexPrefix = join(root, "missing-codex-uninstall-prefix");
+  createFakeState(missingCodexState, null, false);
+  const missingCodexEnv = {
+    ...pluginInstallEnv,
+    FAKE_CODEX_STATE: missingCodexState,
+    PROMPT_TRIPWIRE_PREFIX: missingCodexPrefix,
+  };
+  run(join(distribution, "install.sh"), ["--with-codex-plugin"], { env: missingCodexEnv });
+  const missingCodexInstalledRoot = join(missingCodexPrefix, "lib", "prompt-tripwire", version);
+  const missingCodexUninstall = run(
+    join(missingCodexInstalledRoot, "uninstall.sh"),
+    ["--with-codex-plugin"],
+    {
+      env: {
+        ...missingCodexEnv,
+        PROMPT_TRIPWIRE_CODEX_BIN: join(root, "codex-is-unavailable"),
+      },
+    },
+  );
+  assert.match(missingCodexUninstall, /Plugin registration: not removed/u);
+  assert.match(missingCodexUninstall, /no global configuration was guessed or edited/u);
+  assert.equal(existsSync(missingCodexInstalledRoot), false);
+  assert.equal(existsSync(join(missingCodexState, "plugin-installed")), true);
+  assert.equal(existsSync(join(missingCodexState, "marketplace-root")), true);
+
   const nonOwnedState = join(root, "non-owned-codex-state");
   const nonOwnedPrefix = join(root, "non-owned-prefix");
   const nonOwnedRoot = join(nonOwnedPrefix, "lib", "prompt-tripwire", version);
@@ -1031,13 +1062,14 @@ if [ "$1" = "-s" ]; then printf '%s\\n' 'Linux'; else printf '%s\\n' 'x86_64'; f
       PROMPT_TRIPWIRE_PREFIX: join(root, "missing-login-prefix"),
     },
   });
-  runFailure(join(distribution, "install.sh"), ["--with-codex-plugin"], /CODEX_VERSION_MISMATCH/u, {
+  const arbitraryVersionInstall = run(join(distribution, "install.sh"), ["--with-codex-plugin"], {
     env: {
       ...pluginInstallEnv,
-      FAKE_CODEX_VERSION: "0.144.3",
-      PROMPT_TRIPWIRE_PREFIX: join(root, "wrong-codex-prefix"),
+      FAKE_CODEX_VERSION: "7.8.9",
+      PROMPT_TRIPWIRE_PREFIX: join(root, "arbitrary-codex-version-prefix"),
     },
   });
+  assert.match(arbitraryVersionInstall, /runtime and Codex Plugin\./u);
 
   const rollbackState = join(root, "rollback-codex-state");
   const rollbackMarketplace = join(root, "rollback-marketplace-root");

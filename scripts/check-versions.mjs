@@ -6,7 +6,6 @@ import { spawnSync } from "node:child_process";
 const MINIMUM_NODE_MAJOR = 24;
 const MINIMUM_NODE_MINOR = 15;
 const MINIMUM_NPM_MAJOR = 11;
-const REQUIRED_CODEX_VERSION = "0.144.4";
 
 function commandOutput(command, args) {
   const result = spawnSync(command, args, { encoding: "utf8" });
@@ -32,12 +31,13 @@ assert(
   Number.parseInt(npmVersion, 10) >= MINIMUM_NPM_MAJOR,
   `npm ${MINIMUM_NPM_MAJOR}+ required, detected ${npmVersion}`,
 );
-assert.equal(
-  codexMatch[1],
-  REQUIRED_CODEX_VERSION,
-  `Codex ${REQUIRED_CODEX_VERSION} required, detected ${codexMatch[1]}`,
-);
+assert.match(codexMatch[1], /^\d+\.\d+\.\d+(?:[-+].*)?$/u, "Codex version must be semantic");
 
 process.stdout.write(
-  `${JSON.stringify({ node: nodeVersion, npm: npmVersion, codex: codexMatch[1] })}\n`,
+  `${JSON.stringify({
+    node: nodeVersion,
+    npm: npmVersion,
+    codex: codexMatch[1],
+    compatibility: "measured at runtime from normal schema and bounded canary",
+  })}\n`,
 );

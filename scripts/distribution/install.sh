@@ -2,7 +2,6 @@
 set -eu
 
 VERSION="__PROMPT_TRIPWIRE_VERSION__"
-REQUIRED_CODEX_VERSION="0.144.4"
 PLUGIN_NAME="prompt-tripwire"
 MARKETPLACE_NAME="prompt-tripwire-local"
 PLUGIN_SELECTOR="$PLUGIN_NAME@$MARKETPLACE_NAME"
@@ -51,11 +50,13 @@ if [ "$WITH_CODEX_PLUGIN" -eq 1 ]; then
     fail "NODE_VERSION_MISMATCH: Node.js 24.15 or newer is required."
   command -v git >/dev/null 2>&1 || fail "GIT_NOT_FOUND: Git is required."
   command -v "$CODEX" >/dev/null 2>&1 ||
-    fail "CODEX_NOT_FOUND: Codex CLI 0.144.4 is required."
+    fail "CODEX_NOT_FOUND: Codex CLI is required."
   CODEX_VERSION=$("$CODEX" --version 2>/dev/null) ||
     fail "CODEX_VERSION_CHECK_FAILED: Codex CLI version could not be read."
-  [ "$CODEX_VERSION" = "codex-cli $REQUIRED_CODEX_VERSION" ] ||
-    fail "CODEX_VERSION_MISMATCH: Codex CLI 0.144.4 is required."
+  case "$CODEX_VERSION" in
+    "codex-cli "?*) ;;
+    *) fail "CODEX_VERSION_CHECK_FAILED: Codex CLI version output was invalid." ;;
+  esac
   "$CODEX" login status >/dev/null 2>&1 ||
     fail "CODEX_LOGIN_REQUIRED: sign in with the normal Codex login flow."
   RUNTIME_VERSION=$("$ROOT/bin/tripwire" --version 2>/dev/null) ||

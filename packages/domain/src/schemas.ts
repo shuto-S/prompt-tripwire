@@ -16,6 +16,24 @@ export const ModelConfigurationSchema = z
   })
   .strict();
 
+/**
+ * Deterministic evidence that the resolved Codex executable satisfied the
+ * App Server compatibility profile and bounded semantic canary. It contains
+ * no credential or environment values and intentionally has no timestamp so
+ * independently measured attestations can be compared byte-for-byte.
+ */
+export const CodexCompatibilityAttestationSchema = z
+  .object({
+    executableRealpath: z.string().min(1),
+    executableSha256: Sha256Schema,
+    codexVersion: z.string().min(1),
+    profileVersion: z.number().int().positive(),
+    schemaFingerprint: Sha256Schema,
+    canaryFingerprint: Sha256Schema,
+    compatibilityFingerprint: Sha256Schema,
+  })
+  .strict();
+
 export const RepositorySnapshotSchema = z
   .object({
     repositoryPath: z.string().min(1),
@@ -29,6 +47,7 @@ export const RepositorySnapshotSchema = z
     taskHash: Sha256Schema,
     model: ModelConfigurationSchema,
     codexVersion: z.string().min(1),
+    compatibilityAttestation: CodexCompatibilityAttestationSchema.optional(),
     promptTripwireVersion: z.string().min(1),
     createdAt: TimestampSchema,
     snapshotHash: Sha256Schema,
@@ -523,6 +542,7 @@ export const RunReportSchema = z
   });
 
 export type ModelConfiguration = z.infer<typeof ModelConfigurationSchema>;
+export type CodexCompatibilityAttestation = z.infer<typeof CodexCompatibilityAttestationSchema>;
 export type RepositorySnapshot = z.infer<typeof RepositorySnapshotSchema>;
 export type RepositorySnapshotInput = z.infer<typeof RepositorySnapshotInputSchema>;
 export type RepositoryEvidence = z.infer<typeof RepositoryEvidenceSchema>;

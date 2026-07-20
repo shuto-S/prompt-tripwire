@@ -2,7 +2,6 @@
 
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdtempSync,
@@ -10,40 +9,18 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateGeneratedCompatibilitySchema } from "../../packages/codex-app-server/dist/index.js";
 
-const EXPECTED_CODEX_VERSION = "0.144.4";
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPOSITORY_ROOT = resolve(SCRIPT_DIR, "../..");
 const FIXTURE_DIR = join(REPOSITORY_ROOT, "fixtures/app-server");
-const SCHEMA_MANIFEST_PATH = join(FIXTURE_DIR, "schema-manifest-0.144.4.json");
 const DEFAULT_TIMEOUT_MS = 30_000;
 const REDACTED = "****";
-
-const REQUIRED_STABLE_METHODS = {
-  clientRequests: ["initialize", "thread/start", "turn/start", "turn/interrupt", "command/exec"],
-  clientNotifications: ["initialized"],
-  serverRequests: [
-    "item/commandExecution/requestApproval",
-    "item/fileChange/requestApproval",
-    "item/permissions/requestApproval",
-  ],
-  serverNotifications: [
-    "thread/started",
-    "turn/started",
-    "item/started",
-    "item/completed",
-    "thread/tokenUsage/updated",
-    "turn/diff/updated",
-    "serverRequest/resolved",
-    "turn/completed",
-  ],
-};
 
 function fail(message) {
   throw new Error(message);
@@ -78,115 +55,20 @@ function codexVersion() {
   return match[1];
 }
 
-function walkJson(value, visit) {
-  if (Array.isArray(value)) {
-    for (const item of value) walkJson(item, visit);
-    return;
-  }
-
-  if (!value || typeof value !== "object") return;
-  visit(value);
-  for (const item of Object.values(value)) walkJson(item, visit);
-}
-
-function schemaMethods(path) {
-  const schema = JSON.parse(readFileSync(path, "utf8"));
-  const methods = new Set();
-  walkJson(schema, (object) => {
-    if (!object.method || !Array.isArray(object.method.enum)) return;
-    for (const method of object.method.enum) methods.add(method);
-  });
-  return [...methods].sort();
-}
-
-function listFiles(root, current = root) {
-  const files = [];
-  for (const entry of readdirSync(current).sort()) {
-    const path = join(current, entry);
-    if (statSync(path).isDirectory()) files.push(...listFiles(root, path));
-    else files.push(path.slice(root.length + 1));
-  }
-  return files;
-}
-
-function hashDirectory(root) {
-  const digest = createHash("sha256");
-  for (const relativePath of listFiles(root)) {
-    digest.update(relativePath);
-    digest.update("\0");
-    const contents = readFileSync(join(root, relativePath), "utf8");
-    digest.update(
-      relativePath.endsWith(".json")
-        ? stableStringify(JSON.parse(contents))
-        : contents.replace(/\r\n?/gu, "\n"),
-    );
-    digest.update("\0");
-  }
-  return digest.digest("hex");
-}
-
-function assertSubset(actual, expected, label) {
-  const missing = expected.filter((item) => !actual.includes(item));
-  assert.deepEqual(missing, [], `${label} missing stable methods: ${missing.join(", ")}`);
-}
-
 function inspectSchemas() {
   const version = codexVersion();
-  assert.equal(
-    version,
-    EXPECTED_CODEX_VERSION,
-    `Codex drift: detected ${version}, required ${EXPECTED_CODEX_VERSION}`,
-  );
 
   const tempRoot = mkdtempSync(join(tmpdir(), "prompt-tripwire-schema-"));
   const stableDir = join(tempRoot, "stable");
-  const experimentalDir = join(tempRoot, "experimental");
 
   try {
     runCodex(["app-server", "generate-json-schema", "--out", stableDir]);
-    runCodex(["app-server", "generate-json-schema", "--experimental", "--out", experimentalDir]);
 
-    const stable = {
-      clientRequests: schemaMethods(join(stableDir, "ClientRequest.json")),
-      clientNotifications: schemaMethods(join(stableDir, "ClientNotification.json")),
-      serverRequests: schemaMethods(join(stableDir, "ServerRequest.json")),
-      serverNotifications: schemaMethods(join(stableDir, "ServerNotification.json")),
-    };
-    const experimental = {
-      clientRequests: schemaMethods(join(experimentalDir, "ClientRequest.json")),
-      clientNotifications: schemaMethods(join(experimentalDir, "ClientNotification.json")),
-      serverRequests: schemaMethods(join(experimentalDir, "ServerRequest.json")),
-      serverNotifications: schemaMethods(join(experimentalDir, "ServerNotification.json")),
-    };
-
-    for (const [category, expected] of Object.entries(REQUIRED_STABLE_METHODS)) {
-      assertSubset(stable[category], expected, category);
-    }
-
-    const experimentalOnly = {};
-    for (const category of Object.keys(stable)) {
-      experimentalOnly[category] = experimental[category].filter(
-        (method) => !stable[category].includes(method),
-      );
-    }
-
-    const result = {
+    return {
       codexVersion: version,
-      stableDirectorySha256: hashDirectory(stableDir),
-      stableFileCount: listFiles(stableDir).length,
-      experimentalFileCount: listFiles(experimentalDir).length,
-      requiredStableMethods: REQUIRED_STABLE_METHODS,
-      experimentalOnlyMethods: experimentalOnly,
+      compatibilityProfile: validateGeneratedCompatibilitySchema(stableDir),
+      note: "Compatibility is measured from one version-independent normal-schema profile; runtime experimentalApi is disabled.",
     };
-
-    if (existsSync(SCHEMA_MANIFEST_PATH)) {
-      const expected = JSON.parse(readFileSync(SCHEMA_MANIFEST_PATH, "utf8"));
-      assert.equal(result.codexVersion, expected.codexVersion);
-      assert.equal(result.stableDirectorySha256, expected.stableDirectorySha256);
-      assert.deepEqual(result.requiredStableMethods, expected.requiredStableMethods);
-    }
-
-    return result;
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
   }
@@ -452,7 +334,7 @@ class AppServerClient {
       clientInfo: {
         name: "prompt_tripwire_spike",
         title: "PromptTripwire protocol spike",
-        version: "0.1.10",
+        version: "0.1.11",
       },
     });
     this.notify("initialized", {});
@@ -930,7 +812,7 @@ async function runGranularApprovalBoundary(client, fixtureRoot) {
 }
 
 async function runLiveChecks() {
-  assert.equal(codexVersion(), EXPECTED_CODEX_VERSION);
+  const version = codexVersion();
   const fixtureRoot = mkdtempSync(join(tmpdir(), "prompt-tripwire-app-server-live-"));
   mkdirSync(join(fixtureRoot, "src"));
   writeFileSync(join(fixtureRoot, "README.md"), "# Controlled App Server fixture\n");
@@ -947,7 +829,7 @@ async function runLiveChecks() {
     const granularApprovalBoundary = await runGranularApprovalBoundary(client, fixtureRoot);
     const permissionRequest = await runPermissionRequestObservation(client, fixtureRoot);
     return {
-      codexVersion: EXPECTED_CODEX_VERSION,
+      codexVersion: version,
       commandBoundaries,
       goldenHandshake,
       interrupt,
@@ -966,13 +848,13 @@ async function runLiveChecks() {
 }
 
 async function runLiveCommandChecks() {
-  assert.equal(codexVersion(), EXPECTED_CODEX_VERSION);
+  const version = codexVersion();
   const fixtureRoot = mkdtempSync(join(tmpdir(), "prompt-tripwire-command-live-"));
   const client = new AppServerClient({ onServerRequest: declineServerRequest });
   try {
     await client.initialize();
     return {
-      codexVersion: EXPECTED_CODEX_VERSION,
+      codexVersion: version,
       commandBoundaries: await runCommandBoundaryChecks(client, fixtureRoot),
       note: "Raw process environments and command output are intentionally omitted.",
     };

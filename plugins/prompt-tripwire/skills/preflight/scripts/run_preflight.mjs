@@ -6,8 +6,7 @@ import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const REQUIRED_CODEX_VERSION = "0.144.4";
-export const REQUIRED_TRIPWIRE_VERSION = "0.1.10";
+export const REQUIRED_TRIPWIRE_VERSION = "0.1.11";
 export const REENTRY_ENV = "PROMPT_TRIPWIRE_PLUGIN_REENTRY";
 
 const NESTED_APP_SERVER_REQUEST_FAILURE = /\bINSUFFICIENT_VALID_PROBES:\s*request failed\b/iu;
@@ -148,16 +147,16 @@ export function resolveRuntime(env = process.env) {
   return resolve(command);
 }
 
-export function assertRuntimeVersions(runtime, env = process.env) {
+export function assertRuntimeEnvironment(runtime, env = process.env) {
   const tripwireVersion = commandOutput(runtime, ["--version"]);
   if (text(tripwireVersion) !== `prompt-tripwire ${REQUIRED_TRIPWIRE_VERSION}`) {
-    throw new PluginError("RUNTIME_VERSION_MISMATCH", "PromptTripwire runtime 0.1.10 is required");
+    throw new PluginError("RUNTIME_VERSION_MISMATCH", "PromptTripwire runtime 0.1.11 is required");
   }
   const codex = env.PROMPT_TRIPWIRE_CODEX_BIN?.trim() || executableOnPath("codex");
   if (!codex) {
     throw new PluginError(
       "CODEX_NOT_FOUND",
-      `Codex CLI ${REQUIRED_CODEX_VERSION} is required; sign in with the existing Codex CLI`,
+      "Codex CLI is required; sign in with the existing Codex CLI",
     );
   }
   const codexVersion = commandOutput(codex, ["--version"], {
@@ -165,11 +164,8 @@ export function assertRuntimeVersions(runtime, env = process.env) {
     failureCode: "CODEX_VERSION_CHECK_FAILED",
     failureMessage: "Codex CLI is unavailable or returned an invalid version",
   });
-  if (text(codexVersion) !== `codex-cli ${REQUIRED_CODEX_VERSION}`) {
-    throw new PluginError(
-      "CODEX_VERSION_MISMATCH",
-      `Codex CLI ${REQUIRED_CODEX_VERSION} is required`,
-    );
+  if (!/^codex-cli\s+\S+$/u.test(text(codexVersion))) {
+    throw new PluginError("CODEX_VERSION_CHECK_FAILED", "Codex CLI version output was invalid");
   }
   try {
     execFileSync(codex, ["login", "status"], {
@@ -362,7 +358,7 @@ export function runPreflight(argv, env = process.env) {
     return "Usage: run_preflight.mjs inspect|status|review-url|run|report [options]";
   assertSupportedPlatform();
   const runtime = resolveRuntime(env);
-  assertRuntimeVersions(runtime, env);
+  assertRuntimeEnvironment(runtime, env);
   if (options.action === "inspect") {
     const task = readTask(options);
     return runRuntime(runtime, buildRuntimeArgs(options, null, task), undefined, env);
