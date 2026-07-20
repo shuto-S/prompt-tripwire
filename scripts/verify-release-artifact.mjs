@@ -1069,7 +1069,7 @@ if [ "$1" = "-s" ]; then printf '%s\\n' 'Linux'; else printf '%s\\n' 'x86_64'; f
       PROMPT_TRIPWIRE_PREFIX: join(root, "arbitrary-codex-version-prefix"),
     },
   });
-  assert.match(arbitraryVersionInstall, /runtime and Codex Plugin installed/u);
+  assert.match(arbitraryVersionInstall, /runtime and Codex Plugin\./u);
 
   const rollbackState = join(root, "rollback-codex-state");
   const rollbackMarketplace = join(root, "rollback-marketplace-root");
