@@ -172,6 +172,7 @@ copyFile(
 for (const relativePath of [
   ".codex-plugin/plugin.json",
   "skills/preflight/SKILL.md",
+  "skills/preflight/agents/openai.yaml",
   "skills/preflight/scripts/run_preflight.mjs",
 ]) {
   copyFile(

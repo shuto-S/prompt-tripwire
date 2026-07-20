@@ -85,7 +85,7 @@ The selected target is a relocatable compiled/runtime macOS arm64 archive that d
 - a bundled dependency-free safe fixture repository and demo task;
 - an offline replay mode for UI exploration if live model limits occur, clearly labeled recorded and enforced read-only;
 - a live mode for judges to verify the real Codex/GPT-5.6 integration;
-- troubleshooting for permissions, API limits, and unsupported Codex versions.
+- troubleshooting for permissions, API limits, and measured Codex compatibility failures.
 - deterministic archive metadata and a two-build reproducibility check;
 - transactional runtime-plus-Plugin install/upgrade with owned uninstall boundaries.
 
@@ -134,6 +134,17 @@ by bare name. It prevents Codex 0.144.4 from choosing `/bin/ls`, which the App
 Server correctly reports as `unknown`, without normalizing that denied shape or
 weakening canonical containment.
 
+v0.1.10 adds source-bound Japanese reference translations for task and decision
+content while preserving expandable authoritative source text and unchanged
+decision, contract, mutation, and report identity.
+
+v0.1.11 removes numeric Codex version gates in favor of a shared consumed
+normal-schema profile, private-temp handshake, and bounded semantic canary. It
+also declares the bundled Skill explicit-only in Codex metadata; the canonical
+invocation is `$prompt-tripwire:preflight`. It redacts secret-like source text
+before Japanese translation and browser serialization while preserving
+canonical persistence and approval identity.
+
 The captured flow is:
 
 1. the hidden-decision problem and explicit Plugin invocation;
@@ -155,7 +166,7 @@ is excluded from the judge release archive.
 ### Product
 
 - [x] All P0 functional requirements implemented.
-- [x] Run the complete v0.1.9 source and release gates after the version bump.
+- [x] Run the complete v0.1.11 source and release gates after the version bump.
 - [x] Real Codex App Server integration; no mocked core demo.
 - [x] Real GPT-5.6 Structured Outputs integration.
 - [x] Judge-ready install that does not require rebuilding.
@@ -166,12 +177,13 @@ is excluded from the judge release archive.
 
 - [x] Apache-2.0 selected as the project license for the public repository.
 - [x] README includes installation, supported platforms, test instructions, architecture summary, and Codex collaboration.
-- [x] Public repository and `v0.1.2` through `v0.1.8` Releases verified anonymously.
+- [x] Public repository and `v0.1.2` through `v0.1.10` Releases published.
 - [x] Publish the verified `v0.1.6` macOS arm64 artifact and checksum, then verify both anonymously.
 - [x] Publish the verified `v0.1.7` macOS arm64 artifact and checksum, then verify both anonymously.
 - [x] Publish the verified `v0.1.8` macOS arm64 artifact and checksum, then verify both anonymously.
 - [x] Publish the verified `v0.1.9` macOS arm64 artifact and checksum, then verify both anonymously.
-- [ ] Publish the verified `v0.1.10` macOS arm64 artifact and checksum, then verify both anonymously.
+- [x] Publish the verified `v0.1.10` macOS arm64 artifact and checksum.
+- [ ] Publish the verified `v0.1.11` macOS arm64 artifact and checksum, then verify both anonymously.
 - [x] Dated commits distinguish specification, implementation, and submission work.
 - [x] Dependency licenses and third-party assets reviewed.
 - [x] No secrets in Git history.
@@ -201,7 +213,7 @@ is excluded from the judge release archive.
 - Present the prepared YouTube video, title, description, visibility, captions, and thumbnail for human confirmation; only then upload and verify playback anonymously.
 - Replace the Devpost public video placeholder after YouTube publication and prepare the complete draft; present the final field/attachment/link packet for a separate human confirmation before final submission.
 
-Publication evidence: repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0. The public v0.1.9 archive and checksum were downloaded anonymously on 2026-07-20 JST. SHA-256 `8e1fa4ea296eb7d64c3fb453d21121037c63fe68a919c0fd51de483d6436d9c0`, size 2,314,606 bytes, 921 verified files, and source commit `de6c4bb458793d3395155f370b0c0e22d24ef773` match the clean tag-aware candidate byte-for-byte. Its packaged runtime reports 0.1.9, packaged instructions self-reference v0.1.9, and an isolated API-key-free install enabled Plugin 0.1.9. The real Skill invocation stopped before implementation inside the caller sandbox; the one permitted normal-permission thin-adapter retry reached `needs_review` with one compatibility decision, no approved contract, and an unchanged source checkout. v0.1.10 adds source-bound Japanese reference translation after that review exposed English decision effects, without changing the human-approval or contract boundary. The public v0.1.8 release remains immutable historical evidence with SHA-256 `0b5ca45f3cf497917df9f0b1c531aa4e8cf5b9e75eb46e47128c5fa3d09e351c`; the v0.1.7 archive remains historical evidence with SHA-256 `c6fe5b1f51bfd81dff7ebdce5f5f5f46eef01c6cb4dced0fd7213723ba9611f6`; and the v0.1.6 archive remains historical evidence with SHA-256 `1b74c4c935e0fec1857b88b2a592f776c01f104a4042d224ef3ac1265fe83c33`. Historical checksums do not verify the v0.1.10 archive.
+Publication evidence: repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0. v0.1.10 is the latest public historical distribution; its public archive and checksum were downloaded anonymously on 2026-07-20 JST and matched at SHA-256 `15574604ef5476ae22db0396986b470a550af597880f82f32936c9bc67e587a5`, 2,322,813 bytes. v0.1.11 is the final unreleased judge candidate and requires its own post-publication anonymous download/checksum evidence. The public v0.1.9 archive and checksum were also downloaded anonymously on 2026-07-20 JST. SHA-256 `8e1fa4ea296eb7d64c3fb453d21121037c63fe68a919c0fd51de483d6436d9c0`, size 2,314,606 bytes, 921 verified files, and source commit `de6c4bb458793d3395155f370b0c0e22d24ef773` match the clean tag-aware candidate byte-for-byte. Its packaged runtime reports 0.1.9, packaged instructions self-reference v0.1.9, and an isolated API-key-free install enabled Plugin 0.1.9. The real Skill invocation stopped before implementation inside the caller sandbox; the one permitted normal-permission thin-adapter retry reached `needs_review` with one compatibility decision, no approved contract, and an unchanged source checkout. v0.1.10 added source-bound Japanese reference translation after that review exposed English decision effects. v0.1.11 adds measured, version-independent compatibility and explicit-only Skill metadata without changing the human-approval or contract boundary. Historical checksums do not verify the v0.1.11 archive.
 
 A final local v0.1.2 H.264/AAC English demo, caption/narration copy, thumbnail,
 and owned UI captures are now in `docs/demo/` and `docs/assets/demo/`. The live
@@ -210,12 +222,23 @@ scenes use an earlier human-approved safe-fixture run. These files are present
 in the repository but intentionally excluded from the compact judge archive.
 They are local review evidence, not proof of public YouTube publication.
 
-The v0.1.9 public artifact, isolated install, and pre-approval Plugin flow are
-verified. The v0.1.10 Japanese-reference patch now requires its own clean
-artifact, anonymous verification, API-key-free Plugin flow, explicit human
-decision, contained execution, report, and targeted uninstall rehearsal before
-the YouTube confirmation gate. YouTube upload and Devpost final submission
-remain blocked on their respective explicit human confirmations.
+The public v0.1.10 artifact preserves the Japanese reference-presentation
+release. The v0.1.11 candidate has local source, packaging, reproducibility,
+isolated installer/uninstaller, API-key-free inspect, and Plugin-adapter
+verification; its tag, GitHub Release, and post-publication anonymous download
+remain user-controlled final actions. YouTube upload and Devpost final
+submission remain blocked on their respective explicit human confirmations.
+
+On 2026-07-20 JST, an isolated v0.1.11 archive install enabled the Plugin with
+only a copied existing Codex login and both API-key variables unset. A new
+Codex task explicitly injected `$prompt-tripwire:preflight`; its nested request
+stopped fail-closed once, and the single documented direct-adapter retry then
+reached `needs_review` with one compatibility decision, no contract approval,
+and an unchanged fixture status, HEAD, and worktree list. The real Japanese
+Inbox showed the full task, question, options, and six effects as reference
+translations, exposed the sanitized source copy, and kept both options
+unselected. Targeted uninstall removed only the isolated Plugin, marketplace,
+and runtime, and the copied authentication directory was deleted.
 
 Post-submission product work is separated from the Build Week critical path:
 [#35](https://github.com/shuto-S/prompt-tripwire/issues/35) tracks Linux,

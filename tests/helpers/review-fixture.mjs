@@ -94,6 +94,8 @@ export async function createReviewFixture({
   runId = "run_ui",
   includeCancellationOption = false,
   presentationStatus = null,
+  task = "Implement an explicit persisted-record deletion policy",
+  transformDecision = (value) => value,
 } = {}) {
   const root = await mkdtemp(join(tmpdir(), "prompt-tripwire-ui-"));
   const store = new SqlitePersistence({
@@ -108,7 +110,7 @@ export async function createReviewFixture({
     dirtyPatchHash: null,
     instructionHash: HASH,
     configHash: HASH,
-    task: "Implement an explicit persisted-record deletion policy",
+    task,
     model: { id: "gpt-5.6-sol", reasoningEffort: "low" },
     codexVersion: "0.144.4",
     promptTripwireVersion: "0.1.9",
@@ -158,7 +160,7 @@ export async function createReviewFixture({
     createdAt: CREATED_AT,
   });
   const decisions = Array.from({ length: decisionCount }, (_, index) =>
-    decision(index, includeCancellationOption),
+    transformDecision(decision(index, includeCancellationOption), index),
   );
   store.saveDecisionPoints({
     runId,

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@prompt-tripwire/controller": "0.1.11",
+    "@prompt-tripwire/policy": "0.1.11",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },

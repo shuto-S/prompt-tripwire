@@ -29,6 +29,16 @@ submission is performed by this change.
   presence, output shape, and login rather than a version number. Uninstall
   requires no Codex version and does not guess-edit global configuration when
   the command is unavailable.
+- Declare `policy.allow_implicit_invocation: false` in the bundled Skill
+  metadata and package that metadata as a required installer safety file. The
+  canonical invocation is `$prompt-tripwire:preflight`; matching prose alone
+  does not activate the Skill.
+- Align the Plugin manifest's `interface.defaultPrompt` with the current Codex
+  array form while retaining the Skill-only adapter with no hook or MCP server.
+- Redact secret-like task and decision source text before the Japanese
+  translation turn and sanitize the complete browser review DTO before display.
+  Canonical persistence, decision and contract identity, and mutation payloads
+  remain unchanged.
 
 ## Safety boundaries unchanged
 
@@ -51,6 +61,14 @@ schema, handshake, and canary behavior.
 The canary is intentionally bounded. Semantic drift that preserves the schema
 and lies outside the observed nonce/tool/network behavior remains a residual
 risk and is not claimed as verified.
+
+An isolated archive install on 2026-07-20 JST enabled the Plugin using the
+existing Codex login with API-key variables unset. A new Codex task explicitly
+injected the Skill; after one fail-closed nested request, the single documented
+direct-adapter retry reached `needs_review`, showed Japanese reference content,
+selected nothing, approved nothing, and left the safe fixture unchanged. The
+isolated Plugin, marketplace, runtime, and copied authentication directory were
+then removed.
 
 ## Install candidate archive
 

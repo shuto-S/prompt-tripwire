@@ -109,8 +109,10 @@ behavior as `deterministic-v2`.
 ### Japanese reference translator
 
 After comparison and deterministic normalization have produced the final
-authoritative decision points, the controller sends only the authoritative task
-and displayable decision strings to a fresh ephemeral App Server thread. The
+authoritative decision points, the controller first maps only the task and
+displayable decision strings through the shared deterministic export sanitizer.
+It sends that sanitized presentation source to a fresh ephemeral App Server
+thread. The
 thread uses the same logged-in Codex CLI, an empty user-only temporary directory,
 read-only sandboxing, network disabled, `untrusted` approval, no
 MCP/apps/subagents, and a strict Zod-derived output schema. Source strings are
@@ -119,12 +121,13 @@ request, permission request, file change, or diff fails the translation turn.
 
 The translation result is presentation-only. The binding layer requires the
 exact original decision and option IDs plus identical decision, option, and
-effect counts, rejects secret-like output, and normalizes ordering to the source
-records. It is stored in `review_presentations` with a source hash that excludes
-mutable review status. It is never passed to policy, decision normalization,
+effect counts, rejects newly secret-like output, and normalizes ordering to the
+source records. It is stored in `review_presentations` with a source hash that
+excludes mutable review status. It is never passed to policy, decision normalization,
 human mutation fingerprints, contract creation/hashing, execution, or reports.
 A failed turn stores only a bounded error code and produces an explicit UI
-fallback to escaped source text; it does not fail or approve the inspection.
+fallback to the escaped sanitized source copy; it does not fail or approve the
+inspection.
 
 ### Contract service
 
@@ -149,12 +152,14 @@ process without persisting either listener's bearer token.
 The bundled React client owns a presentation-only Japanese/English dictionary.
 It derives the initial locale from the browser preference, stores only the
 `ja`/`en` choice in origin-scoped browser storage, and updates the document
-language for assistive technology. The aggregate review API returns authoritative
-source records and, separately, an optional source-bound Japanese presentation.
-Japanese rendering labels it as a reference translation and exposes the source
-task and full source decision text in expandable sections. English rendering
-uses source records. Locale state is not sent to the controller and neither the
-locale nor reference presentation can alter a decision or approval fingerprint.
+language for assistive technology. The aggregate review API deterministically
+sanitizes the complete browser DTO and returns that presentation-safe copy plus
+an optional source-bound Japanese presentation. Japanese rendering labels it
+as a reference translation and exposes the sanitized source task and full
+decision text in expandable sections. English rendering uses the same sanitized
+source copy. Canonical persistence is not rewritten. Locale state is not sent
+to the controller and neither the locale nor reference presentation can alter
+a decision or approval fingerprint.
 
 ### Codex Plugin adapter
 
@@ -167,6 +172,11 @@ creating a file in the target checkout. The script only exposes
 CLI/UI operations owned by the controller. It checks macOS arm64, its matching
 runtime, and the existing Codex CLI login before delegation, and propagates a
 deterministic re-entry environment flag to child PromptTripwire processes.
+The Skill's `agents/openai.yaml` declares
+`policy.allow_implicit_invocation: false`; Codex therefore requires an explicit
+`$prompt-tripwire:preflight` mention instead of activating preflight from a
+description match. The SKILL instructions repeat that restriction as defense
+in depth.
 Propagation is deliberately two-stage. The adapter sets
 `PROMPT_TRIPWIRE_PLUGIN_REENTRY=1`; the App Server transport retains only that
 non-secret sentinel in its minimal process environment and conditionally adds

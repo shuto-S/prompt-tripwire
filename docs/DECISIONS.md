@@ -526,6 +526,37 @@ outside its behavior; that remains an explicit residual risk rather than a
 claim of universal compatibility. Historical 0.144.4 fixtures and evidence
 remain unchanged as the original validated baseline.
 
+### D-042 — Enforce explicit-only Plugin invocation in Skill metadata
+
+**Decision:** Add `skills/preflight/agents/openai.yaml` with
+`policy.allow_implicit_invocation: false`, package and verify it as a required
+Plugin safety file, and document `$prompt-tripwire:preflight` as the canonical
+Codex invocation. Keep the existing SKILL prose restriction and deterministic
+re-entry guard as separate controls. Update the Plugin manifest's
+`interface.defaultPrompt` to the current array form without adding a hook, MCP
+server, credential, or approval tool.
+
+**Reason:** An explicit-only requirement should use Codex's supported Skill
+invocation policy rather than depend only on a model reading prose. The metadata
+prevents description matching from starting preflight, while the existing
+human-approval, CLI delegation, and child re-entry boundaries remain unchanged.
+
+### D-043 — Sanitize source text before the presentation boundary
+
+**Decision:** Preserve the canonical snapshot, decisions, contracts, hashes,
+and mutation payloads unchanged, but map only displayable task and decision
+fields through the existing deterministic export sanitizer before starting the
+Japanese reference-translation turn. Apply the same sanitizer to the complete
+browser review DTO before serialization. Label expandable source text as a
+sanitized authoritative copy, and use that copy as the fallback when translation
+is unavailable. Never restore redacted content in either language.
+
+**Reason:** Output-only translation scanning did not prevent a secret-like value
+already present in canonical task or decision prose from reaching the translation
+model or browser. Reusing one deterministic sanitizer closes both presentation
+paths without making probabilistic translation authoritative or changing any
+contract-bound value.
+
 ## Validated implementation assumptions
 
 ### A-001 — App Server approval coverage
@@ -562,4 +593,4 @@ remain unchanged as the original validated baseline.
 
 ## Decision-change rule
 
-Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, D-034, D-035, D-036, D-037, D-038, D-039, D-040, or D-041 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.
+Changing D-003, D-006, D-007, D-008, D-009, D-010, D-022, D-030, D-031, D-032, D-033, D-034, D-035, D-036, D-037, D-038, D-039, D-040, D-041, D-042, or D-043 materially changes the product or its safety model. Such a change requires an explicit decision-log entry and synchronized updates to the specification, architecture, security document, acceptance criteria, and demo plan.

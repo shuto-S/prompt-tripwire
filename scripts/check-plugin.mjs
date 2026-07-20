@@ -10,6 +10,7 @@ const pluginRoot = resolve("plugins/prompt-tripwire");
 const manifestPath = resolve(pluginRoot, ".codex-plugin/plugin.json");
 const marketplacePath = resolve(".agents/plugins/marketplace.json");
 const skillPath = resolve(pluginRoot, "skills/preflight/SKILL.md");
+const skillMetadataPath = resolve(pluginRoot, "skills/preflight/agents/openai.yaml");
 const scriptPath = resolve(pluginRoot, "skills/preflight/scripts/run_preflight.mjs");
 const installTemplatePath = resolve("scripts/distribution/install.sh");
 const uninstallTemplatePath = resolve("scripts/distribution/uninstall.sh");
@@ -18,6 +19,7 @@ const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 const marketplace = JSON.parse(readFileSync(marketplacePath, "utf8"));
 const skill = readFileSync(skillPath, "utf8");
+const skillMetadata = readFileSync(skillMetadataPath, "utf8");
 const script = readFileSync(scriptPath, "utf8");
 const installTemplate = readFileSync(installTemplatePath, "utf8");
 const uninstallTemplate = readFileSync(uninstallTemplatePath, "utf8");
@@ -28,6 +30,9 @@ assert.equal(manifest.version, packageJson.version);
 assert.equal(manifest.skills, "./skills/");
 assert.equal(manifest.interface.displayName, "PromptTripwire");
 assert.equal(manifest.interface.category, "Developer Tools");
+assert.deepEqual(manifest.interface.defaultPrompt, [
+  "Use $prompt-tripwire:preflight before implementing this task.",
+]);
 assert.ok(!("hooks" in manifest), "v1 must not add automatic hooks");
 assert.ok(!("mcpServers" in manifest), "v1 does not need an MCP server");
 
@@ -66,6 +71,11 @@ assert.doesNotMatch(
   /\b(?:printf|echo)\b[^\r\n]{0,200}(?:exact current task|task text)/iu,
   "Skill must not interpolate untrusted task text into shell source",
 );
+assert.match(skillMetadata, /^interface:\s*$/mu);
+assert.match(skillMetadata, /^\s+display_name:\s*"PromptTripwire Preflight"\s*$/mu);
+assert.match(skillMetadata, /^policy:\s*$/mu);
+assert.match(skillMetadata, /^\s+allow_implicit_invocation:\s*false\s*$/mu);
+assert.doesNotMatch(skillMetadata, /allow_implicit_invocation:\s*true/iu);
 
 assert.ok(statSync(scriptPath).isFile());
 assert.match(script, /PROMPT_TRIPWIRE_PLUGIN_REENTRY/u);
@@ -91,6 +101,7 @@ for (const file of [
   manifestPath,
   marketplacePath,
   skillPath,
+  skillMetadataPath,
   scriptPath,
   installTemplatePath,
   uninstallTemplatePath,

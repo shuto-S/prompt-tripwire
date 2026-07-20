@@ -5,6 +5,7 @@ import { extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { LocalController } from "@prompt-tripwire/controller";
+import { sanitizeForExport } from "@prompt-tripwire/policy";
 
 import type {
   DecisionCardDto,
@@ -202,7 +203,7 @@ function toReviewDto(
     evidenceRefs: decision.evidenceRefs,
     status: decision.status,
   }));
-  return {
+  const dto: RunReviewDto = {
     mode,
     runId: review.run.runId,
     state: review.run.state,
@@ -248,6 +249,9 @@ function toReviewDto(
             decisions: review.presentation.content?.decisions ?? [],
           },
   };
+  const sanitized = sanitizeForExport(dto);
+  if (!sanitized.allowed) throw new TypeError("review response could not be sanitized");
+  return sanitized.value as unknown as RunReviewDto;
 }
 
 function toEvent(controller: LocalController, runId: string): RunEventDto {

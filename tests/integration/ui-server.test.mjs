@@ -205,6 +205,48 @@ test("Japanese reference translations are returned separately from authoritative
   }
 });
 
+test("browser review source is sanitized without changing canonical persistence", async () => {
+  const secret = "synthetic-secret-value";
+  const task = `日本語 task with English context api_key=${secret}`;
+  const fixture = await createReviewFixture({
+    runId: "run_ui_sanitized_source",
+    task,
+    presentationStatus: "available",
+    transformDecision: (decision) => ({
+      ...decision,
+      question: `${decision.question} api_key=${secret}`,
+      options: decision.options.map((option, index) => ({
+        ...option,
+        effects: index === 0 ? [...option.effects, `api_key=${secret}`] : option.effects,
+      })),
+    }),
+  });
+  const server = await startReviewServer({
+    controller: fixture.controller,
+    runId: fixture.run.runId,
+  });
+  try {
+    const canonicalBefore = fixture.controller.review(fixture.run.runId);
+    const endpoint = `${server.origin}/api/runs/${fixture.run.runId}`;
+    const responseText = await (await fetch(endpoint, { headers: apiHeaders(server) })).text();
+    const review = JSON.parse(responseText);
+    assert.equal(responseText.includes(secret), false);
+    assert.match(review.snapshot.task, /\[REDACTED\]/u);
+    assert.match(review.decisions[0].question, /\[REDACTED\]/u);
+    assert.match(review.decisions[0].options[0].effects.at(-1), /\[REDACTED\]/u);
+
+    const canonicalAfter = fixture.controller.review(fixture.run.runId);
+    assert.deepEqual(canonicalAfter, canonicalBefore);
+    assert.equal(canonicalAfter.snapshot.task, task);
+    assert.equal(canonicalAfter.decisions[0].question.includes(secret), false);
+    assert.match(canonicalAfter.decisions[0].question, /\[REDACTED\]/u);
+    assert.equal(canonicalAfter.run.state, "needs_review");
+  } finally {
+    await server.close();
+    await fixture.close();
+  }
+});
+
 test("an unavailable translation exposes only fallback status, not internal failure details", async () => {
   const fixture = await createReviewFixture({
     runId: "run_ui_unavailable_presentation",

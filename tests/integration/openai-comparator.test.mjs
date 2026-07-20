@@ -14,6 +14,7 @@ import {
   normalizeReview as normalizeReviewBundle,
   renderContractPreview,
   renderDecisionCards,
+  sanitizeReviewPresentationSource,
 } from "../../packages/openai-comparator/dist/index.js";
 import {
   InspectionPipeline,
@@ -381,6 +382,47 @@ test("Japanese review translations are source-bound presentation data", async ()
   );
   assert.equal(transport.requests[0].task, snapshot().task);
   assert.deepEqual(transport.requests[0].decisions, [reviewDecision()]);
+});
+
+test("Japanese review translation redacts secrets before transport and accepts long mixed source", async () => {
+  const secret = "synthetic-secret-value";
+  const mixedTask = `${"既存の日本語と English context を維持する。".repeat(40)} api_key=${secret}`;
+  const sourceDecision = {
+    ...reviewDecision(),
+    question: `互換性を preserve しますか？ api_key=${secret}`,
+    options: reviewDecision().options.map((option, index) => ({
+      ...option,
+      description:
+        index === 0
+          ? `既存の日本語と English behavior を維持する。 api_key=${secret}`
+          : option.description,
+    })),
+  };
+  const sanitized = sanitizeReviewPresentationSource(mixedTask, [sourceDecision]);
+  const transport = new TranslationQueueTransport([
+    {
+      threadId: "thread_translation_redacted",
+      turnId: "turn_translation_redacted",
+      model: "gpt-5.6-terra",
+      output: sanitized,
+      usage: USAGE,
+    },
+  ]);
+
+  const result = await new ReviewPresentationTranslator(transport).translate({
+    task: mixedTask,
+    taskHash: HASH,
+    decisions: [sourceDecision],
+    model: "gpt-5.6-terra",
+    reasoningEffort: "low",
+  });
+
+  assert.equal(JSON.stringify(transport.requests).includes(secret), false);
+  assert.equal(JSON.stringify(result.content).includes(secret), false);
+  assert.match(transport.requests[0].task, /既存の日本語と English context/u);
+  assert.match(transport.requests[0].task, /\[REDACTED\]/u);
+  assert.equal(transport.requests[0].task.length > 1_000, true);
+  assert.equal(sourceDecision.question.includes(secret), true);
 });
 
 test("Japanese review translations fail closed on changed bindings or secret-like output", async () => {
