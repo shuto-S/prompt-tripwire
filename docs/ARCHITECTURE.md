@@ -10,7 +10,7 @@ Use a local TypeScript controller with one OpenAI integration path: **Codex App 
 
 Codex App Server is preferable to scraping terminal output. Its normal generated schema exposes threads, turns, plan and file-change items, approval requests, diffs, and `turn/interrupt`. Stdio is the documented default and avoids the unsupported experimental WebSocket transport.
 
-`codex-cli 0.144.4` still labels the umbrella app-server command and schema generators experimental. PromptTripwire therefore pins the exact CLI and canonical normal-schema hash, and treats drift as incompatible before probing. P0 does not enable the runtime experimental capability.
+Codex still labels the umbrella app-server command and schema generator experimental. PromptTripwire therefore does not infer compatibility from a version number. Before target-repository inspection it resolves one executable, generates its normal schema into a private temporary directory, validates the single shared compatibility profile, completes a tool-free bounded canary through the same App Server process, and attests that process. P0 never enables the runtime experimental capability.
 
 The Codex SDK remains a possible fallback for automation, but it is not the primary MVP integration because PromptTripwire needs deep event and approval control rather than only “start a thread and get a final response.”
 
@@ -164,7 +164,7 @@ small Node script with `shell: false` and terminal output. When the task is
 supplied over standard input, the script forwards it to the existing CLI without
 creating a file in the target checkout. The script only exposes
 `inspect`, `status`, `review-url`, `run`, and `report`; approval and decision mutations remain
-CLI/UI operations owned by the controller. It checks macOS arm64, the pinned
+CLI/UI operations owned by the controller. It checks macOS arm64, its matching
 runtime, and the existing Codex CLI login before delegation, and propagates a
 deterministic re-entry environment flag to child PromptTripwire processes.
 Propagation is deliberately two-stage. The adapter sets
@@ -212,16 +212,15 @@ CLI, policy, contract, containment, and report paths as the source of truth.
 
 ### 4.1 Startup
 
-1. Resolve and version-check the `codex` executable.
-2. Spawn `codex app-server` from an empty disposable runtime directory with stdio pipes, the pinned `plugins` feature disabled, and a minimal environment; rely only on the existing Codex CLI login. Retain `CODEX_HOME` only for App Server authentication/config lookup when the caller set it. Create an empty mode-`0700` zsh startup directory under that root and always pass it as `ZDOTDIR` through `shell_environment_policy.set` while keeping `shell_environment_policy.inherit=none`. If and only if the incoming process has `PROMPT_TRIPWIRE_PLUGIN_REENTRY=1`, preserve that sentinel and add its exact child setting to the same map. Neither `CODEX_HOME` nor any general caller variable is inherited by child shell commands.
-3. Send `initialize` with `clientInfo.name = "prompt_tripwire"`.
-4. Send `initialized`.
-5. Use only methods and fields present in the normal 0.144.4 schema; never opt into `experimentalApi` for P0.
-6. Refuse startup unless both `codex-cli 0.144.4` and the canonical normal-schema hash match.
+1. Resolve the `codex` executable to a real path, hash its bytes, and record its reported version only as attestation metadata.
+2. In a private mode-`0700` temporary directory disconnected from the target repository, run that exact executable's normal `generate-json-schema` command. Validate every request, notification, response, required field, type, nullability, and known enum surface consumed by the runtime against the shared machine-readable profile. Do not use a cached schema or version-specific branch.
+3. Spawn that exact executable's `codex app-server` in the same private runtime root with stdio pipes, the `plugins` feature disabled, and a minimal environment; rely only on the existing Codex CLI login. Retain `CODEX_HOME` only for App Server authentication/config lookup when the caller set it. Create an empty mode-`0700` zsh startup directory under that root and always pass it as `ZDOTDIR` through `shell_environment_policy.set` while keeping `shell_environment_policy.inherit=none`. If and only if the incoming process has `PROMPT_TRIPWIRE_PLUGIN_REENTRY=1`, preserve that sentinel and add its exact child setting to the same map. Neither `CODEX_HOME` nor any general caller variable is inherited by child shell commands.
+4. Send `initialize`/`initialized`, list the required model/effort, and run a bounded nonce canary in the private root with read-only sandboxing, network disabled, deny-all tool handling, and strict JSON output.
+5. Re-hash and re-read the executable before accepting an attestation. The attestation contains executable realpath/digest, observed version, profile version, normalized required-surface fingerprint, canary fingerprint, and their compatibility fingerprint.
+6. Only after attestation succeeds may snapshotting connect to the target repository. Inspection reuses the already verified App Server process. Approval and run each repeat the measurement and require exact attestation equality; mismatch or inability transactionally makes the run stale. Run reuses the verified process and measures before creating the execution worktree.
+7. Never opt into runtime `experimentalApi`.
 
-The schema generator is a build/test-time compatibility tool only. `generate-json-schema` is itself labeled experimental, but its output is generated without `--experimental`, canonicalized, and compared to the pinned manifest. Runtime code validates only the small P0 protocol subset it consumes.
-
-The build should generate or capture TypeScript/JSON schemas from the pinned Codex version and compare them in CI. Runtime messages are still validated defensively.
+The normalized fingerprint includes only required consumed surfaces, so new optional fields, unused methods, and extra schema enum variants do not cause a false incompatibility. Runtime messages are still validated defensively: an unknown request cannot be answered safely and is rejected with interruption, and a newly observed enum variant is denied even if its additive schema declaration was acceptable. The bounded canary detects only the semantics it observes; same-schema semantic drift outside that behavior remains a documented residual risk.
 
 ### 4.2 Planning threads
 
@@ -528,7 +527,7 @@ docs/
 
 The domain and policy packages must not import UI, process-spawning, filesystem, or network modules.
 
-The macOS arm64 release archive materializes only compiled PromptTripwire JavaScript, bundled UI assets, the four third-party runtime packages required by those outputs, and the thin Skill/marketplace adapter. Workspace symlinks, demo media, and development dependencies are not required at judge runtime. A shell launcher checks platform and Node version before starting the compiled CLI; the CLI retains the exact Codex/schema compatibility gate. Plain `install.sh` remains runtime-only. `install.sh --with-codex-plugin` additionally verifies Git, Codex 0.144.4, and its existing login before registering the versioned install root as `prompt-tripwire-local`; it never invokes product workflow commands. Deterministic archive metadata includes source commit, dirty state, source epoch, and optional release tag. A tag build is accepted only when the tree is clean, the matching version tag resolves to `HEAD`, and the source epoch is the commit timestamp; the independent verifier checks that provenance, the checksum, and the archive-size ceiling again.
+The macOS arm64 release archive materializes only compiled PromptTripwire JavaScript, bundled UI assets, the four third-party runtime packages required by those outputs, and the thin Skill/marketplace adapter. Workspace symlinks, demo media, and development dependencies are not required at judge runtime. A shell launcher checks platform and Node version before starting the compiled CLI; the CLI performs measured normal-schema/handshake/canary compatibility instead of a Codex version gate. Plain `install.sh` remains runtime-only. `install.sh --with-codex-plugin` additionally verifies Git, the presence and version-output shape of Codex, and its existing login before registering the versioned install root as `prompt-tripwire-local`; it never invokes product workflow commands or edits approval state. Uninstall does not require a Codex version; if Codex is absent it removes owned local files without guessing at global configuration and reports the registration that could not be safely removed. Deterministic archive metadata includes source commit, dirty state, source epoch, optional release tag, and the version-independent compatibility profile. A tag build is accepted only when the tree is clean, the matching version tag resolves to `HEAD`, and the source epoch is the commit timestamp; the independent verifier checks that provenance, the checksum, and the archive-size ceiling again.
 
 ## 13. Implementation sequence
 
