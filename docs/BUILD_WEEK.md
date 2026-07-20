@@ -177,13 +177,13 @@ is excluded from the judge release archive.
 
 - [x] Apache-2.0 selected as the project license for the public repository.
 - [x] README includes installation, supported platforms, test instructions, architecture summary, and Codex collaboration.
-- [x] Public repository and `v0.1.2` through `v0.1.10` Releases published.
+- [x] Public repository and `v0.1.2` through `v0.1.11` Releases published.
 - [x] Publish the verified `v0.1.6` macOS arm64 artifact and checksum, then verify both anonymously.
 - [x] Publish the verified `v0.1.7` macOS arm64 artifact and checksum, then verify both anonymously.
 - [x] Publish the verified `v0.1.8` macOS arm64 artifact and checksum, then verify both anonymously.
 - [x] Publish the verified `v0.1.9` macOS arm64 artifact and checksum, then verify both anonymously.
 - [x] Publish the verified `v0.1.10` macOS arm64 artifact and checksum.
-- [ ] Publish the verified `v0.1.11` macOS arm64 artifact and checksum, then verify both anonymously.
+- [x] Publish the verified `v0.1.11` macOS arm64 artifact and checksum, then verify both anonymously.
 - [x] Dated commits distinguish specification, implementation, and submission work.
 - [x] Dependency licenses and third-party assets reviewed.
 - [x] No secrets in Git history.
@@ -213,7 +213,7 @@ is excluded from the judge release archive.
 - Present the prepared YouTube video, title, description, visibility, captions, and thumbnail for human confirmation; only then upload and verify playback anonymously.
 - Replace the Devpost public video placeholder after YouTube publication and prepare the complete draft; present the final field/attachment/link packet for a separate human confirmation before final submission.
 
-Publication evidence: repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0. v0.1.10 is the latest public historical distribution; its public archive and checksum were downloaded anonymously on 2026-07-20 JST and matched at SHA-256 `15574604ef5476ae22db0396986b470a550af597880f82f32936c9bc67e587a5`, 2,322,813 bytes. v0.1.11 is the final unreleased judge candidate and requires its own post-publication anonymous download/checksum evidence. The public v0.1.9 archive and checksum were also downloaded anonymously on 2026-07-20 JST. SHA-256 `8e1fa4ea296eb7d64c3fb453d21121037c63fe68a919c0fd51de483d6436d9c0`, size 2,314,606 bytes, 921 verified files, and source commit `de6c4bb458793d3395155f370b0c0e22d24ef773` match the clean tag-aware candidate byte-for-byte. Its packaged runtime reports 0.1.9, packaged instructions self-reference v0.1.9, and an isolated API-key-free install enabled Plugin 0.1.9. The real Skill invocation stopped before implementation inside the caller sandbox; the one permitted normal-permission thin-adapter retry reached `needs_review` with one compatibility decision, no approved contract, and an unchanged source checkout. v0.1.10 added source-bound Japanese reference translation after that review exposed English decision effects. v0.1.11 adds measured, version-independent compatibility and explicit-only Skill metadata without changing the human-approval or contract boundary. Historical checksums do not verify the v0.1.11 archive.
+Publication evidence: repository `https://github.com/shuto-S/prompt-tripwire` is Public with Apache-2.0. [v0.1.11](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.11) is the final public judge distribution. Its public archive and checksum were downloaded anonymously on 2026-07-20 JST and matched the clean tag-aware candidate byte-for-byte at SHA-256 `33efb9b1d9cca9f22f0b843169d9d59efd80c744aee5601cc7fb1e1ad36b816b`, 2,341,471 bytes, 927 verified files, and source commit `7f5d55c8bbdc6e54cdd448fdf2b9b2751cc5c099`. The Release page and tagged LICENSE returned anonymous HTTP 200. The downloaded runtime reported 0.1.11; runtime-only and Plugin-enabled installs succeeded in isolated prefixes, the Plugin reported installed/enabled at 0.1.11 with API-key variables unset, and targeted uninstall removed only the isolated Plugin, marketplace, and runtime before the copied authentication directory was deleted. v0.1.10 remains immutable historical evidence at SHA-256 `15574604ef5476ae22db0396986b470a550af597880f82f32936c9bc67e587a5`, 2,322,813 bytes. The public v0.1.9 archive remains historical evidence at SHA-256 `8e1fa4ea296eb7d64c3fb453d21121037c63fe68a919c0fd51de483d6436d9c0`, 2,314,606 bytes, 921 verified files, and source commit `de6c4bb458793d3395155f370b0c0e22d24ef773`.
 
 A final local v0.1.2 H.264/AAC English demo, caption/narration copy, thumbnail,
 and owned UI captures are now in `docs/demo/` and `docs/assets/demo/`. The live
@@ -223,11 +223,11 @@ in the repository but intentionally excluded from the compact judge archive.
 They are local review evidence, not proof of public YouTube publication.
 
 The public v0.1.10 artifact preserves the Japanese reference-presentation
-release. The v0.1.11 candidate has local source, packaging, reproducibility,
-isolated installer/uninstaller, API-key-free inspect, and Plugin-adapter
-verification; its tag, GitHub Release, and post-publication anonymous download
-remain user-controlled final actions. YouTube upload and Devpost final
-submission remain blocked on their respective explicit human confirmations.
+release. The public v0.1.11 artifact adds measured compatibility and
+explicit-only Plugin metadata, with tag-aware reproducibility, isolated
+installer/uninstaller, API-key-free inspect, and Plugin-adapter verification.
+YouTube upload and Devpost final submission remain blocked on their respective
+explicit human confirmations.
 
 On 2026-07-20 JST, an isolated v0.1.11 archive install enabled the Plugin with
 only a copied existing Codex login and both API-key variables unset. A new
