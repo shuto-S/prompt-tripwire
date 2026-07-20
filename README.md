@@ -64,7 +64,7 @@ Translations are stored separately and cannot change decision IDs, mutation
 payloads, contract content or hashes, execution, or reports. Invalid or
 unavailable translation falls back visibly to escaped source text.
 
-The v0.1.11 source candidate removes numeric Codex version gates. Before any
+The v0.1.11 release removes numeric Codex version gates. Before any
 target-repository inspection, PromptTripwire measures the resolved executable's
 normal schema, handshake, and bounded private-temp canary against one shared
 compatibility profile. That attestation is snapshot/contract-bound and is
@@ -121,7 +121,7 @@ After review, PromptTripwire creates a versioned execution contract. Codex runs 
 - [Devpost submission draft](docs/DEVPOST_SUBMISSION.md)
 - [v0.1.9 release notes](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.9/docs/RELEASE_NOTES_v0.1.9.md)
 - [v0.1.10 release notes](docs/RELEASE_NOTES_v0.1.10.md)
-- [v0.1.11 candidate release notes](docs/RELEASE_NOTES_v0.1.11.md)
+- [v0.1.11 release notes](docs/RELEASE_NOTES_v0.1.11.md)
 - [v0.1.8 release notes](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.8/docs/RELEASE_NOTES_v0.1.8.md)
 - [v0.1.7 release notes](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.7/docs/RELEASE_NOTES_v0.1.7.md)
 - [v0.1.6 release notes](https://github.com/shuto-S/prompt-tripwire/blob/v0.1.6/docs/RELEASE_NOTES_v0.1.6.md)
@@ -137,9 +137,9 @@ After review, PromptTripwire creates a versioned execution contract. Codex runs 
 
 ## Judge quickstart
 
-The final judge artifact is the compiled v0.1.11 JavaScript/runtime archive for macOS arm64. It does not require the TypeScript source tree or a source build. Download the archive and its matching checksum from the [v0.1.11 GitHub Release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.11) after publication. Until that human-controlled publication step, [v0.1.10](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.10) remains the latest public historical distribution and must not be substituted for the v0.1.11 release candidate in final verification.
+The final judge artifact is the compiled v0.1.11 JavaScript/runtime archive for macOS arm64. It does not require the TypeScript source tree or a source build. Download the archive and its matching checksum from the [v0.1.11 GitHub Release](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.11). Earlier releases remain immutable historical evidence and their checksums must not be reused for v0.1.11.
 
-The v0.1.11 candidate requires Node.js 24.15+, npm 11+, Git, and an already authenticated Codex CLI whose normal App Server passes the measured compatibility profile. PromptTripwire reuses the existing login for probes, GPT-5.6 comparison, and execution. It does not require `OPENAI_API_KEY`, expose an API-key setting, or copy Codex credentials.
+The v0.1.11 release requires Node.js 24.15+, npm 11+, Git, and an already authenticated Codex CLI whose normal App Server passes the measured compatibility profile. PromptTripwire reuses the existing login for probes, GPT-5.6 comparison, and execution. It does not require `OPENAI_API_KEY`, expose an API-key setting, or copy Codex credentials.
 
 ```sh
 shasum -a 256 -c SHA256SUMS.txt
@@ -238,7 +238,7 @@ codex plugin list --json
 This requires macOS arm64, Node.js 24.15+, Git, a Codex CLI command with an
 existing `codex login` session, and no numeric Codex version match. The runtime
 measures normal-schema/handshake/canary compatibility before inspect. It does
-not require or read `OPENAI_API_KEY`. The v0.1.11 candidate's default install
+not require or read `OPENAI_API_KEY`. The v0.1.11 release's default install
 and marketplace root is `~/.local/lib/prompt-tripwire/0.1.11`; the installer keeps the marketplace source
 as `./plugins/prompt-tripwire`, registers `prompt-tripwire-local`, installs and
 enables `prompt-tripwire@prompt-tripwire-local`, and is safe to rerun. It does
@@ -312,13 +312,13 @@ place, keep a working `tripwire` launcher on `PATH` (or set
 `PROMPT_TRIPWIRE_BIN`) and run:
 
 ```sh
-codex plugin marketplace add shuto-S/prompt-tripwire --ref main
+codex plugin marketplace add shuto-S/prompt-tripwire --ref v0.1.11
 codex plugin add prompt-tripwire@prompt-tripwire-local
 codex plugin list --marketplace prompt-tripwire-local
 ```
 
-Replace `main` with the matching release tag after v0.1.11 is published. Never
-mix a Plugin adapter and runtime from different PromptTripwire versions.
+Use the matching v0.1.11 release tag. Never mix a Plugin adapter and runtime
+from different PromptTripwire versions.
 
 The Plugin does not bundle a second runtime or credential path. Unsupported
 platforms, missing runtime/login, dirty checkouts, and re-entry from an
@@ -374,4 +374,4 @@ PromptTripwire is licensed under the [Apache License 2.0](LICENSE).
 
 ## Status
 
-Specification baseline: 2026-07-20. Measured App Server compatibility, three-real-probe smoke, tool-free App Server Sol/Terra comparison, source-bound Japanese reference presentation, live compliant execution, full P0 traceability, macOS secret scan, seven specification fixtures, recorded replay, release reproducibility, and judge archive verification are covered by executable gates. No separate OpenAI API credential is required. The owned v0.1.2 demo, captions, thumbnail, and UI captures are present in the repository and excluded from the judge archive. [v0.1.10](https://github.com/shuto-S/prompt-tripwire/releases/tag/v0.1.10) remains the latest public historical distribution. v0.1.11 is the final unreleased judge candidate for version-independent measured Codex compatibility and explicit-only Plugin invocation; no tag or Release is created by this preparation work. Earlier public releases remain immutable historical evidence. Public YouTube upload and Devpost final submission each remain behind an explicit human confirmation gate.
+Specification baseline: 2026-07-20. Measured App Server compatibility, three-real-probe smoke, tool-free App Server Sol/Terra comparison, source-bound Japanese reference presentation, live compliant execution, full P0 traceability, macOS secret scan, seven specification fixtures, recorded replay, release reproducibility, and judge archive verification are covered by executable gates. No separate OpenAI API credential is required. The owned v0.1.2 demo, captions, thumbnail, and UI captures are present in the repository and excluded from the judge archive. v0.1.11 is the final judge distribution for version-independent measured Codex compatibility and explicit-only Plugin invocation. Earlier public releases remain immutable historical evidence. Public YouTube upload and Devpost final submission each remain behind an explicit human confirmation gate.
